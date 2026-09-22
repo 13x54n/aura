@@ -16,3 +16,5 @@ node ../../scripts/pack-ludo.mjs   # from repo root: node scripts/pack-ludo.mjs
 - **Close** — calls Host `nav.close` when mounted in Aura
 
 See `VENDOR.md` for license / provenance.
+
+Catalog/release stub: `manifest.json` (phase-2 ops hook).

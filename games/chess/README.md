@@ -7,3 +7,5 @@ node scripts/pack-chess.mjs
 ```
 
 See `VENDOR.md`.
+
+Catalog/release stub: `manifest.json` (phase-2 ops hook).

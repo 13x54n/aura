@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "gameId": "snakes",
+  "title": "Snakes & Ladders",
+  "subtitle": "Skill + fair dice",
+  "version": "0.1.0",
+  "status": "draft",
+  "entry": "index.html",
+  "runtime": "webview-html",
+  "minHostSdk": "0.1.0",
+  "platform": [
+    "ios",
+    "android"
+  ],
+  "depth": "playable",
+  "accent": "#14532D",
+  "assets": {
+    "icon": "icon.png",
+    "cover": "cover.png"
+  },
+  "capabilities": [
+    "host.ready",
+    "host.handshake",
+    "nav.close",
+    "wallet.getAddress",
+    "storage.save",
+    "storage.load"
+  ],
+  "artifact": {
+    "algorithm": "sha256",
+    "digest": "e840eaa4a97d9ceec5fba9554c0b7c2d07b0b5576386cab7cd6766dd21518369",
+    "note": "Content hash of package files excluding manifest.json. Recompute on every change; a new digest = new version."
+  },
+  "review": {
+    "blockingChecks": [
+      "manifest.valid",
+      "entry.exists",
+      "capabilities.allowlisted"
+    ],
+    "evidence": []
+  },
+  "release": {
+    "channels": [
+      "free-play"
+    ],
+    "immutable": true
+  }
+}

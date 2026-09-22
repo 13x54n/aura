@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "gameId": "chess",
+  "title": "Chess",
+  "subtitle": "Pure skill escrow",
+  "version": "0.1.0",
+  "status": "draft",
+  "entry": "index.html",
+  "runtime": "webview-html",
+  "minHostSdk": "0.1.0",
+  "platform": [
+    "ios",
+    "android"
+  ],
+  "depth": "playable",
+  "accent": "#1E3A5F",
+  "assets": {
+    "icon": "icon.png",
+    "cover": "cover.png"
+  },
+  "capabilities": [
+    "host.ready",
+    "host.handshake",
+    "nav.close",
+    "wallet.getAddress",
+    "storage.save",
+    "storage.load"
+  ],
+  "artifact": {
+    "algorithm": "sha256",
+    "digest": "1cf9686c4bd9b8a84a95bce487c662b0078e2fecb914b62146453bc7cc175420",
+    "note": "Content hash of package files excluding manifest.json. Recompute on every change; a new digest = new version."
+  },
+  "review": {
+    "blockingChecks": [
+      "manifest.valid",
+      "entry.exists",
+      "capabilities.allowlisted"
+    ],
+    "evidence": []
+  },
+  "release": {
+    "channels": [
+      "free-play"
+    ],
+    "immutable": true
+  }
+}

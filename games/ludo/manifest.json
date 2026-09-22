@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ludo",
+  "title": "Ludo",
+  "subtitle": "Skill \u00b7 SOL escrow",
+  "version": "0.1.0",
+  "status": "draft",
+  "entry": "index.html",
+  "runtime": "webview-html",
+  "minHostSdk": "0.1.0",
+  "platform": [
+    "ios",
+    "android"
+  ],
+  "depth": "deep",
+  "accent": "#3B1D6E",
+  "assets": {
+    "icon": "icon.png",
+    "cover": "cover.png"
+  },
+  "capabilities": [
+    "host.ready",
+    "host.handshake",
+    "nav.close",
+    "wallet.getAddress",
+    "storage.save",
+    "storage.load",
+    "match.create",
+    "match.get",
+    "match.command",
+    "escrow.status"
+  ],
+  "artifact": {
+    "algorithm": "sha256",
+    "digest": "8ee46fe07b47fe692d7ec207ea63932b6ccb6d9cb1ad1e415f5312935915b7d8",
+    "note": "Content hash of package files excluding manifest.json. Recompute on every change; a new digest = new version."
+  },
+  "review": {
+    "blockingChecks": [
+      "manifest.valid",
+      "entry.exists",
+      "capabilities.allowlisted"
+    ],
+    "evidence": []
+  },
+  "release": {
+    "channels": [
+      "free-play"
+    ],
+    "immutable": true
+  }
+}

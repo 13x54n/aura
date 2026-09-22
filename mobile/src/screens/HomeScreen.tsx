@@ -48,14 +48,6 @@ export function HomeScreen() {
 
         <FeaturedHero slides={slides} autoMs={4500} />
 
-        <Text style={styles.section} variant="titleMedium">
-          Continue Playing
-        </Text>
-        <EmptyShelf
-          title="Nothing in progress"
-          body="Games you’ve started show up here. Empty until there’s real play history — no placeholder covers."
-        />
-
         <StoreShelf label="Our games">
           {AURA_GAMES.map((g) => (
             <GameCover

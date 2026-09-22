@@ -16,9 +16,6 @@ export function LibraryScreen() {
       <ScrollView
         contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}
       >
-        <Text style={styles.heading} variant="headlineSmall">
-          Library
-        </Text>
         <Text style={styles.section} variant="titleMedium">
           Your games
         </Text>

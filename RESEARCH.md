@@ -1,5 +1,7 @@
 # Aura — research brief
 
+> **Canonical deep docs:** [`docs/`](./docs/) (PRODUCT, ARCHITECTURE, GAMES, WALLET_AND_ESCROW, OPS_PHASE2). This file stays the living ADR / lock scratchpad.
+
 ## Product lock
 - Product title: **Aura** (not Playseek)
 - First-party **Seeker game publisher** (thin store shell) + **staked skill games**: **Ludo · Chess · Snakes & Ladders**
@@ -92,6 +94,14 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - **Bridge:** capability-scoped only (`host.ready`, scoped session, haptics, share.room, lifecycle, back) — never primary tokens / raw native
 - **Aura vs ref non-goal:** ref sample excludes real-money/chain; **Aura keeps skill-escrow on Solana as host-only** — stake before WebView mount, payout on **server-attested** result; no casino/stake UI inside the board WebView
 - **Fairness:** server RNG + event stream; commit-reveal/VRF can sit in match service later without changing the WebView
+
+## ADR — Platform ops (phase 2, Sep 2026)
+- **Long-run:** Developer Portal + Admin Console over shared control / artifact / analytics planes
+- **Release model:** immutable signed versions; review state machine (DRAFT→…→LIVE→SUSPENDED→REMOVED); evidence-linked decisions; rollback
+- **Analytics:** aggregate-first — no raw player IDs to studios
+- **Identity:** org-scoped RBAC for studios; separate workforce IdP for admins
+- **Build order:** playable Ludo · Chess · Snakes **first**; portal/admin **phase 2** after Free Play is solid
+- **Near-term hook:** each `games/<id>/manifest.json` (version, entry, capabilities, assets) so we can grow into signed catalog later
 
 ## Kill rules
 - No gambling UX copy

@@ -34,3 +34,23 @@ Prefer **MIT / Apache-2.0**. Record vendor + license in each `games/<id>/VENDOR.
 ## Manifest stub
 
 Every game ships `manifest.json` (version, entry, capabilities, digest, draft status) so phase-2 portal can grow into signed review without rewiring the shell.
+
+## OSS starters (MIT / clean)
+
+| Game | Primary | Alt |
+|------|---------|-----|
+| Ludo | AmitThakur/ludo (vendored) | — |
+| Chess | [GizzZmo/Chession](https://github.com/GizzZmo/Chession) (+ chess.js) | [usamagulzar/chex](https://github.com/usamagulzar/chex) |
+| Snakes | [lemueldiergos/snake-and-ladder](https://github.com/lemueldiergos/snake-and-ladder) | [abp437/snake-and-ladders](https://github.com/abp437/snake-and-ladders) |
+
+Skip GPL (e.g. mort3za/ludo) unless Legal clears. Record vendor + license in each `games/<id>/VENDOR.md`.
+
+## Pack commands
+
+```bash
+node scripts/pack-ludo.mjs
+node scripts/pack-chess.mjs
+node scripts/pack-snakes.mjs
+```
+
+Outputs land under `mobile/src/runtime/` for Metro. Icons/covers also mirrored under `mobile/assets/games/<id>/`.

@@ -1,1 +1,11 @@
 .DS_Store
+**/.DS_Store
+node_modules/
+**/node_modules/
+.expo/
+**/android/app/build/
+**/ios/build/
+*.log
+.env
+.env.*
+!.env.example

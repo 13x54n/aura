@@ -25,9 +25,6 @@ export function ArcadeScreen() {
       <ScrollView
         contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}
       >
-        <Text style={styles.heading} variant="headlineSmall">
-          Arcade
-        </Text>
         <FilterChipRow chips={CHIPS} activeId={chip} onChange={setChip} />
         <StoreShelf label="All games">
           {AURA_GAMES.map((g) => (

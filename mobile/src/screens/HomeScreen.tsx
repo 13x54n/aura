@@ -1,143 +1,97 @@
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Card, Text, Button, Chip } from "react-native-paper";
+import { ScrollView, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
-import { useAuthorization } from "../utils/useAuthorization";
-import { SignInFeature } from "../components/sign-in/sign-in-feature";
-import { ellipsify } from "../utils/ellipsify";
+import { FeaturedHero } from "../components/store/FeaturedHero";
+import { StoreShelf } from "../components/store/StoreShelf";
+import { GameCover } from "../components/store/GameCover";
 
 /**
- * Store shell — thin first-party shelf (not a dApp Store catalog).
- * One live tile: Ludo. Everything else: Coming soon.
+ * App Store–style first-party game shelf.
+ * Connect lives in the header (TopBar) — not the main story.
  */
 export function HomeScreen() {
   const navigation = useNavigation<any>();
-  const { selectedAccount } = useAuthorization();
+  const openLudo = () => navigation.navigate("LudoHub");
+  const openComingSoon = () => navigation.navigate("ComingSoon");
 
   return (
-    <ScrollView contentContainerStyle={styles.screenContainer}>
-      <Text style={styles.title} variant="headlineLarge">
-        Aura
-      </Text>
-      <Text style={styles.subtitle} variant="bodyMedium">
-        CLOCK IN — first-party Seeker games. Skill matches with on-chain escrow.
-        Not a casino.
-      </Text>
+    <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
+      <FeaturedHero
+        eyebrow="Featured · CLOCK IN"
+        title="Ludo"
+        blurb="Staked skill matches with on-chain escrow. Create, join, or random — winner takes the pot."
+        cta="Get"
+        onPress={openLudo}
+      />
 
-      <Card style={styles.walletCard} mode="outlined">
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionLabel}>
-            Wallet
-          </Text>
-          {selectedAccount ? (
-            <>
-              <Chip icon="shield-key" style={styles.chip}>
-                Connected · {ellipsify(selectedAccount.publicKey.toBase58())}
-              </Chip>
-              <Text variant="bodySmall" style={styles.hint}>
-                Expo Go: Phantom (real). Seeker Seed Vault is preferred when the
-                custom client is present.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text variant="bodySmall" style={styles.hint}>
-                Connect Phantom here in Expo Go. On the Seeker custom client,
-                Seed Vault is preferred automatically (cutover by Sep 30).
-              </Text>
-              <SignInFeature />
-            </>
-          )}
-        </Card.Content>
-      </Card>
+      <StoreShelf label="Popular Games">
+        <GameCover
+          title="Ludo"
+          subtitle="Skill · SOL escrow"
+          badge="LIVE"
+          accent="#2D6A4F"
+          onPress={openLudo}
+        />
+        <GameCover
+          title="Blitz Dice"
+          subtitle="Coming soon"
+          accent="#5C4D7A"
+          muted
+          onPress={openComingSoon}
+        />
+        <GameCover
+          title="Arena Race"
+          subtitle="Coming soon"
+          accent="#9A3412"
+          muted
+          onPress={openComingSoon}
+        />
+      </StoreShelf>
 
-      <Text variant="titleMedium" style={[styles.sectionLabel, { marginTop: 20 }]}>
-        Games
-      </Text>
+      <StoreShelf label="New & Noteworthy">
+        <GameCover
+          title="Ludo"
+          subtitle="CLOCK IN demo"
+          badge="NEW"
+          accent="#1D4E89"
+          onPress={openLudo}
+          width={118}
+        />
+        <GameCover
+          title="Table Rush"
+          subtitle="Coming soon"
+          accent="#0F766E"
+          muted
+          onPress={openComingSoon}
+          width={118}
+        />
+        <GameCover
+          title="Night Ops"
+          subtitle="Coming soon"
+          accent="#4C1D95"
+          muted
+          onPress={openComingSoon}
+          width={118}
+        />
+      </StoreShelf>
 
-      <Card
-        style={styles.gameCard}
-        mode="elevated"
-        onPress={() => navigation.navigate("LudoHub")}
-      >
-        <Card.Content>
-          <View style={styles.gameRow}>
-            <View style={{ flex: 1 }}>
-              <Text variant="titleLarge">Ludo</Text>
-              <Text variant="bodyMedium" style={styles.gameBlurb}>
-                Staked skill match · create / join / random · SOL escrow
-              </Text>
-              <Chip compact style={styles.liveChip} textStyle={{ fontSize: 11 }}>
-                CLOCK IN demo
-              </Chip>
-            </View>
-            <Button mode="contained" onPress={() => navigation.navigate("LudoHub")}>
-              Play
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.comingCard} mode="outlined">
-        <Card.Content>
-          <Text variant="titleMedium">Coming soon</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            More first-party Aura titles will land here. This shelf is ours —
-            not a third-party catalog.
-          </Text>
-        </Card.Content>
-      </Card>
+      <StoreShelf label="Continue">
+        <GameCover
+          title="Ludo"
+          subtitle="Tap to play"
+          accent="#14532D"
+          onPress={openLudo}
+          width={118}
+        />
+      </StoreShelf>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screenContainer: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  title: {
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  subtitle: {
-    opacity: 0.75,
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  walletCard: {
-    marginBottom: 8,
-  },
-  gameCard: {
-    marginBottom: 12,
-  },
-  comingCard: {
-    opacity: 0.85,
-  },
-  gameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  gameBlurb: {
-    opacity: 0.7,
-    marginVertical: 6,
-  },
-  hint: {
-    opacity: 0.7,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  chip: {
-    alignSelf: "flex-start",
-    marginTop: 8,
-  },
-  liveChip: {
-    alignSelf: "flex-start",
-    marginTop: 4,
+  screen: {
+    paddingBottom: 48,
+    paddingTop: 4,
   },
 });

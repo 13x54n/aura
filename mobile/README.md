@@ -2,8 +2,6 @@
 
 First-party **Seeker** game publisher — thin shelf of *our* games, not a second dApp Store catalog.
 
-**Aura news app is parked.** This repo is the new product.
-
 ## Product lock
 
 | Item | Lock |

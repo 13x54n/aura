@@ -6,6 +6,7 @@
 - Product title: **Aura** (not Playseek)
 - First-party **Seeker game publisher** (thin store shell) + **staked skill games**: **Ludo · Chess · Snakes & Ladders**
 - Path: `/Users/lex-work/aura` (Expo app under `mobile/`)
+- Repo: **https://github.com/13x54n/aura** (private `main`)
 - Long-run: store of *our* games; CLOCK IN deep demo = **Ludo** (Chess + Snakes Playable hubs first)
 - Event: **CLOCK IN** through **Oct 8, 2026**
 

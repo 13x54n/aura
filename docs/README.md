@@ -12,4 +12,5 @@ Deep product and platform docs. **Build priority:** three playable boards first;
 | [OPS_PHASE2.md](./OPS_PHASE2.md) | Developer portal + admin console (later) |
 | [../RESEARCH.md](../RESEARCH.md) | Competitors, ADRs, OSS starters, visual locks |
 
-Path on Mac: `/Users/lex-work/aura`
+Path on Mac: `/Users/lex-work/aura`  
+Repo: **https://github.com/13x54n/aura** (private)

@@ -9,7 +9,7 @@ export function ComingSoonScreen() {
         Coming soon
       </Text>
       <Text variant="bodyMedium" style={styles.blurb}>
-        Playseek is a thin shelf of our own Seeker games. More titles after the
+        Aura is a thin shelf of our own Seeker games. More titles after the
         CLOCK IN Ludo wedge.
       </Text>
     </View>

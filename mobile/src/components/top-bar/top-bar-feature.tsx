@@ -8,7 +8,7 @@ export function TopBar() {
 
   return (
     <Appbar.Header mode="small" style={styles.topBar}>
-      <Appbar.Content title="Playseek" titleStyle={styles.title} />
+      <Appbar.Content title="Aura" titleStyle={styles.title} />
       <TopBarWalletMenu />
       <Appbar.Action
         icon="cog"

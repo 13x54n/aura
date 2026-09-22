@@ -18,7 +18,7 @@ export function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.screenContainer}>
       <Text style={styles.title} variant="headlineLarge">
-        Playseek
+        Aura
       </Text>
       <Text style={styles.subtitle} variant="bodyMedium">
         CLOCK IN — first-party Seeker games. Skill matches with on-chain escrow.
@@ -84,7 +84,7 @@ export function HomeScreen() {
         <Card.Content>
           <Text variant="titleMedium">Coming soon</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            More first-party Playseek titles will land here. This shelf is ours —
+            More first-party Aura titles will land here. This shelf is ours —
             not a third-party catalog.
           </Text>
         </Card.Content>

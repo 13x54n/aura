@@ -1,4 +1,4 @@
-# Aura / PlaySeek — research brief
+# Aura — research brief
 
 ## Product lock
 - First-party **Seeker game publisher** (thin store shell) + **staked skill Ludo** as first title

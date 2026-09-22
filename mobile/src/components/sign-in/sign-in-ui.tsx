@@ -54,9 +54,9 @@ export function SignInButton() {
       }
       setSignInInProgress(true);
       await signIn({
-        domain: "playseek.app",
-        statement: "Sign into Playseek (CLOCK IN)",
-        uri: "https://playseek.app",
+        domain: "aura.app",
+        statement: "Sign into Aura (CLOCK IN)",
+        uri: "https://aura.app",
       });
     } catch (err: any) {
       alertAndLog(

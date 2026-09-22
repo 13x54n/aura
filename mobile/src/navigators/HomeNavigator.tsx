@@ -38,7 +38,7 @@ export function HomeNavigator() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: "Playseek" }}
+        options={{ title: "Aura" }}
       />
       <Tab.Screen
         name="ComingSoon"

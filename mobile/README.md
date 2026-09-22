@@ -1,4 +1,4 @@
-# Playseek (CLOCK IN)
+# Aura (CLOCK IN)
 
 First-party **Seeker** game publisher — thin shelf of *our* games, not a second dApp Store catalog.
 
@@ -24,7 +24,7 @@ First-party **Seeker** game publisher — thin shelf of *our* games, not a secon
 ## Milestones in this scaffold (1–3)
 
 1. Expo RN + MWA Connect Wallet (**custom destin client** — not Expo Go)
-2. Store shell Home: Playseek title, wallet connect, Ludo card, Coming soon
+2. Store shell Home: Aura title, wallet connect, Ludo card, Coming soon
 3. Ludo flow stubs: Create / Join / Random (+ Escrow stub with skill-match copy)
 
 Escrow PDA/tx and realtime matchmaking are **stubs** on purpose — lean for the Oct 8 deadline.
@@ -35,7 +35,7 @@ App lives at `/Users/lex-work/aura/mobile`. Leave Aura root `README.md` / `RESEA
 
 ## Package id
 
-- Android / iOS: `com.playseek.app`
+- Android / iOS: `com.aura.app`
 
 ## Wallet UX (important)
 
@@ -76,13 +76,13 @@ yarn build:local  # same, --local
 
 ## Smoke-test checklist (MAT)
 
-1. **Install custom destin client** (`expo run:android` or EAS). Confirm app id `com.playseek.app`.
+1. **Install custom destin client** (`expo run:android` or EAS). Confirm app id `com.aura.app`.
 2. **Connect Wallet**
    - Tap **Connect Seed Vault** on Home.
    - On Seeker: approve with Seed Vault.
    - On Mac emulator: Phantom (or any MWA wallet) is OK for this smoke only.
 3. **Store shell**
-   - Title **Playseek**
+   - Title **Aura**
    - One **Ludo** game card + **Coming soon** card/tab
 4. **Ludo room stubs**
    - Open Ludo → Create room / Join / Random match screens navigate
@@ -97,9 +97,9 @@ yarn build:local  # same, --local
 ## Layout
 
 ```
-playseek/
+aura/
   App.tsx
-  app.json                 # com.playseek.app
+  app.json                 # com.aura.app
   eas.json                 # developmentClient
   package.json
   README.md

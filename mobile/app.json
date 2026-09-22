@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Playseek",
-    "slug": "playseek",
+    "name": "Aura",
+    "slug": "aura",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,14 +16,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.playseek.app"
+      "bundleIdentifier": "com.aura.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B1020"
       },
-      "package": "com.playseek.app"
+      "package": "com.aura.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,7 +33,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "playseek-clock-in-scaffold"
+        "projectId": "aura-clock-in-scaffold"
       }
     }
   }

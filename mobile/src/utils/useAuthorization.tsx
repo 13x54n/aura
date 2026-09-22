@@ -97,8 +97,8 @@ async function persistAuthorization(
 }
 
 export const APP_IDENTITY = {
-  name: "Playseek",
-  uri: "https://playseek.app",
+  name: "Aura",
+  uri: "https://aura.app",
 };
 
 export function useAuthorization() {

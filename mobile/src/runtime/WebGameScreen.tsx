@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CapabilityBroker } from "../host-sdk/CapabilityBroker";
 import { handleHostRequest } from "../host-sdk/bridge";
 import { useAuthorization } from "../utils/useAuthorization";
+import { useMobileWallet } from "../utils/useMobileWallet";
 import { GAME_HTML } from "./gameHtml";
 import { aura } from "../theme/tokens";
 
@@ -72,6 +73,7 @@ export function WebGameScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const broker = useMemo(() => new CapabilityBroker(), []);
   const { selectedAccount } = useAuthorization();
+  const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
 
   const html = GAME_HTML[gameId] ?? GAME_HTML.ludo;
@@ -86,8 +88,14 @@ export function WebGameScreen({ route, navigation }: Props) {
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
       const response = await handleHostRequest(e.nativeEvent.data, broker, {
-        "wallet.getAddress": async () =>
-          selectedAccount?.publicKey.toBase58() ?? null,
+        "wallet.getAddress": async () => {
+          // Host owns wallet UI — never a second Connect surface inside the game.
+          let account = selectedAccount;
+          if (!account) {
+            account = await connect();
+          }
+          return account?.publicKey.toBase58() ?? null;
+        },
         "storage.save": async (params) => {
           const key = String(params?.key ?? "");
           storageRef.current[key] = JSON.stringify(params?.value ?? null);
@@ -106,7 +114,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       });
       if (response) reply(response);
     },
-    [broker, navigation, reply, selectedAccount]
+    [broker, connect, navigation, reply, selectedAccount]
   );
 
   return (
@@ -143,7 +151,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
-    backgroundColor: aura.bg,
+    backgroundColor: "rgba(12, 11, 20, 0.96)",
     gap: 14,
   },
   loadingText: { color: aura.textMuted, fontWeight: "600" },

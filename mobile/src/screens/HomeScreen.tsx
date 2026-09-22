@@ -23,6 +23,8 @@ export function HomeScreen() {
         id: "ludo-skill",
         title: "Ludo",
         blurb: "Craft skill matches · stake · play",
+        imageUrl:
+          "https://images.unsplash.com/photo-1596687909057-dfac2b25b891?w=1200&q=80",
         accent: "#3B1D6E",
         onPlay: playLudo,
       },
@@ -30,6 +32,8 @@ export function HomeScreen() {
         id: "ludo-escrow",
         title: "Ludo",
         blurb: "On-chain escrow · winner takes the pot",
+        imageUrl:
+          "https://images.unsplash.com/photo-1642056446796-8c7d1dcb630b?w=1200&q=80",
         accent: "#4C1D95",
         onPlay: playLudo,
       },
@@ -37,6 +41,8 @@ export function HomeScreen() {
         id: "ludo-clockin",
         title: "Ludo",
         blurb: "CLOCK IN demo · create / join / random",
+        imageUrl:
+          "https://images.unsplash.com/photo-1611996575749-79a3a250f948?w=1200&q=80",
         accent: "#5B21B6",
         onPlay: playLudo,
       },
@@ -55,9 +61,9 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Spacer so first paint clears floating header when not overscrolling hero */}
-        <View style={{ height: insets.top + 8 }} />
+        <View />
 
-        <FeaturedHero slides={slides} autoMs={4500} />
+        <FeaturedHero slides={slides} autoMs={5500} />
 
         <Text style={styles.section} variant="titleMedium">
           Continue Playing

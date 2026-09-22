@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
+  ImageBackground,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -12,13 +13,15 @@ import {
 } from "react-native";
 import { Text } from "react-native-paper";
 import { BlurView } from "expo-blur";
-import { aura } from "../../theme/tokens";
 
 export type HeroSlide = {
   id: string;
   title: string;
   blurb: string;
-  accent: string;
+  /** Full-bleed HTTPS art (Xbox-ref style). */
+  imageUrl: string;
+  /** Fallback tint while the remote image loads. */
+  accent?: string;
   onPlay: () => void;
 };
 
@@ -29,7 +32,7 @@ type Props = {
 };
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const HERO_H = 360;
+const HERO_H = 560;
 
 function SlideCard({
   slide,
@@ -39,33 +42,33 @@ function SlideCard({
   width: number;
 }) {
   return (
-    <Pressable
-      onPress={slide.onPlay}
-      style={({ pressed }) => [
-        styles.slide,
-        { width, backgroundColor: slide.accent, opacity: pressed ? 0.96 : 1 },
-      ]}
-    >
-      <Text style={styles.artGlyph}>{slide.title.slice(0, 1)}</Text>
-      <View style={styles.artFade} pointerEvents="none" />
-      <View style={styles.overlay}>
-        <Text style={styles.forYou}>For You</Text>
-        <Text style={styles.title}>{slide.title}</Text>
-        <Text style={styles.blurb}>{slide.blurb}</Text>
-        <Pressable onPress={slide.onPlay} style={styles.playWrap}>
-          {Platform.OS !== "web" ? (
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.playFallback]} />
-          )}
-          <Text style={styles.playLabel}>Play</Text>
-        </Pressable>
-      </View>
-    </Pressable>
+    <View style={[styles.slide, { width }]}>
+      <ImageBackground
+        source={{ uri: slide.imageUrl }}
+        style={[styles.art, { backgroundColor: slide.accent ?? "#3B1D6E" }]}
+        imageStyle={styles.artImage}
+        resizeMode="cover"
+      >
+        <View style={styles.artFade} pointerEvents="none" />
+        <View style={styles.overlay}>
+          <Text style={styles.forYou}>For You</Text>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.blurb}>{slide.blurb}</Text>
+          <Pressable onPress={slide.onPlay} style={styles.playWrap}>
+            {Platform.OS !== "web" ? (
+              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.playFallback]} />
+            )}
+            <Text style={styles.playLabel}>Play</Text>
+          </Pressable>
+        </View>
+      </ImageBackground>
+    </View>
   );
 }
 
-/** Swipe + auto-advance hero with live dots. */
+/** Swipe + auto-advance hero with live dots + remote bg art. */
 export function FeaturedHero({ slides, autoMs = 4500 }: Props) {
   const listRef = useRef<FlatList<HeroSlide>>(null);
   const [index, setIndex] = useState(0);
@@ -151,26 +154,21 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: 8 },
   slide: {
     height: HERO_H,
-    justifyContent: "flex-end",
     overflow: "hidden",
   },
-  artFade: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 200,
-    backgroundColor: "rgba(12, 11, 20, 0.72)",
+  art: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    justifyContent: "flex-end",
   },
-  artGlyph: {
-    position: "absolute",
-    top: 72,
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontSize: 120,
-    fontWeight: "900",
-    color: "rgba(255,255,255,0.12)",
+  artImage: {
+    width: "100%",
+    height: "100%",
+  },
+  artFade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(12, 11, 20, 0.45)",
   },
   overlay: {
     paddingHorizontal: 24,

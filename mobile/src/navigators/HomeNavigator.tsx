@@ -3,7 +3,7 @@ import React from "react";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ComingSoonScreen } from "../screens/ComingSoonScreen";
-import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
+import { MaterialCommunityIcons as MaterialCommunityIcon } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
 

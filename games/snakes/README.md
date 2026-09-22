@@ -1,3 +1,9 @@
-# Snakes & Ladders mini-app (Aura)
+# Aura Snakes & Ladders (mini-app)
 
-Playable package TBD. Catalog art: `icon.png`, `cover.png`.
+Free Play — you vs bot on a classic 1–100 board. Aura mounts this package in a WebView.
+
+```bash
+node scripts/pack-snakes.mjs
+```
+
+See `VENDOR.md`.

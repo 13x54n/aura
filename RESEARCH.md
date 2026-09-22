@@ -33,10 +33,16 @@
 ## Build lock (updated)
 - **Priority:** playable product — not hackathon date pressure
 - **Ludo = separate mini-app** under `games/ludo` (own package); Aura only catalogs + mounts via WebView / Host SDK
-- Chess / Snakes same pattern later
+- Chess / Snakes = same pattern as Ludo: `games/chess`, `games/snakes` — Free Play with real boards
 - Open-source Ludo boards OK if **license is clean** (prefer MIT/Apache-2.0); keep Aura escrow/wallet host-only
-- Smoke gate: **real board moves**, not Roll stub only
+- Smoke gate: **Free Play → real moves** on Ludo · Chess · Snakes (not hub stubs)
 - Catalog: every mini-game has a **real icon/cover** on Home/Arcade/Library (no blank tiles) — assets can live with each `games/<id>/` package
+
+## OSS starters (MIT)
+- Ludo: AmitThakur/ludo (in `games/ludo`)
+- Chess: [GizzZmo/Chession](https://github.com/GizzZmo/Chession) (Canvas + chess.js) — alt [usamagulzar/chex](https://github.com/usamagulzar/chex)
+- Snakes & Ladders: [lemueldiergos/snake-and-ladder](https://github.com/lemueldiergos/snake-and-ladder) (Canvas) — alt [abp437/snake-and-ladders](https://github.com/abp437/snake-and-ladders)
+- Skip GPL / unverified licenses
 
 ## Loop
 Create/join/random room → Solana skill-escrow stake → realtime Ludo → winner payout
@@ -72,6 +78,9 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 ## Package layout (build focus)
 - **`games/ludo`**: standalone playable Ludo mini-app (Free Play board + bots). Pack with `node scripts/pack-ludo.mjs` → `mobile/src/runtime/ludoBundle.ts`
 - Each mini-app ships **`icon.png` + `cover.png`**; Aura catalog requires them (no blank tiles). Mirrored under `mobile/assets/games/<id>/` for Metro.
+- **`games/chess`**: Free Play vs random bot (chess.js 0.10.3 BSD + Chession-inspired UI). Pack: `node scripts/pack-chess.mjs`
+- **`games/snakes`**: Free Play canvas Snakes & Ladders (you vs bot). Pack: `node scripts/pack-snakes.mjs`
+
 - Aura RN host: catalog + Host SDK + escrow/wallet only — mounts the packed HTML in WebView
 - North star: **playable Ludo**, not hackathon date theater
 

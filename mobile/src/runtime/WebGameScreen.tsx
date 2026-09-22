@@ -13,6 +13,8 @@ import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { GAME_HTML } from "./gameHtml";
 import { LUDO_HTML } from "./ludoBundle";
+import { CHESS_HTML } from "./chessBundle";
+import { SNAKES_HTML } from "./snakesBundle";
 import { matchService } from "../match/MatchService";
 import type { MatchCommand } from "../match/types";
 import { aura } from "../theme/tokens";
@@ -87,7 +89,14 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
 
-  const html = gameId === "ludo" ? LUDO_HTML : (GAME_HTML[gameId] ?? GAME_HTML.chess);
+  const html =
+    gameId === "ludo"
+      ? LUDO_HTML
+      : gameId === "chess"
+        ? CHESS_HTML
+        : gameId === "snakes"
+          ? SNAKES_HTML
+          : GAME_HTML[gameId] ?? CHESS_HTML;
 
   const reply = useCallback((payload: object) => {
     const js = `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(

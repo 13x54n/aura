@@ -12,7 +12,7 @@ type Props = {
 };
 
 /**
- * Playable shelf hub — room stubs shared pattern; deepen after Ludo prize path.
+ * Playable Free Play hub — mounts games/<id> board in WebView.
  */
 export function PlayableHubScreen({ title, blurb, badge = "Playable", gameId }: Props) {
   const navigation = useNavigation<any>();
@@ -35,7 +35,7 @@ export function PlayableHubScreen({ title, blurb, badge = "Playable", gameId }: 
             icon="play"
             onPress={() => navigation.navigate("WebGame", { gameId, title })}
           >
-            Play
+            Free Play
           </Button>
           <Button mode="outlined" icon="plus-box" onPress={() => {}}>
             Create room

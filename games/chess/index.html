@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Chess · Free Play</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="meta" id="status">Your turn (White)</div>
+    <canvas id="board" width="360" height="360"></canvas>
+    <div class="row">
+      <button type="button" id="newBtn" class="ghost">New game</button>
+      <button type="button" id="closeBtn" class="ghost">Close</button>
+    </div>
+    <div class="hint">Tap a piece, then a square. Black plays random legal moves.</div>
+  </div>
+  <script src="vendor/chess.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

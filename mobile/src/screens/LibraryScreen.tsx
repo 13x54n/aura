@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
@@ -7,12 +8,13 @@ import { EmptyShelf } from "../components/store/EmptyShelf";
 import { aura } from "../theme/tokens";
 
 export function LibraryScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const playLudo = () => navigation.navigate("LudoHub");
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.screen}>
+      <ScrollView contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}>
         <Text style={styles.heading} variant="headlineSmall">
           Library
         </Text>
@@ -36,7 +38,7 @@ export function LibraryScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: aura.bg },
-  screen: { paddingBottom: 110, paddingTop: 8 },
+  screen: { paddingBottom: 110, paddingTop: 56 },
   heading: {
     fontWeight: "800",
     color: aura.text,

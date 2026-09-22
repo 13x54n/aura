@@ -18,6 +18,8 @@ export function HomeNavigator() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         header: () => <TopBar />,
+        headerTransparent: true,
+        headerStyle: { backgroundColor: "transparent" },
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />

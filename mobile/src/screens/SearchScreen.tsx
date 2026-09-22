@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Searchbar, Text } from "react-native-paper";
@@ -18,6 +19,7 @@ const CATALOG = [
 ];
 
 export function SearchScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [query, setQuery] = useState("");
   const results = useMemo(() => {
@@ -27,7 +29,7 @@ export function SearchScreen() {
   }, [query]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top + 52 }]}>
       <Text style={styles.heading} variant="headlineSmall">
         Search
       </Text>
@@ -63,7 +65,7 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: aura.bg, paddingTop: 8 },
+  root: { flex: 1, backgroundColor: aura.bg, paddingTop: 56 },
   heading: {
     fontWeight: "800",
     color: aura.text,

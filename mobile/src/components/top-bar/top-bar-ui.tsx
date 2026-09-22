@@ -1,12 +1,11 @@
-import { Button, IconButton, Menu, useTheme } from "react-native-paper";
+import { Button, IconButton, Menu } from "react-native-paper";
 import { Account, useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
-import { useNavigation } from "@react-navigation/native";
-import { ellipsify } from "../../utils/ellipsify";
 import { useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Linking } from "react-native";
 import { useCluster } from "../cluster/cluster-data-access";
+import { aura } from "../../theme/tokens";
 
 export function TopBarWalletButton({
   selectedAccount,
@@ -20,36 +19,35 @@ export function TopBarWalletButton({
     try {
       await connect();
     } catch (err) {
-      // Surface via console; ConnectButton uses alertAndLog — top bar stays quiet
       console.warn("Connect failed", err);
     }
   };
+
+  if (selectedAccount) {
+    return (
+      <IconButton
+        icon="account-circle"
+        size={28}
+        iconColor={aura.text}
+        onPress={openMenu}
+        style={styles.profile}
+        accessibilityLabel="Profile"
+      />
+    );
+  }
+
   return (
     <Button
-      icon="wallet"
-      mode="contained-tonal"
-      style={{ alignSelf: "center" }}
-      onPress={selectedAccount ? openMenu : onConnect}
+      mode="contained"
+      compact
+      onPress={onConnect}
+      buttonColor={aura.purple}
+      textColor="#fff"
+      style={styles.connect}
+      labelStyle={styles.connectLabel}
     >
-      {selectedAccount
-        ? ellipsify(selectedAccount.publicKey.toBase58())
-        : expoGo
-          ? "Phantom"
-          : "Connect"}
+      {expoGo ? "Connect" : "Connect"}
     </Button>
-  );
-}
-
-export function TopBarSettingsButton() {
-  const navigation = useNavigation();
-  return (
-    <IconButton
-      icon="cog"
-      mode="contained-tonal"
-      onPress={() => {
-        navigation.navigate("Settings");
-      }}
-    />
   );
 }
 
@@ -110,3 +108,19 @@ export function TopBarWalletMenu() {
     </Menu>
   );
 }
+
+const styles = {
+  profile: {
+    margin: 0,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  connect: {
+    borderRadius: 18,
+    marginVertical: 4,
+  },
+  connectLabel: {
+    fontWeight: "700" as const,
+    fontSize: 13,
+    marginVertical: 2,
+  },
+};

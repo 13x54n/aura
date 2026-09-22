@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 import { EmptyShelf } from "../components/store/EmptyShelf";
@@ -15,13 +16,14 @@ const CHIPS = [
 ];
 
 export function ArcadeScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [chip, setChip] = useState("latest");
   const playLudo = () => navigation.navigate("LudoHub");
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={styles.screen}>
+      <ScrollView contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}>
         <Text style={styles.heading} variant="headlineSmall">
           Arcade
         </Text>
@@ -47,7 +49,7 @@ export function ArcadeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: aura.bg },
-  screen: { paddingBottom: 110, paddingTop: 8 },
+  screen: { paddingBottom: 110, paddingTop: 56 },
   heading: {
     fontWeight: "800",
     color: aura.text,

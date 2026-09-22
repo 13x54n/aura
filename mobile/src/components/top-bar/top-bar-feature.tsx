@@ -1,45 +1,50 @@
-import { Platform, StyleSheet, View } from "react-native";
-import { Appbar } from "react-native-paper";
-import { BlurView } from "expo-blur";
+import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRoute } from "@react-navigation/native";
 import { TopBarWalletMenu } from "./top-bar-ui";
-import { useNavigation } from "@react-navigation/core";
 import { aura } from "../../theme/tokens";
 
+const TITLES: Record<string, string> = {
+  Home: "Home",
+  Arcade: "Arcade",
+  Friends: "Friends",
+  Library: "Library",
+  Search: "Search",
+};
+
+/** Thin row under the notch: tab title left, Connect/profile right. */
 export function TopBar() {
-  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const route = useRoute();
+  const title = TITLES[route.name] ?? "Aura";
 
   return (
-    <View style={styles.wrap}>
-      {Platform.OS !== "web" ? (
-        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, styles.fallback]} />
-      )}
-      <Appbar.Header mode="small" style={styles.topBar} statusBarHeight={0}>
-        <Appbar.Content title="Aura" titleStyle={styles.title} />
+    <View style={[styles.wrap, { paddingTop: insets.top }]} pointerEvents="box-none">
+      <View style={styles.row}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
         <TopBarWalletMenu />
-        <Appbar.Action
-          icon="cog"
-          onPress={() => navigation.navigate("Settings" as never)}
-          color={aura.text}
-        />
-      </Appbar.Header>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    overflow: "hidden",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: aura.glassBorder,
-    backgroundColor: "rgba(12, 11, 20, 0.4)",
-  },
-  topBar: {
     backgroundColor: "transparent",
-    justifyContent: "flex-end",
-    alignItems: "center",
+    zIndex: 20,
   },
-  title: { fontWeight: "800", color: aura.text },
-  fallback: { backgroundColor: aura.glassStrong },
+  row: {
+    height: 44,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: {
+    color: aura.text,
+    fontWeight: "800",
+    fontSize: 28,
+  },
 });

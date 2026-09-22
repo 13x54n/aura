@@ -1,53 +1,146 @@
-import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Dimensions,
+  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  ViewToken,
+} from "react-native";
 import { Text } from "react-native-paper";
 import { BlurView } from "expo-blur";
-import { Platform } from "react-native";
 import { aura } from "../../theme/tokens";
 
-type Props = {
+export type HeroSlide = {
+  id: string;
   title: string;
   blurb: string;
-  onPress: () => void;
-  /** Pagination dots count (visual only — Ludo is the only slide for now). */
-  dotCount?: number;
+  accent: string;
+  onPlay: () => void;
 };
 
-/** Full-bleed hero with Play on the art (Arcade ref). */
-export function FeaturedHero({ title, blurb, onPress, dotCount = 5 }: Props) {
+type Props = {
+  slides: HeroSlide[];
+  /** Auto-advance interval ms; 0 disables. */
+  autoMs?: number;
+};
+
+const { width: SCREEN_W } = Dimensions.get("window");
+const HERO_H = 360;
+
+function SlideCard({
+  slide,
+  width,
+}: {
+  slide: HeroSlide;
+  width: number;
+}) {
+  return (
+    <Pressable
+      onPress={slide.onPlay}
+      style={({ pressed }) => [
+        styles.slide,
+        { width, backgroundColor: slide.accent, opacity: pressed ? 0.96 : 1 },
+      ]}
+    >
+      <Text style={styles.artGlyph}>{slide.title.slice(0, 1)}</Text>
+      <View style={styles.artFade} pointerEvents="none" />
+      <View style={styles.overlay}>
+        <Text style={styles.forYou}>For You</Text>
+        <Text style={styles.title}>{slide.title}</Text>
+        <Text style={styles.blurb}>{slide.blurb}</Text>
+        <Pressable onPress={slide.onPlay} style={styles.playWrap}>
+          {Platform.OS !== "web" ? (
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.playFallback]} />
+          )}
+          <Text style={styles.playLabel}>Play</Text>
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
+/** Swipe + auto-advance hero with live dots. */
+export function FeaturedHero({ slides, autoMs = 4500 }: Props) {
+  const listRef = useRef<FlatList<HeroSlide>>(null);
+  const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
+  const count = slides.length;
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
+  useEffect(() => {
+    if (count < 2 || autoMs <= 0) return;
+    const id = setInterval(() => {
+      const next = (indexRef.current + 1) % count;
+      listRef.current?.scrollToIndex({ index: next, animated: true });
+      setIndex(next);
+    }, autoMs);
+    return () => clearInterval(id);
+  }, [count, autoMs]);
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const i = viewableItems[0]?.index;
+      if (typeof i === "number") setIndex(i);
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 60,
+  }).current;
+
+  const onMomentumEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const x = e.nativeEvent.contentOffset.x;
+      const i = Math.round(x / SCREEN_W);
+      if (i >= 0 && i < count) setIndex(i);
+    },
+    [count]
+  );
+
+  if (count === 0) return null;
+
   return (
     <View style={styles.wrap}>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [styles.hero, pressed && { opacity: 0.96 }]}
-      >
-        <View style={styles.art}>
-          <Text style={styles.artGlyph}>{title.slice(0, 1)}</Text>
-          <View style={styles.artFade} pointerEvents="none" />
-
-          <View style={styles.overlay}>
-            <Text style={styles.forYou}>For You</Text>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.blurb}>{blurb}</Text>
-
-            <Pressable onPress={onPress} style={styles.playWrap}>
-              {Platform.OS !== "web" ? (
-                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.playFallback]} />
-              )}
-              <Text style={styles.playLabel}>Play</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Pressable>
-
+      <FlatList
+        ref={listRef}
+        data={slides}
+        keyExtractor={(s) => s.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces
+        decelerationRate="fast"
+        onMomentumScrollEnd={onMomentumEnd}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(_, i) => ({
+          length: SCREEN_W,
+          offset: SCREEN_W * i,
+          index: i,
+        })}
+        renderItem={({ item }) => <SlideCard slide={item} width={SCREEN_W} />}
+      />
       <View style={styles.dots}>
-        {Array.from({ length: dotCount }).map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === 0 ? styles.dotActive : null]}
-          />
+        {slides.map((s, i) => (
+          <Pressable
+            key={s.id}
+            onPress={() => {
+              listRef.current?.scrollToIndex({ index: i, animated: true });
+              setIndex(i);
+            }}
+            hitSlop={8}
+          >
+            <View style={[styles.dot, i === index && styles.dotActive]} />
+          </Pressable>
         ))}
       </View>
     </View>
@@ -56,14 +149,10 @@ export function FeaturedHero({ title, blurb, onPress, dotCount = 5 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 8 },
-  hero: {
-    marginHorizontal: 0,
-    overflow: "hidden",
-  },
-  art: {
-    minHeight: 360,
-    backgroundColor: "#3B1D6E",
+  slide: {
+    height: HERO_H,
     justifyContent: "flex-end",
+    overflow: "hidden",
   },
   artFade: {
     position: "absolute",
@@ -76,7 +165,6 @@ const styles = StyleSheet.create({
   artGlyph: {
     position: "absolute",
     top: 72,
-    alignSelf: "center",
     left: 0,
     right: 0,
     textAlign: "center",
@@ -94,7 +182,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
     marginBottom: 8,
-    letterSpacing: 0.3,
   },
   title: {
     color: "#fff",

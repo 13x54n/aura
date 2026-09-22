@@ -10,6 +10,7 @@ import { ArcadeScreen } from "../screens/ArcadeScreen";
 import { FriendsScreen } from "../screens/FriendsScreen";
 import { LibraryScreen } from "../screens/LibraryScreen";
 import { SearchScreen } from "../screens/SearchScreen";
+import { aura } from "../theme/tokens";
 
 const Tab = createBottomTabNavigator();
 
@@ -19,7 +20,7 @@ function GlassTabBarBackground() {
   }
   return (
     <BlurView
-      intensity={70}
+      intensity={80}
       tint="dark"
       style={[StyleSheet.absoluteFill, styles.tabBlur]}
     />
@@ -34,14 +35,13 @@ const ICONS: Record<string, { focused: string; idle: string }> = {
   Search: { focused: "magnify", idle: "magnify" },
 };
 
-/** Tabs: Home · Arcade · Friends · Library · Search */
 export function HomeNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         header: () => <TopBar />,
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "rgba(255,255,255,0.55)",
+        tabBarActiveTintColor: aura.purpleBright,
+        tabBarInactiveTintColor: aura.textDim,
         tabBarStyle: styles.tabBar,
         tabBarBackground: () => <GlassTabBarBackground />,
         tabBarIcon: ({ focused, color, size }) => {
@@ -69,14 +69,10 @@ const styles = StyleSheet.create({
   tabBar: {
     position: "absolute",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.12)",
+    borderTopColor: aura.glassBorder,
     backgroundColor: "transparent",
     elevation: 0,
   },
-  tabBlur: {
-    backgroundColor: "rgba(11, 16, 32, 0.55)",
-  },
-  tabFallback: {
-    backgroundColor: "rgba(11, 16, 32, 0.92)",
-  },
+  tabBlur: { backgroundColor: "rgba(12, 11, 20, 0.55)" },
+  tabFallback: { backgroundColor: aura.glassStrong },
 });

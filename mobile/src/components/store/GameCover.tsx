@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
+import { aura } from "../../theme/tokens";
 
 type Props = {
   title: string;
@@ -11,7 +12,6 @@ type Props = {
   width?: number;
 };
 
-/** Cover → Play (tap opens the game). Real titles only. */
 export function GameCover({
   title,
   subtitle,
@@ -26,7 +26,7 @@ export function GameCover({
       disabled={!onPress}
       style={({ pressed }) => [styles.wrap, { width, opacity: pressed ? 0.88 : 1 }]}
     >
-      <View style={[styles.cover, { backgroundColor: accent, width, height: width * 1.25 }]}>
+      <View style={[styles.cover, { backgroundColor: accent, width, height: width * 1.35 }]}>
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText} variant="labelSmall">
@@ -53,13 +53,13 @@ export function GameCover({
 const styles = StyleSheet.create({
   wrap: { marginRight: 14 },
   cover: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: "hidden",
     justifyContent: "flex-end",
     padding: 12,
     marginBottom: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.22)",
+    borderColor: aura.glassBorder,
   },
   coverGlyph: {
     color: "rgba(255,255,255,0.92)",
@@ -70,12 +70,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     left: 10,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: aura.purpleGlow,
+    borderColor: aura.purpleBright,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
   badgeText: { color: "#fff", fontWeight: "700", fontSize: 10 },
-  title: { fontWeight: "700", color: "#fff" },
-  subtitle: { opacity: 0.65, marginTop: 2, color: "rgba(255,255,255,0.85)" },
+  title: { fontWeight: "700", color: aura.text },
+  subtitle: { marginTop: 2, color: aura.textMuted },
 });

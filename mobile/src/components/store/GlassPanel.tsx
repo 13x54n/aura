@@ -1,6 +1,7 @@
 import React from "react";
 import { Platform, StyleSheet, View, ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
+import { aura } from "../../theme/tokens";
 
 type Props = {
   children: React.ReactNode;
@@ -8,8 +9,7 @@ type Props = {
   intensity?: number;
 };
 
-/** Frosted glass panel — BlurView on iOS/Android, translucent fallback. */
-export function GlassPanel({ children, style, intensity = 40 }: Props) {
+export function GlassPanel({ children, style, intensity = 48 }: Props) {
   if (Platform.OS === "web") {
     return <View style={[styles.fallback, style]}>{children}</View>;
   }
@@ -23,13 +23,13 @@ export function GlassPanel({ children, style, intensity = 40 }: Props) {
 const styles = StyleSheet.create({
   blur: {
     overflow: "hidden",
-    backgroundColor: "rgba(20, 24, 40, 0.35)",
+    backgroundColor: aura.glass,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: aura.glassBorder,
   },
   fallback: {
-    backgroundColor: "rgba(20, 24, 40, 0.72)",
+    backgroundColor: aura.glassStrong,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: aura.glassBorder,
   },
 });

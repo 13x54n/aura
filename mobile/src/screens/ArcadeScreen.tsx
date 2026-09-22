@@ -1,14 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 import { EmptyShelf } from "../components/store/EmptyShelf";
+import { FilterChipRow } from "../components/store/FilterChipRow";
+import { aura } from "../theme/tokens";
 
-/** Arcade — all playable first-party games (Ludo only for now). */
+const CHIPS = [
+  { id: "latest", label: "Latest" },
+  { id: "skill", label: "Skill escrow" },
+  { id: "live", label: "Live now" },
+];
+
 export function ArcadeScreen() {
   const navigation = useNavigation<any>();
+  const [chip, setChip] = useState("latest");
   const playLudo = () => navigation.navigate("LudoHub");
 
   return (
@@ -17,18 +25,20 @@ export function ArcadeScreen() {
         <Text style={styles.heading} variant="headlineSmall">
           Arcade
         </Text>
-        <StoreShelf label="All games">
+        <FilterChipRow chips={CHIPS} activeId={chip} onChange={setChip} />
+        <StoreShelf label="Brand new adventures">
           <GameCover
             title="Ludo"
             subtitle="Play now"
             badge="LIVE"
-            accent="#2D6A4F"
+            accent={aura.ludoAccent}
             onPress={playLudo}
+            width={148}
           />
         </StoreShelf>
         <EmptyShelf
           title="More games soon"
-          body="Aura only lists real titles. When the next game ships, it shows up here — no placeholders."
+          body="Only real Aura titles show here. When the next one ships, it lands on this shelf."
         />
       </ScrollView>
     </View>
@@ -36,12 +46,12 @@ export function ArcadeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B1020" },
+  root: { flex: 1, backgroundColor: aura.bg },
   screen: { paddingBottom: 96, paddingTop: 8 },
   heading: {
     fontWeight: "800",
-    color: "#fff",
+    color: aura.text,
     paddingHorizontal: 16,
-    marginBottom: 4,
+    marginBottom: 10,
   },
 });

@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { EmptyShelf } from "../components/store/EmptyShelf";
+import { aura } from "../theme/tokens";
 
 export function FriendsScreen() {
   return (
@@ -11,17 +12,17 @@ export function FriendsScreen() {
       </Text>
       <EmptyShelf
         title="No friends yet"
-        body="Invite friends to skill matches once realtime rooms land. This tab stays empty until that ships — not broken."
+        body="Invite friends to skill matches once realtime rooms land. Empty on purpose — not broken."
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B1020", paddingTop: 8 },
+  root: { flex: 1, backgroundColor: aura.bg, paddingTop: 8 },
   heading: {
     fontWeight: "800",
-    color: "#fff",
+    color: aura.text,
     paddingHorizontal: 16,
     marginBottom: 8,
   },

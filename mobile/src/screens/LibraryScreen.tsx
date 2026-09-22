@@ -2,14 +2,12 @@ import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
-import { StoreShelf } from "../components/store/StoreShelf";
-import { GameCover } from "../components/store/GameCover";
+import { GameListRow } from "../components/store/GameListRow";
 import { EmptyShelf } from "../components/store/EmptyShelf";
+import { aura } from "../theme/tokens";
 
-/** Library — games you've opened. Ludo once you've played; honest empty otherwise. */
 export function LibraryScreen() {
   const navigation = useNavigation<any>();
-  // Until we persist play history, show Ludo as the only owned/playable title.
   const playLudo = () => navigation.navigate("LudoHub");
 
   return (
@@ -18,17 +16,18 @@ export function LibraryScreen() {
         <Text style={styles.heading} variant="headlineSmall">
           Library
         </Text>
-        <StoreShelf label="Your games">
-          <GameCover
-            title="Ludo"
-            subtitle="Ready to play"
-            accent="#1D4E89"
-            onPress={playLudo}
-          />
-        </StoreShelf>
+        <Text style={styles.section} variant="titleMedium">
+          Your games
+        </Text>
+        <GameListRow
+          title="Ludo"
+          subtitle="Ready to play"
+          accent={aura.ludoAccent}
+          onPress={playLudo}
+        />
         <EmptyShelf
-          title="That's everything"
-          body="Only real Aura titles appear here. No stubs, no coming-soon covers."
+          title="That’s everything"
+          body="Only real Aura titles appear here. No stubs."
         />
       </ScrollView>
     </View>
@@ -36,12 +35,18 @@ export function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B1020" },
+  root: { flex: 1, backgroundColor: aura.bg },
   screen: { paddingBottom: 96, paddingTop: 8 },
   heading: {
     fontWeight: "800",
-    color: "#fff",
+    color: aura.text,
     paddingHorizontal: 16,
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  section: {
+    color: aura.text,
+    fontWeight: "800",
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
 });

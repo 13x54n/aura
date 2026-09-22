@@ -1,11 +1,9 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
+import { aura } from "../../theme/tokens";
 
-type Props = {
-  label: string;
-  children: React.ReactNode;
-};
+type Props = { label: string; children: React.ReactNode };
 
 export function StoreShelf({ label, children }: Props) {
   return (
@@ -30,7 +28,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 12,
     paddingHorizontal: 16,
-    color: "#fff",
+    color: aura.text,
   },
   row: { paddingHorizontal: 16, paddingRight: 8 },
 });

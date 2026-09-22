@@ -2,16 +2,17 @@ import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Searchbar, Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
-import { GameCover } from "../components/store/GameCover";
+import { GameListRow } from "../components/store/GameListRow";
 import { EmptyShelf } from "../components/store/EmptyShelf";
 import { GlassPanel } from "../components/store/GlassPanel";
+import { aura } from "../theme/tokens";
 
 const CATALOG = [
   {
     id: "ludo",
     title: "Ludo",
     subtitle: "Skill · SOL escrow",
-    accent: "#2D6A4F",
+    accent: aura.ludoAccent,
     route: "LudoHub" as const,
   },
 ];
@@ -30,59 +31,49 @@ export function SearchScreen() {
       <Text style={styles.heading} variant="headlineSmall">
         Search
       </Text>
-      <GlassPanel style={styles.searchGlass} intensity={50}>
+      <GlassPanel style={styles.searchGlass} intensity={55}>
         <Searchbar
           placeholder="Search Aura games"
           value={query}
           onChangeText={setQuery}
           style={styles.search}
-          inputStyle={{ color: "#fff" }}
-          iconColor="rgba(255,255,255,0.7)"
-          placeholderTextColor="rgba(255,255,255,0.45)"
+          inputStyle={{ color: aura.text }}
+          iconColor={aura.textMuted}
+          placeholderTextColor={aura.textDim}
         />
       </GlassPanel>
       {results.length === 0 ? (
         <EmptyShelf
           title="No matches"
-          body={`Nothing named “${query.trim()}” yet. Aura only lists real games — today that's Ludo.`}
+          body={`Nothing named “${query.trim()}” yet. Today the real catalog is just Ludo.`}
         />
       ) : (
-        <View style={styles.results}>
-          {results.map((g) => (
-            <GameCover
-              key={g.id}
-              title={g.title}
-              subtitle={g.subtitle}
-              accent={g.accent}
-              onPress={() => navigation.navigate(g.route)}
-            />
-          ))}
-        </View>
+        results.map((g) => (
+          <GameListRow
+            key={g.id}
+            title={g.title}
+            subtitle={g.subtitle}
+            accent={g.accent}
+            onPress={() => navigation.navigate(g.route)}
+          />
+        ))
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B1020", paddingTop: 8 },
+  root: { flex: 1, backgroundColor: aura.bg, paddingTop: 8 },
   heading: {
     fontWeight: "800",
-    color: "#fff",
+    color: aura.text,
     paddingHorizontal: 16,
     marginBottom: 8,
   },
   searchGlass: {
     marginHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     marginBottom: 16,
   },
-  search: {
-    backgroundColor: "transparent",
-    elevation: 0,
-  },
-  results: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
-  },
+  search: { backgroundColor: "transparent", elevation: 0 },
 });

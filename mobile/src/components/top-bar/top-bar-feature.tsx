@@ -3,6 +3,7 @@ import { Appbar } from "react-native-paper";
 import { BlurView } from "expo-blur";
 import { TopBarWalletMenu } from "./top-bar-ui";
 import { useNavigation } from "@react-navigation/core";
+import { aura } from "../../theme/tokens";
 
 export function TopBar() {
   const navigation = useNavigation();
@@ -10,7 +11,7 @@ export function TopBar() {
   return (
     <View style={styles.wrap}>
       {Platform.OS !== "web" ? (
-        <BlurView intensity={65} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.fallback]} />
       )}
@@ -19,10 +20,8 @@ export function TopBar() {
         <TopBarWalletMenu />
         <Appbar.Action
           icon="cog"
-          onPress={() => {
-            navigation.navigate("Settings" as never);
-          }}
-          color="#fff"
+          onPress={() => navigation.navigate("Settings" as never)}
+          color={aura.text}
         />
       </Appbar.Header>
     </View>
@@ -33,19 +32,14 @@ const styles = StyleSheet.create({
   wrap: {
     overflow: "hidden",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(11, 16, 32, 0.45)",
+    borderBottomColor: aura.glassBorder,
+    backgroundColor: "rgba(12, 11, 20, 0.4)",
   },
   topBar: {
     backgroundColor: "transparent",
     justifyContent: "flex-end",
     alignItems: "center",
   },
-  title: {
-    fontWeight: "800",
-    color: "#fff",
-  },
-  fallback: {
-    backgroundColor: "rgba(11, 16, 32, 0.92)",
-  },
+  title: { fontWeight: "800", color: aura.text },
+  fallback: { backgroundColor: aura.glassStrong },
 });

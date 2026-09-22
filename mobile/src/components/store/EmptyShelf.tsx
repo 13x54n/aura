@@ -2,11 +2,9 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { GlassPanel } from "./GlassPanel";
+import { aura } from "../../theme/tokens";
 
-type Props = {
-  title: string;
-  body: string;
-};
+type Props = { title: string; body: string };
 
 export function EmptyShelf({ title, body }: Props) {
   return (
@@ -24,20 +22,8 @@ export function EmptyShelf({ title, body }: Props) {
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 18,
-  },
-  inner: {
-    padding: 20,
-  },
-  title: {
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 6,
-  },
-  body: {
-    color: "rgba(255,255,255,0.7)",
-  },
+  panel: { marginHorizontal: 16, marginTop: 12, borderRadius: 18 },
+  inner: { padding: 20 },
+  title: { fontWeight: "700", color: aura.text, marginBottom: 6 },
+  body: { color: aura.textMuted },
 });

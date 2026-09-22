@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Text } from "react-native-paper";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 
 export type HeroSlide = {
   id: string;
@@ -49,7 +50,17 @@ function SlideCard({
         imageStyle={styles.artImage}
         resizeMode="cover"
       >
-        <View style={styles.artFade} pointerEvents="none" />
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
+            "transparent",
+            "rgba(12, 11, 20, 0.35)",
+            "rgba(12, 11, 20, 0.82)",
+            "rgba(12, 11, 20, 0.95)",
+          ]}
+          locations={[0, 0.35, 0.7, 1]}
+          style={styles.artFade}
+        />
         <View style={styles.overlay}>
           <Text style={styles.forYou}>For You</Text>
           <Text style={styles.title}>{slide.title}</Text>
@@ -167,8 +178,11 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   artFade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(12, 11, 20, 0.45)",
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "72%",
   },
   overlay: {
     paddingHorizontal: 24,

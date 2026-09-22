@@ -117,10 +117,14 @@
       statusEl.textContent = NAMES[state.winner] + " wins · Free Play";
       rollBtn.disabled = true;
     } else if (state.turn === HUMAN) {
-      statusEl.textContent = "Your turn · Roll";
+      statusEl.textContent = state.die
+        ? ("You rolled " + state.die + " · square " + state.pos[HUMAN])
+        : "Your turn (Purple) · Roll";
       rollBtn.disabled = state.rolling;
     } else {
-      statusEl.textContent = "Bot thinking…";
+      statusEl.textContent = state.die
+        ? ("Bot rolled " + state.die + " · square " + state.pos[1])
+        : "Bot thinking…";
       rollBtn.disabled = true;
     }
   }

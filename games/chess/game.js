@@ -96,7 +96,13 @@
       return;
     }
     if (game.turn() === "w") {
-      statusEl.textContent = game.in_check() ? "Check — your move" : "Your turn (White)";
+      if (selected) {
+        statusEl.textContent = "Selected " + selected + " · tap a highlighted square";
+      } else if (game.in_check()) {
+        statusEl.textContent = "Check — your move (White)";
+      } else {
+        statusEl.textContent = "Your turn (White) · tap a piece";
+      }
     } else {
       statusEl.textContent = "Black thinking…";
     }

@@ -67,10 +67,4 @@ function shell(title: string, accent: string, bodyExtra = "", scriptExtra = ""):
 
 export const GAME_HTML: Record<string, string> = {
   // ludo → mobile/src/runtime/ludoBundle.ts (gamesId === "ludo")
-  chess: shell("Chess", "#1E3A5F", "<p>Playable — pure skill escrow (host)</p>"),
-  snakes: shell(
-    "Snakes &amp; Ladders",
-    "#14532D",
-    "<p>Playable — skill + fair dice (host)</p>"
-  ),
 };

@@ -34,7 +34,7 @@ Hard boundary: WebView never receives primary access/refresh tokens, keychain ac
 ## Mini-app responsibilities
 
 - Render board, legal highlights, sound, local prefs  
-- Call Host SDK methods only (`host.ready`, `identity.getSession`, `match.*`, etc.)  
+- Call Host SDK methods only (see [HOST_SDK.md](./HOST_SDK.md))  
 - Remain portable HTML5/Canvas (one build for iOS/Android WebView)
 
 ## Play handoff UX
@@ -44,9 +44,19 @@ Hard boundary: WebView never receives primary access/refresh tokens, keychain ac
 3. WebView mounts full-bleed packed HTML  
 4. Back returns to **same shelf position**
 
+## Host SDK (bridge contract)
+
+Versioned JSON request/response over WebView `postMessage`. Unknown methods rejected; errors reveal no host internals.
+
+**Live method list:** [HOST_SDK.md](./HOST_SDK.md) (synced to `mobile/src/host-sdk/`).
+
+Headline capabilities today: `host.handshake` / `host.ready`, `wallet.getAddress` (host Connect handoff), `nav.close`, `storage.*`, `haptics.light`, `match.create` / `match.get` / `match.command`, `escrow.status` (read-only). Escrow lock/payout and Connect UI stay on the host — not bridge methods.
+
 ## Match authority (multiplayer)
 
-Clients send **commands**; only server-approved **events** mutate canonical state. Deterministic reducer + rule profile version per match. Free Play may run local/bots without ranked claims.
+Clients send **commands**; only server-approved **events** mutate canonical state. Deterministic reducer + versioned **`RuleProfile`** per match (immutable once referenced — publish `classic-v2`, never mutate `classic-v1`). Free Play may run local/bots without ranked claims.
+
+Sample Ludo `classic-v1`: 2–4 players, 4 pieces, enter on 6, extra turn on 6, max 3 consecutive sixes, exact finish, blockades off, ~20s turn timer, 60s disconnect grace.
 
 ## Package / release (near-term stub)
 
@@ -58,3 +68,7 @@ Each game has `games/<id>/manifest.json`:
 ## Out of scope (for now)
 
 CDN / signed-manifest / kill-switch UI, Module Federation remotes, third-party native modules, real-money gambling UX.
+
+## Policy note (store)
+
+Apple Guideline **4.7** (mini apps / mini games) favors WebView + an **explicit capability bridge** over unrestricted native bridges. Confirm the exact design before any App Store path. Re.Pack Module Federation is composition, not isolation — Lane B is trusted first-party only.

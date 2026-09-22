@@ -36,16 +36,15 @@ export function HomeScreen() {
                 Connected · {ellipsify(selectedAccount.publicKey.toBase58())}
               </Chip>
               <Text variant="bodySmall" style={styles.hint}>
-                Expo Go uses a mock wallet for day-to-day. Seed Vault / MWA is for
-                smoke-tests only.
+                Expo Go: Phantom (real). Seeker Seed Vault is preferred when the
+                custom client is present.
               </Text>
             </>
           ) : (
             <>
               <Text variant="bodySmall" style={styles.hint}>
-                Connect via Mobile Wallet Adapter. Primary path: Seeker Seed
-                Vault (one-tap). Phantom / other MWA wallets OK for Mac
-                the Seeker custom client (cutover by Sep 30).
+                Connect Phantom here in Expo Go. On the Seeker custom client,
+                Seed Vault is preferred automatically (cutover by Sep 30).
               </Text>
               <SignInFeature />
             </>

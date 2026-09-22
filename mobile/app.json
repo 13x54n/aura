@@ -38,6 +38,7 @@
         "projectId": "aura-clock-in-scaffold"
       }
     },
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "scheme": "aura"
   }
 }

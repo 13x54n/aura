@@ -3,30 +3,18 @@ import {
   Transaction,
   TransactionSignature,
   VersionedTransaction,
-  PublicKey,
 } from "@solana/web3.js";
 import { useCallback, useMemo } from "react";
-import { fromByteArray } from "js-base64";
 import { isExpoGo } from "./isExpoGo";
-
-/** Stable mock pubkey for Expo Go day-to-day smokes (not a real wallet). */
-const MOCK_PUBKEY = new PublicKey(
-  "11111111111111111111111111111112"
-);
-
-function mockAccount(label = "Expo Go mock"): Account {
-  const bytes = MOCK_PUBKEY.toBytes();
-  return {
-    address: fromByteArray(bytes) as Account["address"],
-    label,
-    publicKey: MOCK_PUBKEY,
-  };
-}
+import {
+  clearPhantomSession,
+  connectPhantomDeeplink,
+} from "./phantomDeeplink";
 
 /**
  * Wallet hook:
- * - Expo Go → mock connect (no native MWA; avoids SolanaMobileWalletAdapter crash)
- * - Custom / Seeker client → real MWA via dynamic require
+ * - Seeker / custom client → Seed Vault via MWA (preferred when present)
+ * - Expo Go → real Phantom deeplink connect (M1 path; not mock)
  */
 export function useMobileWallet() {
   const {
@@ -39,11 +27,10 @@ export function useMobileWallet() {
 
   const connect = useCallback(async (): Promise<Account> => {
     if (isExpoGo()) {
-      const account = mockAccount();
+      const account = await connectPhantomDeeplink();
       await setMockAuthorization(account);
       return account;
     }
-    // Dynamic import so Expo Go never loads the native TurboModule at startup.
     const { transact } = await import(
       "@solana-mobile/mobile-wallet-adapter-protocol-web3js"
     );
@@ -53,11 +40,14 @@ export function useMobileWallet() {
   }, [authorizeSession, setMockAuthorization]);
 
   const signIn = useCallback(
-    async (signInPayload: { domain?: string; statement?: string; uri?: string }): Promise<Account> => {
+    async (signInPayload: {
+      domain?: string;
+      statement?: string;
+      uri?: string;
+    }): Promise<Account> => {
       if (isExpoGo()) {
-        const account = mockAccount("Expo Go SIWS mock");
-        await setMockAuthorization(account);
-        return account;
+        // Phantom connect is enough for Expo Go M1; SIWS can come later.
+        return await connect();
       }
       const { transact } = await import(
         "@solana-mobile/mobile-wallet-adapter-protocol-web3js"
@@ -66,11 +56,12 @@ export function useMobileWallet() {
         return await authorizeSessionWithSignIn(wallet, signInPayload as any);
       });
     },
-    [authorizeSessionWithSignIn, setMockAuthorization]
+    [authorizeSessionWithSignIn, connect]
   );
 
   const disconnect = useCallback(async (): Promise<void> => {
     if (isExpoGo()) {
+      await clearPhantomSession();
       await clearAuthorization();
       return;
     }
@@ -89,7 +80,7 @@ export function useMobileWallet() {
     ): Promise<TransactionSignature> => {
       if (isExpoGo()) {
         throw new Error(
-          "Signing needs the Seeker custom client (MWA). Expo Go is UI-only."
+          "Signing via Phantom deeplink is not wired yet for this screen — use Connect for M1. Escrow signing lands with Seed Vault / full Phantom session methods."
         );
       }
       const { transact } = await import(
@@ -111,7 +102,7 @@ export function useMobileWallet() {
     async (message: Uint8Array): Promise<Uint8Array> => {
       if (isExpoGo()) {
         throw new Error(
-          "Signing needs the Seeker custom client (MWA). Expo Go is UI-only."
+          "Message signing needs Phantom session methods or Seed Vault — Connect is live for M1."
         );
       }
       const { transact } = await import(

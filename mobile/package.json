@@ -25,6 +25,7 @@
     "@solana/spl-token": "^0.4.1",
     "@solana/web3.js": "^1.78.4",
     "@tanstack/react-query": "^5.24.1",
+    "bs58": "5.0.0",
     "buffer": "^6.0.3",
     "expo": "^57.0.0",
     "expo-clipboard": "~57.0.2",
@@ -32,17 +33,20 @@
     "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.4",
+    "expo-linking": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-paper": "^5.12.3",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "~4.26.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@tanstack/eslint-plugin-query": "^5.20.1",
+    "@types/bs58": "^5.0.0",
     "@types/react": "~19.2.4",
     "typescript": "~6.0.3"
   },

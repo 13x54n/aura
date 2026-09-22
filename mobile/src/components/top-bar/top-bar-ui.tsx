@@ -15,17 +15,27 @@ export function TopBarWalletButton({
   selectedAccount: Account | null;
   openMenu: () => void;
 }) {
-  const { connect } = useMobileWallet();
+  const { connect, isExpoGo: expoGo } = useMobileWallet();
+  const onConnect = async () => {
+    try {
+      await connect();
+    } catch (err) {
+      // Surface via console; ConnectButton uses alertAndLog — top bar stays quiet
+      console.warn("Connect failed", err);
+    }
+  };
   return (
     <Button
       icon="wallet"
       mode="contained-tonal"
       style={{ alignSelf: "center" }}
-      onPress={selectedAccount ? openMenu : connect}
+      onPress={selectedAccount ? openMenu : onConnect}
     >
       {selectedAccount
         ? ellipsify(selectedAccount.publicKey.toBase58())
-        : "Connect"}
+        : expoGo
+          ? "Phantom"
+          : "Connect"}
     </Button>
   );
 }

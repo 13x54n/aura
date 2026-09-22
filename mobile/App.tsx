@@ -1,6 +1,7 @@
 // Polyfills
 import "./src/polyfills";
 
+import { useEffect } from "react";
 import { StyleSheet, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -18,11 +19,13 @@ import {
 } from "react-native-paper";
 import { AppNavigator } from "./src/navigators/AppNavigator";
 import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
+import { attachPhantomLinkListener } from "./src/utils/phantomDeeplink";
 
 const queryClient = new QueryClient();
 
 export default function App() {
   const colorScheme = useColorScheme();
+  useEffect(() => attachPhantomLinkListener(), []);
   const { LightTheme, DarkTheme } = adaptNavigationTheme({
     reactNavigationLight: NavigationDefaultTheme,
     reactNavigationDark: NavigationDarkTheme,

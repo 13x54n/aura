@@ -11,8 +11,9 @@
 Create/join/random room → Solana skill-escrow stake → realtime Ludo → winner payout
 
 ## Wallets
-- **Seed Vault first** (grant + CLOCK IN Milestone 1)
-- Phantom via MWA OK for Mac/CI smoke only
+- **Seeker / Seed Vault auto when available** (default; grant + CLOCK IN Seeker path by Sep 30)
+- **Phantom real connect** as Expo Go / Mac option (deep-link / mobile connect — not mock-only)
+- Kill rule still holds: no Phantom-*only* product path
 
 ## Wedge vs competitors
 | Competitor | Note | Our angle |
@@ -33,7 +34,7 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - No full Steam clone for CLOCK IN
 
 ## Dev / wallet split (updated)
-- Day-to-day: **Expo Go** — store shell + Ludo UI/realtime; mock or Phantom deep-link wallet stub
-- Native MWA (`SolanaMobileWalletAdapter`) **cannot load in Expo Go** — documented Solana Mobile limit
-- **Seeker custom/EAS client later** for Seed Vault + real skill-escrow (CLOCK IN submit path)
-- Grant/CLOCK IN risk: leave Seed Vault until late → demo may look less Seeker-native; budget time for milestone 4–6 before Oct 8
+- Day-to-day: **Expo Go** — store shell + Ludo UI/realtime; **real Phantom** via deep-link / mobile connect (M1 gate)
+- Native MWA (`SolanaMobileWalletAdapter`) **cannot load in Expo Go** — Seed Vault needs Seeker custom/EAS client
+- **Auto-prefer Seeker** when that client is present; Phantom stays the fallback option
+- Seed Vault + skill-escrow on Seeker client by **Sep 30**; CLOCK IN submit still Oct 8

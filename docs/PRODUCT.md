@@ -39,11 +39,26 @@ Smoke gate: **Free Play → real board → real moves** for all three. No hub st
 - Full-bleed hero with **Play on art**, “For You” tag, carousel dots
 - Remote HTTPS background images; top + bottom gradients for type contrast
 - Every game ships **icon.png + cover.png** (no letter glyphs)
+- Floating frosted **tab capsule**; Search as round glass button beside the bar
+- Header: Connect **or** avatar — never both
+
+
+## UX lock
+
+Single product-family bar for store + Free Play:
+
+1. **IA** — App Store–for-games: Home · Arcade · Friends · Library · Search (floating frosted tab capsule)  
+2. **Look** — dark + purple + glass; real `icon` / `cover` art (no letter tiles)  
+3. **CTA** — **Play** only (never Get / Buy / price)  
+4. **Wallet / escrow** — host chrome only; WebView never shows Connect or stake UI  
+5. **Play path** — shelf/hero → short **glass** load (no white flash) → **full-bleed** WebView board → **Back** returns to that game’s shelf (not cold Home)  
+6. **In-board** — clear whose turn; Chess = selected piece + legal squares; Snakes/Ludo = Roll + readable dice/status  
 
 ## Kill rules
 
 - No fake / placeholder games on shelves  
 - No casino framing; skill + escrow only (when stakes land)  
+- Stake-skill pattern: **Chess = pure skill**; **Ludo / Snakes = skill + fair dice** (commit-reveal/VRF on server when multiplayer)  
 - No second wallet UI inside WebViews — host owns Connect  
 - No Phantom-only product path (Seeker / Seed Vault remains default when available)  
 - Don’t stall boards to build developer portal (phase 2)
@@ -55,6 +70,7 @@ Smoke gate: **Free Play → real board → real moves** for all three. No hub st
 | Web wager lobbies | Seeker-native shell + Seed Vault |
 | Token-gimmick Ludo | Clean skill-escrow, no junk token |
 | One-off game APKs | Catalog of sealed mini-apps + Host SDK |
+| 1MGaming / Tap2Win / Ludo Cities | Seeker Seed Vault UX, no junk token, escrow clarity |
 
 ## Success metrics (product)
 

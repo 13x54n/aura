@@ -9,9 +9,6 @@ export function FriendsScreen() {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.root, { paddingTop: insets.top + 52 }]}>
-      <Text style={styles.heading} variant="headlineSmall">
-        Friends
-      </Text>
       <EmptyShelf
         title="No friends yet"
         body="Invite friends to skill matches once realtime rooms land. Empty on purpose — not broken."

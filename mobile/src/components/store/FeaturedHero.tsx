@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
-    marginTop: 12,
+    marginTop: 5,
     marginBottom: 4,
   },
   dot: {

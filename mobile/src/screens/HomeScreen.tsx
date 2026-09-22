@@ -6,64 +6,43 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FeaturedHero, HeroSlide } from "../components/store/FeaturedHero";
 import { EmptyShelf } from "../components/store/EmptyShelf";
+import { AURA_GAMES } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 /**
- * Home — dynamic Ludo hero carousel + empty Continue.
- * Title + Connect live in the thin TopBar (safe-area).
+ * Home — carousel of all real titles (Ludo · Chess · Snakes).
+ * Continue stays empty until real play history.
  */
 export function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const playLudo = useCallback(() => navigation.navigate("LudoHub"), [navigation]);
+  const go = useCallback(
+    (route: string) => navigation.navigate(route),
+    [navigation]
+  );
 
   const slides: HeroSlide[] = useMemo(
-    () => [
-      {
-        id: "ludo-skill",
-        title: "Ludo",
-        blurb: "Craft skill matches · stake · play",
-        imageUrl:
-          "https://images.unsplash.com/photo-1596687909057-dfac2b25b891?w=1200&q=80",
-        accent: "#3B1D6E",
-        onPlay: playLudo,
-      },
-      {
-        id: "ludo-escrow",
-        title: "Ludo",
-        blurb: "On-chain escrow · winner takes the pot",
-        imageUrl:
-          "https://images.unsplash.com/photo-1642056446796-8c7d1dcb630b?w=1200&q=80",
-        accent: "#4C1D95",
-        onPlay: playLudo,
-      },
-      {
-        id: "ludo-clockin",
-        title: "Ludo",
-        blurb: "CLOCK IN demo · create / join / random",
-        imageUrl:
-          "https://images.unsplash.com/photo-1611996575749-79a3a250f948?w=1200&q=80",
-        accent: "#5B21B6",
-        onPlay: playLudo,
-      },
-    ],
-    [playLudo]
+    () =>
+      AURA_GAMES.map((g) => ({
+        id: g.id,
+        title: g.title,
+        blurb: g.blurb,
+        imageUrl: g.imageUrl,
+        accent: g.accent,
+        onPlay: () => go(g.route),
+      })),
+    [go]
   );
 
   return (
     <View style={styles.root}>
       <ScrollView
-        contentContainerStyle={[
-          styles.screen,
-          // Clear the thin absolute header (safe area + 44)
-          { paddingTop: 0 },
-        ]}
+        contentContainerStyle={styles.screen}
         showsVerticalScrollIndicator={false}
       >
-        {/* Spacer so first paint clears floating header when not overscrolling hero */}
-        <View />
+        <View style={{ height: insets.top + 8 }} />
 
-        <FeaturedHero slides={slides} autoMs={5500} />
+        <FeaturedHero slides={slides} autoMs={4500} />
 
         <Text style={styles.section} variant="titleMedium">
           Continue Playing
@@ -75,7 +54,7 @@ export function HomeScreen() {
 
         <EmptyShelf
           title="New Games We Love"
-          body="More real Aura titles land here when they ship."
+          body="Shelf fills as we deepen Chess and Snakes after the Ludo CLOCK IN path."
         />
       </ScrollView>
     </View>

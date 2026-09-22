@@ -25,6 +25,8 @@ type RootStackParamList = {
   LudoCreateRoom: undefined;
   LudoJoinRoom: undefined;
   LudoRandomMatch: undefined;
+  ChessHub: undefined;
+  SnakesHub: undefined;
   Escrow: { mode: "create" | "join" | "random"; roomCode: string };
 };
 
@@ -68,6 +70,16 @@ const AppStack = () => {
         name="LudoRandomMatch"
         component={Screens.RandomMatchScreen}
         options={{ title: "Random match" }}
+      />
+      <Stack.Screen
+        name="ChessHub"
+        component={Screens.ChessHubScreen}
+        options={{ title: "Chess" }}
+      />
+      <Stack.Screen
+        name="SnakesHub"
+        component={Screens.SnakesHubScreen}
+        options={{ title: "Snakes & Ladders" }}
       />
       <Stack.Screen
         name="Escrow"

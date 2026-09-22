@@ -10,3 +10,5 @@ export * from "./ludo/CreateRoomScreen";
 export * from "./ludo/JoinRoomScreen";
 export * from "./ludo/RandomMatchScreen";
 export * from "./ludo/EscrowScreen";
+export * from "./games/ChessHubScreen";
+export * from "./games/SnakesHubScreen";

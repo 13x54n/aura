@@ -3,12 +3,11 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 import { FeaturedHero } from "../components/store/FeaturedHero";
-import { StoreShelf } from "../components/store/StoreShelf";
-import { GameCover } from "../components/store/GameCover";
+import { EmptyShelf } from "../components/store/EmptyShelf";
 
 /**
- * Home — App Store–style, Ludo only (no fake titles).
- * Connect lives in the header. Cover / Play → Ludo hub.
+ * Home — featured real title only. No fake shelf rows.
+ * Connect lives in the header. Play → Ludo hub.
  */
 export function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -26,26 +25,10 @@ export function HomeScreen() {
           blurb="Staked skill matches with on-chain escrow. Create, join, or random — winner takes the pot."
           onPress={playLudo}
         />
-
-        <StoreShelf label="Popular">
-          <GameCover
-            title="Ludo"
-            subtitle="Skill · SOL escrow"
-            badge="LIVE"
-            accent="#2D6A4F"
-            onPress={playLudo}
-          />
-        </StoreShelf>
-
-        <StoreShelf label="Continue">
-          <GameCover
-            title="Ludo"
-            subtitle="Tap to play"
-            accent="#14532D"
-            onPress={playLudo}
-            width={118}
-          />
-        </StoreShelf>
+        <EmptyShelf
+          title="Popular"
+          body="More Aura titles will show up here when they ship. Arcade has the full real catalog today — Ludo."
+        />
       </ScrollView>
     </View>
   );

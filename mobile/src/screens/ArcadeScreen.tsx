@@ -47,7 +47,7 @@ export function ArcadeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: aura.bg },
-  screen: { paddingBottom: 96, paddingTop: 8 },
+  screen: { paddingBottom: 110, paddingTop: 8 },
   heading: {
     fontWeight: "800",
     color: aura.text,

@@ -1,101 +1,150 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Text, Button } from "react-native-paper";
-import { GlassPanel } from "./GlassPanel";
+import { Text } from "react-native-paper";
+import { BlurView } from "expo-blur";
+import { Platform } from "react-native";
 import { aura } from "../../theme/tokens";
 
 type Props = {
-  eyebrow: string;
   title: string;
   blurb: string;
   onPress: () => void;
+  /** Pagination dots count (visual only — Ludo is the only slide for now). */
+  dotCount?: number;
 };
 
-export function FeaturedHero({ eyebrow, title, blurb, onPress }: Props) {
+/** Full-bleed hero with Play on the art (Arcade ref). */
+export function FeaturedHero({ title, blurb, onPress, dotCount = 5 }: Props) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.wrap, pressed && { opacity: 0.92 }]}
-    >
-      <View style={styles.backdrop}>
-        <GlassPanel style={styles.glass} intensity={60}>
-          <View style={styles.inner}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText} variant="labelSmall">
-                Hot pick
-              </Text>
-            </View>
-            <Text style={styles.eyebrow} variant="labelLarge">
-              {eyebrow}
-            </Text>
-            <Text style={styles.title} variant="headlineMedium">
-              {title}
-            </Text>
-            <Text style={styles.blurb} variant="bodyMedium">
-              {blurb}
-            </Text>
-            <Button
-              mode="contained"
-              onPress={onPress}
-              buttonColor={aura.purple}
-              textColor="#fff"
-              style={styles.cta}
-              labelStyle={styles.ctaLabel}
-            >
-              Play
-            </Button>
+    <View style={styles.wrap}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.hero, pressed && { opacity: 0.96 }]}
+      >
+        <View style={styles.art}>
+          <Text style={styles.artGlyph}>{title.slice(0, 1)}</Text>
+          <View style={styles.artFade} pointerEvents="none" />
+
+          <View style={styles.overlay}>
+            <Text style={styles.forYou}>For You</Text>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.blurb}>{blurb}</Text>
+
+            <Pressable onPress={onPress} style={styles.playWrap}>
+              {Platform.OS !== "web" ? (
+                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, styles.playFallback]} />
+              )}
+              <Text style={styles.playLabel}>Play</Text>
+            </Pressable>
           </View>
-        </GlassPanel>
+        </View>
+      </Pressable>
+
+      <View style={styles.dots}>
+        {Array.from({ length: dotCount }).map((_, i) => (
+          <View
+            key={i}
+            style={[styles.dot, i === 0 ? styles.dotActive : null]}
+          />
+        ))}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderRadius: 26,
+  wrap: { marginBottom: 8 },
+  hero: {
+    marginHorizontal: 0,
     overflow: "hidden",
   },
-  backdrop: {
-    backgroundColor: aura.heroAccent,
-    minHeight: 280,
-  },
-  glass: {
-    flex: 1,
-    borderRadius: 26,
-    backgroundColor: "rgba(76, 29, 149, 0.35)",
-  },
-  inner: {
-    padding: 20,
-    minHeight: 280,
+  art: {
+    minHeight: 360,
+    backgroundColor: "#3B1D6E",
     justifyContent: "flex-end",
   },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: aura.purpleGlow,
-    borderColor: aura.purpleBright,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginBottom: 10,
+  artFade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 200,
+    backgroundColor: "rgba(12, 11, 20, 0.72)",
   },
-  badgeText: { color: "#fff", fontWeight: "700" },
-  eyebrow: {
-    color: "rgba(255,255,255,0.75)",
+  artGlyph: {
+    position: "absolute",
+    top: 72,
+    alignSelf: "center",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 120,
+    fontWeight: "900",
+    color: "rgba(255,255,255,0.12)",
+  },
+  overlay: {
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+    alignItems: "center",
+  },
+  forYou: {
+    color: "rgba(255,255,255,0.8)",
     fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    marginBottom: 6,
+    fontSize: 13,
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
-  title: { color: "#fff", fontWeight: "800", marginBottom: 8 },
+  title: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 32,
+    marginBottom: 6,
+    textAlign: "center",
+  },
   blurb: {
     color: "rgba(255,255,255,0.85)",
-    marginBottom: 16,
+    fontSize: 15,
+    textAlign: "center",
+    marginBottom: 18,
     maxWidth: 300,
   },
-  cta: { alignSelf: "flex-start", borderRadius: 20 },
-  ctaLabel: { fontWeight: "700" },
+  playWrap: {
+    overflow: "hidden",
+    borderRadius: 24,
+    paddingHorizontal: 36,
+    paddingVertical: 12,
+    backgroundColor: "rgba(20,16,36,0.45)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.28)",
+    minWidth: 120,
+    alignItems: "center",
+  },
+  playFallback: { backgroundColor: "rgba(20,16,36,0.75)" },
+  playLabel: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 17,
+    zIndex: 1,
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.28)",
+  },
+  dotActive: {
+    width: 18,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+  },
 });

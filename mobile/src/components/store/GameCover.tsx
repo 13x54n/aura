@@ -38,7 +38,7 @@ export function GameCover({
           {title.slice(0, 1)}
         </Text>
       </View>
-      <Text style={styles.title} variant="titleSmall" numberOfLines={1}>
+      <Text style={styles.title} variant="titleSmall" numberOfLines={2}>
         {title}
       </Text>
       {subtitle ? (

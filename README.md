@@ -25,3 +25,11 @@ Seeker-native **game publisher shell** + first title: **staked Ludo** (skill + e
 - No prediction/gambling UX framing
 - No competing full Steam catalog — shelf stays thin
 - Phantom-only connect does **not** count for Milestone 1
+
+## Documentation
+
+Deep docs live in [`docs/`](./docs/README.md):
+
+- Product, architecture, games, wallet/escrow, phase-2 ops
+- Living research: [`RESEARCH.md`](./RESEARCH.md)
+

@@ -116,3 +116,7 @@ aura/
         EscrowScreen.tsx   # skill-escrow stub
     utils/                 # MWA authorize + mobile wallet hooks
 ```
+
+## Expo Go (SDK 57)
+
+Day-to-day: open with Expo Go on phone (SDK 57). Mock wallet for UI/Ludo. Real Seed Vault / MWA needs a Seeker custom client before Sep 30 (Android-only).

@@ -36,7 +36,7 @@ export function HomeScreen() {
                 Connected · {ellipsify(selectedAccount.publicKey.toBase58())}
               </Chip>
               <Text variant="bodySmall" style={styles.hint}>
-                Prefer Seeker Seed Vault for CLOCK IN. Other MWA wallets are for
+                Expo Go uses a mock wallet for day-to-day. Seed Vault / MWA is for
                 smoke-tests only.
               </Text>
             </>
@@ -45,7 +45,7 @@ export function HomeScreen() {
               <Text variant="bodySmall" style={styles.hint}>
                 Connect via Mobile Wallet Adapter. Primary path: Seeker Seed
                 Vault (one-tap). Phantom / other MWA wallets OK for Mac
-                smoke-tests — Milestone 1 on Seeker requires Seed Vault.
+                the Seeker custom client (cutover by Sep 30).
               </Text>
               <SignInFeature />
             </>

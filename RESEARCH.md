@@ -1,6 +1,7 @@
 # Aura — research brief
 
 ## Product lock
+- Product title: **Aura** (not Playseek)
 - First-party **Seeker game publisher** (thin store shell) + **staked skill Ludo** as first title
 - Path: `/Users/lex-work/aura` (Expo app under `mobile/`)
 - Long-run: store of *our* games; CLOCK IN demo = Ludo
@@ -30,3 +31,9 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - No gambling UX copy
 - No Phantom-only product path
 - No full Steam clone for CLOCK IN
+
+## Dev / wallet split (updated)
+- Day-to-day: **Expo Go** — store shell + Ludo UI/realtime; mock or Phantom deep-link wallet stub
+- Native MWA (`SolanaMobileWalletAdapter`) **cannot load in Expo Go** — documented Solana Mobile limit
+- **Seeker custom/EAS client later** for Seed Vault + real skill-escrow (CLOCK IN submit path)
+- Grant/CLOCK IN risk: leave Seed Vault until late → demo may look less Seeker-native; budget time for milestone 4–6 before Oct 8

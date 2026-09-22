@@ -4,15 +4,14 @@ import { View, StyleSheet } from "react-native";
 import { alertAndLog } from "../../utils/alertAndLog";
 import { useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
+import { isExpoGo } from "../../utils/isExpoGo";
 
 /**
- * Primary connect = Seeker Seed Vault via MWA.
- * Other MWA wallets (e.g. Phantom) work for Mac smoke-tests only —
- * Milestone 1 on device requires Seed Vault on Seeker.
+ * Expo Go → mock connect (UI / Ludo day-to-day).
+ * Custom Seeker client → Seed Vault via MWA.
  */
 export function ConnectButton() {
-  const { authorizeSession } = useAuthorization();
-  const { connect } = useMobileWallet();
+  const { connect, isExpoGo: expoGo } = useMobileWallet();
   const [authorizationInProgress, setAuthorizationInProgress] = useState(false);
   const handleConnectPress = useCallback(async () => {
     try {
@@ -29,23 +28,22 @@ export function ConnectButton() {
     } finally {
       setAuthorizationInProgress(false);
     }
-  }, [authorizationInProgress, authorizeSession, connect]);
+  }, [authorizationInProgress, connect]);
   return (
     <Button
       mode="contained"
-      icon="shield-key"
+      icon={expoGo ? "cellphone" : "shield-key"}
       disabled={authorizationInProgress}
       onPress={handleConnectPress}
       style={{ flex: 1 }}
     >
-      Connect Seed Vault
+      {expoGo ? "Connect (Expo Go mock)" : "Connect Seed Vault"}
     </Button>
   );
 }
 
 export function SignInButton() {
-  const { authorizeSession } = useAuthorization();
-  const { signIn } = useMobileWallet();
+  const { signIn, isExpoGo: expoGo } = useMobileWallet();
   const [signInInProgress, setSignInInProgress] = useState(false);
   const handleConnectPress = useCallback(async () => {
     try {
@@ -66,7 +64,10 @@ export function SignInButton() {
     } finally {
       setSignInInProgress(false);
     }
-  }, [signInInProgress, authorizeSession, signIn]);
+  }, [signInInProgress, signIn]);
+  if (expoGo) {
+    return null;
+  }
   return (
     <Button
       mode="outlined"
@@ -80,11 +81,13 @@ export function SignInButton() {
 }
 
 export function ConnectHint() {
+  const expoGo = isExpoGo();
   return (
     <View style={styles.hintWrap}>
       <Text variant="bodySmall" style={styles.hint}>
-        Opens MWA. Choose Seeker Seed Vault on device. Phantom is fine for Mac
-        emulator smoke-tests only.
+        {expoGo
+          ? "Expo Go: mock wallet for UI/Ludo. Real Seed Vault needs the Seeker custom client (by Sep 30)."
+          : "Opens MWA. Choose Seeker Seed Vault on device. Phantom is fine for Android smoke-tests only."}
       </Text>
     </View>
   );

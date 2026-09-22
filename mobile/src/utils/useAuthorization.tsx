@@ -1,13 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PublicKey, PublicKeyInitData } from "@solana/web3.js";
-import {
+import type {
   Account as AuthorizedAccount,
   AuthorizationResult,
   AuthorizeAPI,
   AuthToken,
   Base64EncodedAddress,
   DeauthorizeAPI,
-  SignInPayloadWithRequiredFields,
   SignInPayload,
 } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { toUint8Array } from "js-base64";
@@ -162,15 +161,40 @@ export function useAuthorization() {
     },
     [authorization]
   );
+  const setMockAuthorization = useCallback(
+    async (account: Account) => {
+      await setAuthorization({
+        accounts: [account],
+        authToken: "expo-go-mock-token",
+        selectedAccount: account,
+      });
+    },
+    [setAuthorization]
+  );
+
+  const clearAuthorization = useCallback(async () => {
+    await setAuthorization(null);
+  }, [setAuthorization]);
+
   return useMemo(
     () => ({
       accounts: authorization?.accounts ?? null,
       authorizeSession,
       authorizeSessionWithSignIn,
       deauthorizeSession,
+      setMockAuthorization,
+      clearAuthorization,
       selectedAccount: authorization?.selectedAccount ?? null,
       isLoading,
     }),
-    [authorization, authorizeSession, deauthorizeSession]
+    [
+      authorization,
+      authorizeSession,
+      authorizeSessionWithSignIn,
+      deauthorizeSession,
+      setMockAuthorization,
+      clearAuthorization,
+      isLoading,
+    ]
   );
 }

@@ -6,7 +6,7 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 import { isExpoGo } from "../../utils/isExpoGo";
 
 /**
- * Expo Go → Phantom deeplink (real connect for M1).
+ * Expo Go → real Phantom deeplink.
  * Seeker custom client → Seed Vault via MWA (preferred when present).
  */
 export function ConnectButton() {
@@ -85,8 +85,8 @@ export function ConnectHint() {
     <View style={styles.hintWrap}>
       <Text variant="bodySmall" style={styles.hint}>
         {expoGo
-          ? "Expo Go: Connect opens Phantom (real wallet). Seed Vault is auto when you run the Seeker custom client (by Sep 30)."
-          : "Opens MWA. Choose Seeker Seed Vault on device (preferred). Phantom / other MWA wallets OK for Android smoke only."}
+          ? "Expo Go: opens Phantom (real connect). Seed Vault auto-prefers on the Seeker custom client (by Sep 30)."
+          : "Opens MWA. Seeker Seed Vault is preferred. Phantom / other MWA wallets OK for smoke only."}
       </Text>
     </View>
   );

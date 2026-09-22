@@ -14,7 +14,7 @@ import {
 /**
  * Wallet hook:
  * - Seeker / custom client → Seed Vault via MWA (preferred when present)
- * - Expo Go → real Phantom deeplink connect (M1 path; not mock)
+ * - Expo Go → real Phantom deeplink connect (M1 path; not mock-only)
  */
 export function useMobileWallet() {
   const {
@@ -46,7 +46,7 @@ export function useMobileWallet() {
       uri?: string;
     }): Promise<Account> => {
       if (isExpoGo()) {
-        // Phantom connect is enough for Expo Go M1; SIWS can come later.
+        // SIWS via Phantom is a follow-up; Connect is enough for M1 smoke.
         return await connect();
       }
       const { transact } = await import(
@@ -80,7 +80,7 @@ export function useMobileWallet() {
     ): Promise<TransactionSignature> => {
       if (isExpoGo()) {
         throw new Error(
-          "Signing via Phantom deeplink is not wired yet for this screen — use Connect for M1. Escrow signing lands with Seed Vault / full Phantom session methods."
+          "Signing via Phantom deeplink lands with escrow (M4). Connect is live for M1."
         );
       }
       const { transact } = await import(
@@ -102,7 +102,7 @@ export function useMobileWallet() {
     async (message: Uint8Array): Promise<Uint8Array> => {
       if (isExpoGo()) {
         throw new Error(
-          "Message signing needs Phantom session methods or Seed Vault — Connect is live for M1."
+          "Sign-message via Phantom deeplink comes with escrow. Connect is live for M1."
         );
       }
       const { transact } = await import(

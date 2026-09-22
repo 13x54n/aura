@@ -3437,7 +3437,7 @@ jimp-compact@0.16.1:
   resolved "https://registry.yarnpkg.com/jimp-compact/-/jimp-compact-0.16.1.tgz#9582aea06548a2c1e04dd148d7c3ab92075aefa3"
   integrity sha512-dZ6Ra7u1G8c4Letq/B5EzAxj4tLFHL+cGtdpR+PVm4yzPDj+lCk+AbivWt1eOM+ikzkowtyV7qSqX6qr3t71Ww==
 
-js-base64@^3.7.5:
+js-base64@^3.7.5, js-base64@^3.9.4:
   version "3.9.4"
   resolved "https://registry.yarnpkg.com/js-base64/-/js-base64-3.9.4.tgz#bc4d811fd52105848df55bc80ca401d963020e6d"
   integrity sha512-PtOMXpEGuP0RRiRXsjzHzl44dMHxSu2CPvAhinupR1tBa88me+1DPqsobl7eupn5UukjLkln1ZnAOAOXOrYG0Q==

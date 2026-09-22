@@ -30,6 +30,13 @@
 - Same stake-skill pattern for all three: escrow PDA + skill framing (not casino) — Chess = pure skill; Ludo/Snakes = skill + fair dice (commit-reveal/VRF)
 - Home carousel + Arcade shelves list all three; cover → **Play**
 
+## Build lock (updated)
+- **Priority:** playable product — not hackathon date pressure
+- **Ludo = separate mini-app** under `games/ludo` (own package); Aura only catalogs + mounts via WebView / Host SDK
+- Chess / Snakes same pattern later
+- Open-source Ludo boards OK if **license is clean** (prefer MIT/Apache-2.0); keep Aura escrow/wallet host-only
+- Smoke gate: **real board moves**, not Roll stub only
+
 ## Loop
 Create/join/random room → Solana skill-escrow stake → realtime Ludo → winner payout
 
@@ -57,9 +64,14 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - **Games (HTML5/Canvas/WebGL in WebView):** Ludo · Chess · Snakes & Ladders — isolated; call only a **versioned Host SDK** over a narrow message bridge (no raw native imports)
 - **Lane B later:** Re.Pack Module Federation only for trusted first-party native modules (not the sandbox)
 - **Trust boundary:** games get short-lived game-scoped session + approved capabilities — never primary tokens, keychain, arbitrary FS, or generic native handles
-- **CLOCK IN cut:** shell + catalog + Play → WebView game (Ludo deep; Chess/Snakes lighter). Signed manifest / CDN / kill-switch **post–Oct 8**
+- **Ship cut:** shell + catalog + Play → WebView game (Ludo deep; Chess/Snakes lighter). Signed manifest / CDN / kill-switch later. *(Hackathon dates deprioritized — playable Ludo first.)*
 - **Policy note:** Apple 4.7 / mini-app posture favors WebView + explicit bridge over unrestricted RN bridges — confirm before App Store path
 - **Play UX:** shell chrome until WebView mounts → short load → full-bleed game; Back restores shelf position (not cold Home)
+
+## Package layout (build focus)
+- **`games/ludo`**: standalone playable Ludo mini-app (Free Play board + bots). Pack with `node scripts/pack-ludo.mjs` → `mobile/src/runtime/ludoBundle.ts`
+- Aura RN host: catalog + Host SDK + escrow/wallet only — mounts the packed HTML in WebView
+- North star: **playable Ludo**, not hackathon date theater
 
 ## ADR — Ludo mini-game (Sep 2026)
 - **Split:** WebView = portable Ludo (board, input, animation, client prediction); **authoritative match server** = dice, legal moves, timers, event log, results; RN host = identity, catalog, wallet, escrow, policy

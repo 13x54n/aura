@@ -55,7 +55,7 @@ export function LudoHubScreen() {
 
       <Text variant="bodySmall" style={styles.note}>
         Escrow + Seed Vault on host (by Sep 30). Match authority is the host
-        MatchService stub until the game API ships.
+        Free Play mounts games/ludo (real board). Rooms still gate escrow on the host.
       </Text>
     </View>
   );

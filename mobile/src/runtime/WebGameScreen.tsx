@@ -12,6 +12,7 @@ import { handleHostRequest } from "../host-sdk/bridge";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { GAME_HTML } from "./gameHtml";
+import { LUDO_HTML } from "./ludoBundle";
 import { matchService } from "../match/MatchService";
 import type { MatchCommand } from "../match/types";
 import { aura } from "../theme/tokens";
@@ -86,7 +87,7 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
 
-  const html = GAME_HTML[gameId] ?? GAME_HTML.ludo;
+  const html = gameId === "ludo" ? LUDO_HTML : GAME_HTML[gameId] ?? GAME_HTML.ludo;
 
   const reply = useCallback((payload: object) => {
     const js = `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(

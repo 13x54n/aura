@@ -8,7 +8,11 @@ export type Capability =
   | "haptics.light"
   | "wallet.getAddress"
   | "score.submit"
-  | "nav.close";
+  | "nav.close"
+  | "match.create"
+  | "match.get"
+  | "match.command"
+  | "escrow.status";
 
 export type HostRequest = {
   id: string;
@@ -27,6 +31,6 @@ export type HostResponse = {
 
 export type HostEvent = {
   type: "host.event";
-  event: "lifecycle.suspend" | "lifecycle.resume" | "auth.changed";
+  event: "lifecycle.suspend" | "lifecycle.resume" | "auth.changed" | "match.updated";
   payload?: Record<string, unknown>;
 };

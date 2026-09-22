@@ -6,6 +6,10 @@ const DEFAULT_GRANTS: Capability[] = [
   "haptics.light",
   "wallet.getAddress",
   "nav.close",
+  "match.create",
+  "match.get",
+  "match.command",
+  "escrow.status",
 ];
 
 /** Authorizes each Host SDK call against manifest grants (stub: fixed allowlist). */

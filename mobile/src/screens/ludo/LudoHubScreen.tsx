@@ -13,8 +13,9 @@ export function LudoHubScreen() {
         Ludo
       </Text>
       <Text variant="bodyMedium" style={styles.blurb}>
-        Skill match with Solana escrow. Stake in → play → winner payout. Not
-        gambling UI — skill + escrow.
+        Free Play opens the WebView board. Create / Join / Random go through
+        host escrow (stake before mount), then the same WebView. Wallet +
+        payout stay on the host — not in the board.
       </Text>
 
       <Card style={styles.card} mode="outlined">
@@ -53,8 +54,8 @@ export function LudoHubScreen() {
       </Card>
 
       <Text variant="bodySmall" style={styles.note}>
-        Wedge: Seed Vault one-tap via MWA · SGT one-device/one-account later ·
-        commit-reveal / VRF dice later.
+        Escrow + Seed Vault on host (by Sep 30). Match authority is the host
+        MatchService stub until the game API ships.
       </Text>
     </View>
   );

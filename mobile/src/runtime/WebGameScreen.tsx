@@ -12,11 +12,17 @@ import { handleHostRequest } from "../host-sdk/bridge";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { GAME_HTML } from "./gameHtml";
+import { matchService } from "../match/MatchService";
+import type { MatchCommand } from "../match/types";
 import { aura } from "../theme/tokens";
 
 export type WebGameParams = {
   gameId: string;
   title: string;
+  matchId?: string;
+  roomCode?: string;
+  stake?: string;
+  escrowLocked?: boolean;
 };
 
 type Props = {
@@ -45,6 +51,10 @@ const INJECTED = `
     save: function(key, value){ return send("storage.save", { key: key, value: value }); },
     load: function(key){ return send("storage.load", { key: key }); },
     close: function(){ return send("nav.close"); },
+    escrowStatus: function(){ return send("escrow.status"); },
+    matchCreate: function(){ return send("match.create"); },
+    matchGet: function(matchId){ return send("match.get", { matchId: matchId }); },
+    matchCommand: function(matchId, command){ return send("match.command", { matchId: matchId, command: command }); },
   };
   function onMsg(e) {
     try {
@@ -67,7 +77,7 @@ true;
  * Back (nav.close or stack back) returns to previous shelf screen.
  */
 export function WebGameScreen({ route, navigation }: Props) {
-  const { gameId, title } = route.params;
+  const { gameId, title, matchId, escrowLocked } = route.params;
   const insets = useSafeAreaInsets();
   const webRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
@@ -107,6 +117,23 @@ export function WebGameScreen({ route, navigation }: Props) {
           return raw ? JSON.parse(raw) : null;
         },
         "haptics.light": async () => true,
+        "escrow.status": async () => ({
+          locked: !!escrowLocked,
+          matchId: matchId ?? null,
+        }),
+        "match.create": async () => matchService.create(),
+        "match.get": async (params) => {
+          const id = String(params?.matchId ?? matchId ?? "");
+          const snap = matchService.get(id);
+          if (!snap) throw new Error("match_not_found");
+          return snap;
+        },
+        "match.command": async (params) => {
+          const id = String(params?.matchId ?? matchId ?? "");
+          const cmd = params?.command as MatchCommand;
+          if (!cmd?.type) throw new Error("bad_command");
+          return matchService.command(id, cmd);
+        },
         "nav.close": async () => {
           navigation.goBack();
           return true;
@@ -114,7 +141,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       });
       if (response) reply(response);
     },
-    [broker, connect, navigation, reply, selectedAccount]
+    [broker, connect, escrowLocked, matchId, navigation, reply, selectedAccount]
   );
 
   return (
@@ -147,7 +174,7 @@ export function WebGameScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: aura.bg },
   loading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,

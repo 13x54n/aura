@@ -28,7 +28,14 @@ type RootStackParamList = {
   LudoRandomMatch: undefined;
   ChessHub: undefined;
   SnakesHub: undefined;
-  WebGame: { gameId: string; title: string };
+  WebGame: {
+    gameId: string;
+    title: string;
+    matchId?: string;
+    roomCode?: string;
+    stake?: string;
+    escrowLocked?: boolean;
+  };
   Escrow: { mode: "create" | "join" | "random"; roomCode: string };
 };
 

@@ -1,18 +1,21 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Button, Text, Card, Chip } from "react-native-paper";
+import { useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 
 type Props = {
   title: string;
   blurb: string;
   badge?: string;
+  gameId: string;
 };
 
 /**
  * Playable shelf hub — room stubs shared pattern; deepen after Ludo prize path.
  */
-export function PlayableHubScreen({ title, blurb, badge = "Playable" }: Props) {
+export function PlayableHubScreen({ title, blurb, badge = "Playable", gameId }: Props) {
+  const navigation = useNavigation<any>();
   return (
     <View style={styles.container}>
       <Chip compact style={styles.chip} textStyle={styles.chipText}>
@@ -27,7 +30,14 @@ export function PlayableHubScreen({ title, blurb, badge = "Playable" }: Props) {
 
       <Card style={styles.card} mode="outlined">
         <Card.Content style={styles.actions}>
-          <Button mode="contained" icon="plus-box" onPress={() => {}}>
+          <Button
+            mode="contained"
+            icon="play"
+            onPress={() => navigation.navigate("WebGame", { gameId, title })}
+          >
+            Play
+          </Button>
+          <Button mode="outlined" icon="plus-box" onPress={() => {}}>
             Create room
           </Button>
           <Button mode="outlined" icon="login" onPress={() => {}}>

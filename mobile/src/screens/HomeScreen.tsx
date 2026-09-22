@@ -16,8 +16,9 @@ import { aura } from "../theme/tokens";
 export function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const go = useCallback(
-    (route: string) => navigation.navigate(route),
+  const play = useCallback(
+    (gameId: string, title: string) =>
+      navigation.navigate("WebGame", { gameId, title }),
     [navigation]
   );
 
@@ -29,9 +30,9 @@ export function HomeScreen() {
         blurb: g.blurb,
         imageUrl: g.imageUrl,
         accent: g.accent,
-        onPlay: () => go(g.route),
+        onPlay: () => play(g.id, g.title),
       })),
-    [go]
+    [play]
   );
 
   return (
@@ -40,7 +41,7 @@ export function HomeScreen() {
         contentContainerStyle={styles.screen}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: insets.top + 8 }} />
+        <View/>
 
         <FeaturedHero slides={slides} autoMs={4500} />
 

@@ -21,6 +21,15 @@ export function LudoHubScreen() {
         <Card.Content style={styles.actions}>
           <Button
             mode="contained"
+            icon="play"
+            onPress={() =>
+              navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo" })
+            }
+          >
+            Play
+          </Button>
+          <Button
+            mode="outlined"
             icon="plus-box"
             onPress={() => navigation.navigate("LudoCreateRoom")}
           >

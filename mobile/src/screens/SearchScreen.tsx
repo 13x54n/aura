@@ -51,7 +51,7 @@ export function SearchScreen() {
             title={g.title}
             subtitle={g.subtitle}
             accent={g.accent}
-            onPress={() => navigation.navigate(g.route)}
+            onPress={() => navigation.navigate("WebGame", { gameId: g.id, title: g.title })}
           />
         ))
       )}

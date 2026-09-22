@@ -10,6 +10,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { useColorScheme } from "react-native";
 import * as Screens from "../screens";
+import { WebGameScreen } from "../runtime/WebGameScreen";
 import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -27,6 +28,7 @@ type RootStackParamList = {
   LudoRandomMatch: undefined;
   ChessHub: undefined;
   SnakesHub: undefined;
+  WebGame: { gameId: string; title: string };
   Escrow: { mode: "create" | "join" | "random"; roomCode: string };
 };
 
@@ -80,6 +82,15 @@ const AppStack = () => {
         name="SnakesHub"
         component={Screens.SnakesHubScreen}
         options={{ title: "Snakes & Ladders" }}
+      />
+      <Stack.Screen
+        name="WebGame"
+        component={WebGameScreen}
+        options={{
+          headerShown: false,
+          animation: "fade",
+          gestureEnabled: true,
+        }}
       />
       <Stack.Screen
         name="Escrow"

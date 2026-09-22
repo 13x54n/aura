@@ -87,7 +87,7 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
 
-  const html = gameId === "ludo" ? LUDO_HTML : GAME_HTML[gameId] ?? GAME_HTML.ludo;
+  const html = gameId === "ludo" ? LUDO_HTML : (GAME_HTML[gameId] ?? GAME_HTML.chess);
 
   const reply = useCallback((payload: object) => {
     const js = `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(

@@ -64,48 +64,9 @@ function shell(title: string, accent: string, bodyExtra = "", scriptExtra = ""):
 </html>`;
 }
 
-const LUDO_SCRIPT = `
-      let matchId = null;
-      async function ensureMatch() {
-        if (matchId) return matchId;
-        const esc = await window.AuraHost.escrowStatus();
-        if (esc && esc.matchId) { matchId = esc.matchId; return matchId; }
-        const created = await window.AuraHost.matchCreate();
-        matchId = created.matchId;
-        await window.AuraHost.matchCommand(matchId, { type: "join" });
-        await window.AuraHost.matchCommand(matchId, { type: "ready" });
-        return matchId;
-      }
-      document.getElementById("roll").onclick = async () => {
-        try {
-          const id = await ensureMatch();
-          const snap = await window.AuraHost.matchCommand(id, { type: "roll" });
-          status("Die " + (snap.die || "?") + " · seat " + snap.turnSeat + " · phase " + snap.phase);
-          log(JSON.stringify(snap.events[snap.events.length - 1]));
-        } catch (e) { log("roll err " + e.message); }
-      };
-      document.getElementById("move").onclick = async () => {
-        try {
-          const id = await ensureMatch();
-          const snap = await window.AuraHost.matchCommand(id, { type: "move", pieceIndex: 0 });
-          status("Pieces " + JSON.stringify(snap.pieces[0]) + " · " + snap.phase);
-          if (snap.winnerSeat != null) status("Winner seat " + snap.winnerSeat + " — host pays out");
-          log("moved");
-        } catch (e) { log("move err " + e.message); }
-      };
-`;
 
 export const GAME_HTML: Record<string, string> = {
-  ludo: shell(
-    "Ludo",
-    "#5B21B6",
-    `<div class="row">
-    <button id="roll">Roll (server)</button>
-    <button id="move" class="ghost">Move piece 0</button>
-  </div>
-  <p style="font-size:12px;opacity:0.65">Commands in → host MatchService validates → events out</p>`,
-    LUDO_SCRIPT
-  ),
+  // ludo → mobile/src/runtime/ludoBundle.ts (gamesId === "ludo")
   chess: shell("Chess", "#1E3A5F", "<p>Playable — pure skill escrow (host)</p>"),
   snakes: shell(
     "Snakes &amp; Ladders",

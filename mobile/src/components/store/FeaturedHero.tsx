@@ -53,6 +53,16 @@ function SlideCard({
         <LinearGradient
           pointerEvents="none"
           colors={[
+            "rgba(12, 11, 20, 0.72)",
+            "rgba(12, 11, 20, 0.35)",
+            "transparent",
+          ]}
+          locations={[0, 0.55, 1]}
+          style={styles.artFadeTop}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
             "transparent",
             "rgba(12, 11, 20, 0.35)",
             "rgba(12, 11, 20, 0.82)",
@@ -176,6 +186,13 @@ const styles = StyleSheet.create({
   artImage: {
     width: "100%",
     height: "100%",
+  },
+  artFadeTop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: "28%",
   },
   artFade: {
     position: "absolute",

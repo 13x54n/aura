@@ -28,6 +28,7 @@ export function LibraryScreen() {
             title={g.title}
             subtitle={g.subtitle}
             accent={g.accent}
+            icon={g.icon}
             onPress={() => navigation.navigate("WebGame", { gameId: g.id, title: g.title })}
           />
         ))}

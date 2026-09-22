@@ -1,5 +1,11 @@
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import {
+  Image,
+  ImageSourcePropType,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import { Text } from "react-native-paper";
 import { aura } from "../../theme/tokens";
 
@@ -8,6 +14,7 @@ type Props = {
   subtitle?: string;
   badge?: string;
   accent: string;
+  cover?: ImageSourcePropType;
   onPress?: () => void;
   width?: number;
 };
@@ -17,16 +24,25 @@ export function GameCover({
   subtitle,
   badge,
   accent,
+  cover,
   onPress,
   width = 132,
 }: Props) {
+  const h = width * 1.35;
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
       style={({ pressed }) => [styles.wrap, { width, opacity: pressed ? 0.88 : 1 }]}
     >
-      <View style={[styles.cover, { backgroundColor: accent, width, height: width * 1.35 }]}>
+      <View style={[styles.cover, { backgroundColor: accent, width, height: h }]}>
+        {cover ? (
+          <Image source={cover} style={styles.coverImg} resizeMode="cover" />
+        ) : (
+          <Text style={styles.coverGlyph} variant="displaySmall">
+            {title.slice(0, 1)}
+          </Text>
+        )}
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText} variant="labelSmall">
@@ -34,9 +50,6 @@ export function GameCover({
             </Text>
           </View>
         ) : null}
-        <Text style={styles.coverGlyph} variant="displaySmall">
-          {title.slice(0, 1)}
-        </Text>
       </View>
       <Text style={styles.title} variant="titleSmall" numberOfLines={2}>
         {title}
@@ -56,15 +69,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     justifyContent: "flex-end",
-    padding: 12,
     marginBottom: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: aura.glassBorder,
   },
+  coverImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
   coverGlyph: {
     color: "rgba(255,255,255,0.92)",
     fontWeight: "800",
     alignSelf: "flex-start",
+    padding: 12,
   },
   badge: {
     position: "absolute",

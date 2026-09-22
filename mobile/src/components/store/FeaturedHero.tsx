@@ -3,6 +3,7 @@ import {
   Dimensions,
   FlatList,
   ImageBackground,
+  ImageSourcePropType,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -20,7 +21,9 @@ export type HeroSlide = {
   title: string;
   blurb: string;
   /** Full-bleed HTTPS art (Xbox-ref style). */
-  imageUrl: string;
+  imageUrl?: string;
+  /** Preferred local cover from games/<id>/cover.png */
+  cover?: ImageSourcePropType;
   /** Fallback tint while the remote image loads. */
   accent?: string;
   onPlay: () => void;
@@ -45,7 +48,7 @@ function SlideCard({
   return (
     <View style={[styles.slide, { width }]}>
       <ImageBackground
-        source={{ uri: slide.imageUrl }}
+        source={slide.cover ?? (slide.imageUrl ? { uri: slide.imageUrl } : undefined)}
         style={[styles.art, { backgroundColor: slide.accent ?? "#3B1D6E" }]}
         imageStyle={styles.artImage}
         resizeMode="cover"

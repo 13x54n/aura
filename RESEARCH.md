@@ -36,6 +36,7 @@
 - Chess / Snakes same pattern later
 - Open-source Ludo boards OK if **license is clean** (prefer MIT/Apache-2.0); keep Aura escrow/wallet host-only
 - Smoke gate: **real board moves**, not Roll stub only
+- Catalog: every mini-game has a **real icon/cover** on Home/Arcade/Library (no blank tiles) — assets can live with each `games/<id>/` package
 
 ## Loop
 Create/join/random room → Solana skill-escrow stake → realtime Ludo → winner payout
@@ -70,6 +71,7 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 
 ## Package layout (build focus)
 - **`games/ludo`**: standalone playable Ludo mini-app (Free Play board + bots). Pack with `node scripts/pack-ludo.mjs` → `mobile/src/runtime/ludoBundle.ts`
+- Each mini-app ships **`icon.png` + `cover.png`**; Aura catalog requires them (no blank tiles). Mirrored under `mobile/assets/games/<id>/` for Metro.
 - Aura RN host: catalog + Host SDK + escrow/wallet only — mounts the packed HTML in WebView
 - North star: **playable Ludo**, not hackathon date theater
 

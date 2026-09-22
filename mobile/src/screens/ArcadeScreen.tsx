@@ -37,6 +37,7 @@ export function ArcadeScreen() {
               subtitle={g.depth === "deep" ? "CLOCK IN deep" : "Playable"}
               badge={g.depth === "deep" ? "LIVE" : "NEW"}
               accent={g.accent}
+              cover={g.cover}
               onPress={() =>
                 navigation.navigate("WebGame", { gameId: g.id, title: g.title })
               }

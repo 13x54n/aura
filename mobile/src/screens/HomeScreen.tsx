@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FeaturedHero, HeroSlide } from "../components/store/FeaturedHero";
 import { EmptyShelf } from "../components/store/EmptyShelf";
+import { StoreShelf } from "../components/store/StoreShelf";
+import { GameCover } from "../components/store/GameCover";
 import { AURA_GAMES } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
@@ -29,6 +31,7 @@ export function HomeScreen() {
         title: g.title,
         blurb: g.blurb,
         imageUrl: g.imageUrl,
+        cover: g.cover,
         accent: g.accent,
         onPlay: () => play(g.id, g.title),
       })),
@@ -53,10 +56,19 @@ export function HomeScreen() {
           body="Games you’ve started show up here. Empty until there’s real play history — no placeholder covers."
         />
 
-        <EmptyShelf
-          title="New Games We Love"
-          body="Shelf fills as we deepen Chess and Snakes after the Ludo CLOCK IN path."
-        />
+        <StoreShelf label="Our games">
+          {AURA_GAMES.map((g) => (
+            <GameCover
+              key={g.id}
+              title={g.title}
+              subtitle={g.subtitle}
+              accent={g.accent}
+              cover={g.cover}
+              onPress={() => navigation.navigate(g.route)}
+              width={132}
+            />
+          ))}
+        </StoreShelf>
       </ScrollView>
     </View>
   );

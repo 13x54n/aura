@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     color: aura.text,
     fontWeight: "800",
     paddingHorizontal: 16,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   section: {
     color: aura.text,

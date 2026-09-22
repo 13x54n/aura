@@ -54,22 +54,22 @@ export function FeaturedHero({ eyebrow, title, blurb, onPress }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 24,
+    marginTop: 14,
+    borderRadius: 26,
     overflow: "hidden",
   },
   backdrop: {
     backgroundColor: aura.heroAccent,
-    minHeight: 220,
+    minHeight: 280,
   },
   glass: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 26,
     backgroundColor: "rgba(76, 29, 149, 0.35)",
   },
   inner: {
     padding: 20,
-    minHeight: 220,
+    minHeight: 280,
     justifyContent: "flex-end",
   },
   badge: {

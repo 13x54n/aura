@@ -36,10 +36,10 @@ export function FilterChipRow({ chips, activeId, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { paddingHorizontal: 16, gap: 10, paddingBottom: 4 },
+  row: { paddingHorizontal: 16, gap: 10, paddingBottom: 2 },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 22,
     backgroundColor: aura.chipIdle,
     borderWidth: StyleSheet.hairlineWidth,

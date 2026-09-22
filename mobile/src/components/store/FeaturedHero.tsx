@@ -1,48 +1,68 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text, Button } from "react-native-paper";
+import { GlassPanel } from "./GlassPanel";
 
 type Props = {
   eyebrow: string;
   title: string;
   blurb: string;
-  cta: string;
   onPress: () => void;
 };
 
-/** Featured hero — App Store “Today” / Games spotlight. */
-export function FeaturedHero({ eyebrow, title, blurb, cta, onPress }: Props) {
+/** Featured hero — tap cover or Play → straight into the game. */
+export function FeaturedHero({ eyebrow, title, blurb, onPress }: Props) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.hero, pressed && { opacity: 0.92 }]}>
-      <View style={styles.gradient}>
-        <Text style={styles.eyebrow} variant="labelLarge">
-          {eyebrow}
-        </Text>
-        <Text style={styles.title} variant="headlineMedium">
-          {title}
-        </Text>
-        <Text style={styles.blurb} variant="bodyMedium">
-          {blurb}
-        </Text>
-        <Button mode="contained" onPress={onPress} style={styles.cta} labelStyle={styles.ctaLabel}>
-          {cta}
-        </Button>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.wrap, pressed && { opacity: 0.92 }]}
+    >
+      <View style={styles.backdrop}>
+        <GlassPanel style={styles.glass} intensity={55}>
+          <View style={styles.inner}>
+            <Text style={styles.eyebrow} variant="labelLarge">
+              {eyebrow}
+            </Text>
+            <Text style={styles.title} variant="headlineMedium">
+              {title}
+            </Text>
+            <Text style={styles.blurb} variant="bodyMedium">
+              {blurb}
+            </Text>
+            <Button
+              mode="contained"
+              onPress={onPress}
+              style={styles.cta}
+              labelStyle={styles.ctaLabel}
+            >
+              Play
+            </Button>
+          </View>
+        </GlassPanel>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: {
+  wrap: {
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 22,
     overflow: "hidden",
   },
-  gradient: {
+  backdrop: {
     backgroundColor: "#1B3A6B",
+    minHeight: 210,
+  },
+  glass: {
+    flex: 1,
+    borderRadius: 22,
+    backgroundColor: "rgba(12, 18, 36, 0.25)",
+  },
+  inner: {
     padding: 20,
-    minHeight: 200,
+    minHeight: 210,
     justifyContent: "flex-end",
   },
   eyebrow: {

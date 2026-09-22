@@ -7,7 +7,6 @@ type Props = {
   children: React.ReactNode;
 };
 
-/** Horizontal category row — App Store shelf. */
 export function StoreShelf({ label, children }: Props) {
   return (
     <View style={styles.section}>
@@ -26,16 +25,12 @@ export function StoreShelf({ label, children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    marginTop: 22,
-  },
+  section: { marginTop: 22 },
   label: {
     fontWeight: "800",
     marginBottom: 12,
     paddingHorizontal: 16,
+    color: "#fff",
   },
-  row: {
-    paddingHorizontal: 16,
-    paddingRight: 8,
-  },
+  row: { paddingHorizontal: 16, paddingRight: 8 },
 });

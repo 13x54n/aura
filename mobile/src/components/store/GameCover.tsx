@@ -6,20 +6,17 @@ type Props = {
   title: string;
   subtitle?: string;
   badge?: string;
-  /** Cover accent — App Store–style colored tile until real art lands */
   accent: string;
-  muted?: boolean;
   onPress?: () => void;
   width?: number;
 };
 
-/** Big cover + short title — store shelf cell. */
+/** Cover → Play (tap opens the game). Real titles only. */
 export function GameCover({
   title,
   subtitle,
   badge,
   accent,
-  muted,
   onPress,
   width = 132,
 }: Props) {
@@ -27,10 +24,7 @@ export function GameCover({
     <Pressable
       onPress={onPress}
       disabled={!onPress}
-      style={({ pressed }) => [
-        styles.wrap,
-        { width, opacity: muted ? 0.55 : pressed ? 0.88 : 1 },
-      ]}
+      style={({ pressed }) => [styles.wrap, { width, opacity: pressed ? 0.88 : 1 }]}
     >
       <View style={[styles.cover, { backgroundColor: accent, width, height: width * 1.25 }]}>
         {badge ? (
@@ -57,15 +51,15 @@ export function GameCover({
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    marginRight: 14,
-  },
+  wrap: { marginRight: 14 },
   cover: {
     borderRadius: 18,
     overflow: "hidden",
     justifyContent: "flex-end",
     padding: 12,
     marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.22)",
   },
   coverGlyph: {
     color: "rgba(255,255,255,0.92)",
@@ -81,16 +75,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  badgeText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 10,
-  },
-  title: {
-    fontWeight: "700",
-  },
-  subtitle: {
-    opacity: 0.6,
-    marginTop: 2,
-  },
+  badgeText: { color: "#fff", fontWeight: "700", fontSize: 10 },
+  title: { fontWeight: "700", color: "#fff" },
+  subtitle: { opacity: 0.65, marginTop: 2, color: "rgba(255,255,255,0.85)" },
 });

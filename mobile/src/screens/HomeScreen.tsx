@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 import { FeaturedHero } from "../components/store/FeaturedHero";
@@ -7,91 +7,51 @@ import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 
 /**
- * App Store–style first-party game shelf.
- * Connect lives in the header (TopBar) — not the main story.
+ * Home — App Store–style, Ludo only (no fake titles).
+ * Connect lives in the header. Cover / Play → Ludo hub.
  */
 export function HomeScreen() {
   const navigation = useNavigation<any>();
-  const openLudo = () => navigation.navigate("LudoHub");
-  const openComingSoon = () => navigation.navigate("ComingSoon");
+  const playLudo = () => navigation.navigate("LudoHub");
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
-      <FeaturedHero
-        eyebrow="Featured · CLOCK IN"
-        title="Ludo"
-        blurb="Staked skill matches with on-chain escrow. Create, join, or random — winner takes the pot."
-        cta="Get"
-        onPress={openLudo}
-      />
-
-      <StoreShelf label="Popular Games">
-        <GameCover
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={styles.screen}
+        showsVerticalScrollIndicator={false}
+      >
+        <FeaturedHero
+          eyebrow="Featured · CLOCK IN"
           title="Ludo"
-          subtitle="Skill · SOL escrow"
-          badge="LIVE"
-          accent="#2D6A4F"
-          onPress={openLudo}
+          blurb="Staked skill matches with on-chain escrow. Create, join, or random — winner takes the pot."
+          onPress={playLudo}
         />
-        <GameCover
-          title="Blitz Dice"
-          subtitle="Coming soon"
-          accent="#5C4D7A"
-          muted
-          onPress={openComingSoon}
-        />
-        <GameCover
-          title="Arena Race"
-          subtitle="Coming soon"
-          accent="#9A3412"
-          muted
-          onPress={openComingSoon}
-        />
-      </StoreShelf>
 
-      <StoreShelf label="New & Noteworthy">
-        <GameCover
-          title="Ludo"
-          subtitle="CLOCK IN demo"
-          badge="NEW"
-          accent="#1D4E89"
-          onPress={openLudo}
-          width={118}
-        />
-        <GameCover
-          title="Table Rush"
-          subtitle="Coming soon"
-          accent="#0F766E"
-          muted
-          onPress={openComingSoon}
-          width={118}
-        />
-        <GameCover
-          title="Night Ops"
-          subtitle="Coming soon"
-          accent="#4C1D95"
-          muted
-          onPress={openComingSoon}
-          width={118}
-        />
-      </StoreShelf>
+        <StoreShelf label="Popular">
+          <GameCover
+            title="Ludo"
+            subtitle="Skill · SOL escrow"
+            badge="LIVE"
+            accent="#2D6A4F"
+            onPress={playLudo}
+          />
+        </StoreShelf>
 
-      <StoreShelf label="Continue">
-        <GameCover
-          title="Ludo"
-          subtitle="Tap to play"
-          accent="#14532D"
-          onPress={openLudo}
-          width={118}
-        />
-      </StoreShelf>
-    </ScrollView>
+        <StoreShelf label="Continue">
+          <GameCover
+            title="Ludo"
+            subtitle="Tap to play"
+            accent="#14532D"
+            onPress={playLudo}
+            width={118}
+          />
+        </StoreShelf>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    paddingBottom: 48,
-    paddingTop: 4,
-  },
+  root: { flex: 1, backgroundColor: "#0B1020" },
+  screen: { paddingBottom: 96, paddingTop: 4 },
 });

@@ -1,50 +1,82 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { MaterialCommunityIcons as MaterialCommunityIcon } from "@expo/vector-icons";
+
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import { HomeScreen } from "../screens/HomeScreen";
-import { ComingSoonScreen } from "../screens/ComingSoonScreen";
-import { MaterialCommunityIcons as MaterialCommunityIcon } from "@expo/vector-icons";
+import { ArcadeScreen } from "../screens/ArcadeScreen";
+import { FriendsScreen } from "../screens/FriendsScreen";
+import { LibraryScreen } from "../screens/LibraryScreen";
+import { SearchScreen } from "../screens/SearchScreen";
 
 const Tab = createBottomTabNavigator();
 
-/** Store shell tabs: Home (shelf) + Coming soon placeholder. */
+function GlassTabBarBackground() {
+  if (Platform.OS === "web") {
+    return <View style={[StyleSheet.absoluteFill, styles.tabFallback]} />;
+  }
+  return (
+    <BlurView
+      intensity={70}
+      tint="dark"
+      style={[StyleSheet.absoluteFill, styles.tabBlur]}
+    />
+  );
+}
+
+const ICONS: Record<string, { focused: string; idle: string }> = {
+  Home: { focused: "home", idle: "home-outline" },
+  Arcade: { focused: "gamepad-variant", idle: "gamepad-variant-outline" },
+  Friends: { focused: "account-group", idle: "account-group-outline" },
+  Library: { focused: "view-grid", idle: "view-grid-outline" },
+  Search: { focused: "magnify", idle: "magnify" },
+};
+
+/** Tabs: Home · Arcade · Friends · Library · Search */
 export function HomeNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         header: () => <TopBar />,
+        tabBarActiveTintColor: "#FFFFFF",
+        tabBarInactiveTintColor: "rgba(255,255,255,0.55)",
+        tabBarStyle: styles.tabBar,
+        tabBarBackground: () => <GlassTabBarBackground />,
         tabBarIcon: ({ focused, color, size }) => {
-          switch (route.name) {
-            case "Home":
-              return (
-                <MaterialCommunityIcon
-                  name={focused ? "home" : "home-outline"}
-                  size={size}
-                  color={color}
-                />
-              );
-            case "ComingSoon":
-              return (
-                <MaterialCommunityIcon
-                  name={focused ? "clock" : "clock-outline"}
-                  size={size}
-                  color={color}
-                />
-              );
-          }
+          const icons = ICONS[route.name] ?? ICONS.Home;
+          return (
+            <MaterialCommunityIcon
+              name={(focused ? icons.focused : icons.idle) as any}
+              size={size}
+              color={color}
+            />
+          );
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: "Aura" }}
-      />
-      <Tab.Screen
-        name="ComingSoon"
-        component={ComingSoonScreen}
-        options={{ title: "Coming soon" }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />
+      <Tab.Screen name="Arcade" component={ArcadeScreen} options={{ title: "Arcade" }} />
+      <Tab.Screen name="Friends" component={FriendsScreen} options={{ title: "Friends" }} />
+      <Tab.Screen name="Library" component={LibraryScreen} options={{ title: "Library" }} />
+      <Tab.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: "absolute",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "transparent",
+    elevation: 0,
+  },
+  tabBlur: {
+    backgroundColor: "rgba(11, 16, 32, 0.55)",
+  },
+  tabFallback: {
+    backgroundColor: "rgba(11, 16, 32, 0.92)",
+  },
+});

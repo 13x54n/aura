@@ -4,8 +4,8 @@
 
 ## Layer 1 — In-board (Free Play + match)
 
-- **Board fills most of the width** — thin gutter only for avatar+die; no postage-stamp board / empty navy
-- Avatar + name at **each yard corner**, in a **chrome gutter outside** the board (never over yards)
+- **Board ~90% usable width** — gutter ~48–56px for avatar+die only; tokens stay tappable
+- Avatar (+ quiet **You** ring for human) at **each yard corner** — **no color name labels**, in a **chrome gutter outside** the board (never over yards)
 - Turn order **screen-clockwise**: BL→TL→TR→BR (Red→Green→Blue→Yellow after rotate)
 - Human house stays **bottom-left** (view rotate)
 - **Dice dock on the active seat** (glow on that avatar); timer + stake chip beside dock

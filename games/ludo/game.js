@@ -20,13 +20,15 @@
       timerVal: el.querySelector(".timer-val"),
     };
   });
-  var DICE_SIZE = 56;
+  var DICE_SIZE = 48;
 
   var CELL = 25;
   var HOME = 150;
   var COLORS = ["#2563EB", "#EAB308", "#16A34A", "#DC2626"];
   var NAMES = ["Blue", "Yellow", "Green", "Red"];
   var HUMAN = 3;
+  /** Screen / board clockwise after VIEW_ROT: BL→TL→TR→BR = Red→Green→Blue→Yellow. */
+  var NEXT_CW = { 3: 2, 2: 0, 0: 1, 1: 3 };
   var ENTER = 6;
   var TRACK = 52;
   var FINISH = 57; // TRACK + 5 (home stretch 0..5 → progress TRACK..FINISH)
@@ -508,7 +510,7 @@
     if (!extra) {
       // Non-bonus end: pass turn. Streak clears on pass (and on non-6 in afterRoll).
       state.sixStreak = 0;
-      state.turn = (state.turn + 1) % 4;
+      state.turn = NEXT_CW[state.turn];
     }
     startTurnTimer();
     updateTurnBanner();

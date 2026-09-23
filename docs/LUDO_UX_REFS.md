@@ -4,11 +4,14 @@
 
 ## Layer 1 — In-board (Free Play + match)
 
-- Avatar + name at **each yard corner**
+- Avatar + name at **each yard corner**, in a **chrome gutter outside** the board (never over yards)
+- Turn order **screen-clockwise**: BL→TL→TR→BR (Red→Green→Blue→Yellow after rotate)
 - Human house stays **bottom-left** (view rotate)
 - **Dice dock on the active seat** (glow on that avatar); timer + stake chip beside dock
 - Roll only on **your** corner on your turn; opponents’ turn → dock on their corner
 - Bottom chrome: Close / secondary only — not the primary Roll
+- **Chrome never covers yards:** avatar + dice dock sit in the **margin outside** the board square (beside the corner), not over tokens
+- **Turn order = clockwise in screen space** after seat rotate (BL → TL → TR → BR → …), matching Rule Book clockwise seats
 - Chat / quick reactions = later overlay (don’t block #1)
 
 ## Layer 2 — Mode sheet (before START)

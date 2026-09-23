@@ -10,6 +10,8 @@ Deep product and platform docs. **Build priority:** three playable boards first;
 | [GAMES.md](./GAMES.md) | Ludo · Chess · Snakes packages, pack pipeline, Free Play |
 | [WALLET_AND_ESCROW.md](./WALLET_AND_ESCROW.md) | Seed Vault / Phantom, host-only escrow |
 | [OPS_PHASE2.md](./OPS_PHASE2.md) | Developer portal + admin console (later) |
+| [LUDO_MULTIPLAYER_ADR.md](./LUDO_MULTIPLAYER_ADR.md) | Rooms, Colyseus, stake validate, H3 v1.1, build sequence |
+| [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) | Canonical Ludo Rule Book v1.0 + RuleProfile + acceptance |
 | [../RESEARCH.md](../RESEARCH.md) | Competitors, ADRs, OSS starters, visual locks |
 
 Path on Mac: `/Users/lex-work/aura`  

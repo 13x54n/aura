@@ -10,11 +10,13 @@
 - **Dice dock on the active seat** (glow on that avatar); timer + stake chip beside dock
 - Tap the **die** to roll (no Roll button); only your die is tappable on your turn
 - Timer **hidden** until ≤10s, then shown **on the die** (not a separate chip)
+- No **Free** / stake chip on the Free Play dock — die only
 - Bottom chrome: Close / secondary only — not the primary Roll
 - **Chrome never covers yards:** avatar + dice dock sit in the **margin outside** the board square (beside the corner), not over tokens
 - **Turn order = clockwise in screen space** after seat rotate (BL → TL → TR → BR → …), matching Rule Book clockwise seats
 - **No Roll button** — tap the **die** to roll
 - **Timer hidden** until ≤10s left, then show countdown **on the die** (not a separate chip)
+- **No Free / gold / stake chip** on Free Play dock — die (+ timer≤10s) only
 - Chat / quick reactions = later overlay (don’t block #1)
 
 ## Layer 2 — Mode sheet (before START)

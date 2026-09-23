@@ -8,6 +8,7 @@
   var ctx = boardCanvas.getContext("2d");
   var statusEl = document.getElementById("status");
   var closeBtn = document.getElementById("closeBtn");
+  var muteBtn = document.getElementById("muteBtn");
   var seatEls = Array.prototype.slice.call(document.querySelectorAll(".seat"));
   var seatById = {};
   seatEls.forEach(function (el) {
@@ -21,6 +22,77 @@
     };
   });
   var DICE_SIZE = 40;
+
+  /** Short WebAudio SFX — no asset pack required in Expo Go. */
+  var juice = {
+    muted: false,
+    ctx: null,
+    moving: false,
+    animPiece: null, // { seat, idx, x, y }
+  };
+
+  function ensureAudio() {
+    if (juice.muted) return null;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!juice.ctx) juice.ctx = new AC();
+      if (juice.ctx.state === "suspended") juice.ctx.resume();
+      return juice.ctx;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function beep(freq, dur, type, gain) {
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    var t0 = ctx.currentTime;
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.type = type || "square";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(gain == null ? 0.045 : gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
+  }
+
+  function sfxRollTick() {
+    beep(180 + Math.random() * 220, 0.035, "triangle", 0.03);
+  }
+  function sfxRollSettle() {
+    beep(420, 0.07, "square", 0.05);
+    setTimeout(function () { beep(560, 0.06, "square", 0.04); }, 40);
+  }
+  function sfxStep() {
+    beep(260, 0.04, "sine", 0.035);
+  }
+  function sfxLand() {
+    beep(320, 0.08, "sine", 0.05);
+    setTimeout(function () { beep(240, 0.09, "triangle", 0.04); }, 50);
+  }
+  function sfxCapture() {
+    beep(160, 0.1, "sawtooth", 0.055);
+    setTimeout(function () { beep(110, 0.12, "sawtooth", 0.045); }, 70);
+  }
+
+  function setMuted(on) {
+    juice.muted = !!on;
+    try {
+      localStorage.setItem("aura.ludo.mute", juice.muted ? "1" : "0");
+    } catch (e) {}
+    if (muteBtn) {
+      muteBtn.textContent = juice.muted ? "Sound off" : "Sound on";
+      muteBtn.setAttribute("aria-pressed", juice.muted ? "true" : "false");
+    }
+  }
+  try {
+    if (localStorage.getItem("aura.ludo.mute") === "1") juice.muted = true;
+  } catch (e) {}
+
 
   var CELL = 25;
   var HOME = 150;
@@ -366,6 +438,13 @@
     for (var seat = 0; seat < 4; seat++) {
       for (var idx = 0; idx < 4; idx++) {
         var pos = piecePos(seat, idx);
+        if (
+          juice.animPiece &&
+          juice.animPiece.seat === seat &&
+          juice.animPiece.idx === idx
+        ) {
+          pos = [juice.animPiece.x, juice.animPiece.y];
+        }
         var hl = state.highlight.some(function (h) {
           return h.seat === seat && h.idx === idx;
         });
@@ -490,7 +569,8 @@
         id === HUMAN &&
         id === state.turn &&
         state.phase === "roll" &&
-        !state.rolling
+        !state.rolling &&
+        !juice.moving
       );
     });
     if (state.winner != null) {
@@ -523,19 +603,25 @@
     }
   }
 
-  function doMove(move) {
-    var seat = move.seat;
-    var fromYard = state.pieces[seat][move.idx] < 0;
-    state.pieces[seat][move.idx] = move.to;
-    var captured = 0;
-    if (move.to < TRACK) captured = applyCapture(seat, move.to);
-    var homed = move.to >= FINISH;
+  function progressPos(seat, progress) {
+    if (progress < 0) return null;
+    if (progress >= TRACK) {
+      return HOME_PATH[seat][Math.min(progress - TRACK, 5)];
+    }
+    return PATH[(START[seat] + progress) % TRACK];
+  }
+
+  function finishMove(move, fromYard, captured, homed) {
+    juice.animPiece = null;
+    juice.moving = false;
+    if (captured > 0) sfxCapture();
+    else sfxLand();
     if (fromYard && move.to === 0) {
-      setStatus(NAMES[seat] + " · yard → start cell");
+      setStatus(NAMES[move.seat] + " · yard → start cell");
     }
     render();
-    if (checkWin(seat)) {
-      state.winner = seat;
+    if (checkWin(move.seat)) {
+      state.winner = move.seat;
       state.phase = "done";
       state.highlight = [];
       updateTurnBanner();
@@ -544,6 +630,63 @@
     // Rule Book: one bonus roll after 6, capture, or home (not stacked)
     var extra = state.die === 6 || captured > 0 || homed;
     endTurn(extra);
+  }
+
+  function animateMove(move, from, to, fromYard) {
+    juice.moving = true;
+    state.highlight = [];
+    state.phase = "anim";
+    updateTurnBanner();
+
+    var steps = [];
+    if (from < 0) {
+      // Yard → start: one hop
+      steps.push(0);
+    } else {
+      for (var p = from + 1; p <= to; p++) steps.push(p);
+    }
+    if (!steps.length) steps.push(to);
+
+    var i = 0;
+    function tick() {
+      var prog = steps[i];
+      state.pieces[move.seat][move.idx] = prog;
+      var pos = progressPos(move.seat, prog);
+      if (from < 0 && i === 0) {
+        // start from yard visual
+        var yp = YARD[move.seat][move.idx];
+        juice.animPiece = { seat: move.seat, idx: move.idx, x: yp[0], y: yp[1] };
+        render();
+        // then slide toward start on next frame batch
+      }
+      juice.animPiece = {
+        seat: move.seat,
+        idx: move.idx,
+        x: pos[0],
+        y: pos[1],
+      };
+      sfxStep();
+      render();
+      i++;
+      if (i < steps.length) {
+        setTimeout(tick, 90);
+      } else {
+        state.pieces[move.seat][move.idx] = to;
+        var captured = 0;
+        if (to < TRACK) captured = applyCapture(move.seat, to);
+        var homed = to >= FINISH;
+        finishMove(move, fromYard, captured, homed);
+      }
+    }
+    tick();
+  }
+
+  function doMove(move) {
+    if (juice.moving) return;
+    var seat = move.seat;
+    var from = state.pieces[seat][move.idx];
+    var fromYard = from < 0;
+    animateMove(move, from, move.to, fromYard);
   }
 
   function afterRoll(value) {
@@ -586,21 +729,27 @@
   }
 
   function rollTheDice(who) {
-    if (state.phase !== "roll" || state.winner != null || state.rolling) return;
+    if (state.phase !== "roll" || state.winner != null || state.rolling || juice.moving) return;
     if (state.turn !== HUMAN && who !== "bot") return;
     state.rolling = true;
     updateTurnBanner();
     clearOtherDice(state.turn);
     var seat = state.turn;
+    var box = seatById[seat];
+    if (box && box.dieBtn) box.dieBtn.classList.add("die-rolling");
+    ensureAudio();
     var ticks = 0;
     var iv = setInterval(function () {
       drawDiceFace(1 + Math.floor(Math.random() * 6), seat);
+      sfxRollTick();
       ticks++;
-      if (ticks > 10) {
+      if (ticks > 12) {
         clearInterval(iv);
+        if (box && box.dieBtn) box.dieBtn.classList.remove("die-rolling");
+        sfxRollSettle();
         afterRoll(1 + Math.floor(Math.random() * 6));
       }
-    }, 40);
+    }, 45);
   }
 
   function botTurn() {
@@ -617,7 +766,7 @@
   }
 
   function onBoardPointer(ev) {
-    if (state.phase !== "move" || state.turn !== HUMAN) return;
+    if (state.phase !== "move" || state.turn !== HUMAN || juice.moving) return;
     ev.preventDefault();
     var pt = canvasCoords(ev);
     for (var i = 0; i < state.highlight.length; i++) {
@@ -641,6 +790,13 @@
       rollTheDice();
     });
   });
+  if (muteBtn) {
+    setMuted(juice.muted);
+    muteBtn.addEventListener("click", function () {
+      setMuted(!juice.muted);
+      ensureAudio();
+    });
+  }
   closeBtn.addEventListener("click", function () {
     if (window.AuraHost && window.AuraHost.close) window.AuraHost.close();
   });

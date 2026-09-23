@@ -12,35 +12,68 @@
     <div class="board-stage" id="boardStage">
       <canvas id="board-canvas" width="375" height="375"></canvas>
 
+      <!-- Screen corners after VIEW_ROT=3: TL=Green2 TR=Blue0 BR=Yellow1 BL=Red3 -->
       <div class="seat seat-tl" data-seat="2" data-corner="tl">
-        <div class="avatar" style="--seat:#16A34A">G</div>
-        <div class="name">Green</div>
+        <div class="identity">
+          <div class="avatar" style="--seat:#16A34A">G</div>
+          <div class="nameplate"><span class="name">Green</span></div>
+        </div>
         <div class="dock">
-          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <div class="dock-row">
+            <canvas class="seat-dice" width="56" height="56"></canvas>
+            <div class="chips">
+              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
+              <span class="chip stake">Free</span>
+            </div>
+          </div>
           <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-tr" data-seat="0" data-corner="tr">
-        <div class="avatar" style="--seat:#2563EB">B</div>
-        <div class="name">Blue</div>
+        <div class="identity">
+          <div class="avatar" style="--seat:#2563EB">B</div>
+          <div class="nameplate"><span class="name">Blue</span></div>
+        </div>
         <div class="dock">
-          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <div class="dock-row">
+            <canvas class="seat-dice" width="56" height="56"></canvas>
+            <div class="chips">
+              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
+              <span class="chip stake">Free</span>
+            </div>
+          </div>
           <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-br" data-seat="1" data-corner="br">
-        <div class="avatar" style="--seat:#EAB308">Y</div>
-        <div class="name">Yellow</div>
+        <div class="identity">
+          <div class="avatar" style="--seat:#EAB308">Y</div>
+          <div class="nameplate"><span class="name">Yellow</span></div>
+        </div>
         <div class="dock">
-          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <div class="dock-row">
+            <canvas class="seat-dice" width="56" height="56"></canvas>
+            <div class="chips">
+              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
+              <span class="chip stake">Free</span>
+            </div>
+          </div>
           <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-bl you" data-seat="3" data-corner="bl">
-        <div class="avatar" style="--seat:#DC2626">You</div>
-        <div class="name">Red</div>
+        <div class="identity">
+          <div class="avatar" style="--seat:#DC2626">You</div>
+          <div class="nameplate"><span class="name">Red</span></div>
+        </div>
         <div class="dock">
-          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <div class="dock-row">
+            <canvas class="seat-dice" width="56" height="56"></canvas>
+            <div class="chips">
+              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
+              <span class="chip stake">Free</span>
+            </div>
+          </div>
           <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
@@ -48,7 +81,7 @@
     <div class="row">
       <button type="button" id="closeBtn" class="ghost">Close</button>
     </div>
-    <div class="hint">Roll beside the active corner. Six: yard → start. Exact home.</div>
+    <div class="hint">Active corner glows · Roll beside your avatar · Six: yard → start</div>
   </div>
   <script src="game.js"></script>
 </body>

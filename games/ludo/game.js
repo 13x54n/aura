@@ -17,9 +17,10 @@
       dice: el.querySelector(".seat-dice"),
       roll: el.querySelector(".seat-roll"),
       dctx: el.querySelector(".seat-dice").getContext("2d"),
+      timerVal: el.querySelector(".timer-val"),
     };
   });
-  var DICE_SIZE = 44;
+  var DICE_SIZE = 56;
 
   var CELL = 25;
   var HOME = 150;
@@ -143,6 +144,45 @@
     highlight: [],
     rolling: false,
   };
+
+  /** Soft turn clock for dock chrome (ref layer 1). Free Play: visual only, no forfeit. */
+  var TURN_SECS = 20;
+  var turnTimer = { left: TURN_SECS, handle: null };
+
+  function stopTurnTimer() {
+    if (turnTimer.handle) {
+      clearInterval(turnTimer.handle);
+      turnTimer.handle = null;
+    }
+  }
+
+  function paintTimers() {
+    Object.keys(seatById).forEach(function (k) {
+      var id = Number(k);
+      var box = seatById[id];
+      if (!box || !box.timerVal) return;
+      if (state.winner != null || id !== state.turn) {
+        box.timerVal.textContent = "—";
+        return;
+      }
+      box.timerVal.textContent = String(turnTimer.left) + "s";
+    });
+  }
+
+  function startTurnTimer() {
+    stopTurnTimer();
+    turnTimer.left = TURN_SECS;
+    paintTimers();
+    turnTimer.handle = setInterval(function () {
+      if (state.winner != null) {
+        stopTurnTimer();
+        return;
+      }
+      turnTimer.left = Math.max(0, turnTimer.left - 1);
+      paintTimers();
+      // Free Play: hold at 0 — rooms will enforce later
+    }, 1000);
+  }
 
   function setStatus(t) {
     statusEl.textContent = t;
@@ -457,6 +497,7 @@
     } else {
       setStatus(NAMES[state.turn] + " · rolling from their corner");
     }
+    paintTimers();
   }
 
   function endTurn(extra) {
@@ -469,6 +510,7 @@
       state.sixStreak = 0;
       state.turn = (state.turn + 1) % 4;
     }
+    startTurnTimer();
     updateTurnBanner();
     render();
     if (state.turn !== HUMAN && state.winner == null) {
@@ -616,6 +658,7 @@
 
   clearOtherDice(HUMAN);
   drawDiceFace(1, HUMAN);
+  startTurnTimer();
   render();
   updateTurnBanner();
 })();

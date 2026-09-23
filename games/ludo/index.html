@@ -8,15 +8,47 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Ludo</h1>
     <div class="meta" id="status">Free Play · your house is bottom-left · roll to start</div>
-    <canvas id="board-canvas" width="375" height="375"></canvas>
+    <div class="board-stage" id="boardStage">
+      <canvas id="board-canvas" width="375" height="375"></canvas>
+
+      <div class="seat seat-tl" data-seat="2" data-corner="tl">
+        <div class="avatar" style="--seat:#16A34A">G</div>
+        <div class="name">Green</div>
+        <div class="dock">
+          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <button type="button" class="seat-roll" disabled>Roll</button>
+        </div>
+      </div>
+      <div class="seat seat-tr" data-seat="0" data-corner="tr">
+        <div class="avatar" style="--seat:#2563EB">B</div>
+        <div class="name">Blue</div>
+        <div class="dock">
+          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <button type="button" class="seat-roll" disabled>Roll</button>
+        </div>
+      </div>
+      <div class="seat seat-br" data-seat="1" data-corner="br">
+        <div class="avatar" style="--seat:#EAB308">Y</div>
+        <div class="name">Yellow</div>
+        <div class="dock">
+          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <button type="button" class="seat-roll" disabled>Roll</button>
+        </div>
+      </div>
+      <div class="seat seat-bl you" data-seat="3" data-corner="bl">
+        <div class="avatar" style="--seat:#DC2626">You</div>
+        <div class="name">Red</div>
+        <div class="dock">
+          <canvas class="seat-dice" width="44" height="44"></canvas>
+          <button type="button" class="seat-roll" disabled>Roll</button>
+        </div>
+      </div>
+    </div>
     <div class="row">
-      <canvas id="dice-canvas" width="56" height="56"></canvas>
-      <button type="button" id="rollBtn">Roll</button>
       <button type="button" id="closeBtn" class="ghost">Close</button>
     </div>
-    <div class="hint">Your house is bottom-left. Six: yard → start cell (not +6). Exact home. Bonus on 6 / capture / home.</div>
+    <div class="hint">Roll beside the active corner. Six: yard → start. Exact home.</div>
   </div>
   <script src="game.js"></script>
 </body>

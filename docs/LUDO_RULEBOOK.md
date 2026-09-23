@@ -34,7 +34,8 @@ Product default, not universal law. Regional variants exist; this guide **fixes*
 ### Starting a token
 
 - Leave yard **only** on a roll of **6**.
-- Placement is on the color’s **start cell** — not a six-step advance.
+- Placement is on the color’s **start cell** — not a six-step advance, and **not** left in the yard.
+- Smoke fail if 6 leaves the token in yard or jumps +6 along the track.
 - If start is occupied by opponent: capture unless cell is **safe** (then both remain).
 
 ### Moving
@@ -69,6 +70,13 @@ Product default, not universal law. Regional variants exist; this guide **fixes*
 ### Visibility
 
 Show legal tokens **only after** the die result is **committed** by the authoritative service. Client must never preview/submit against an unaccepted die value.
+
+### Player viewport (client only)
+
+- **Human seat is always bottom-left:** rotate/camera the board so the local player’s yard + home lane sit bottom-left — do **not** mirror or reverse rule routes.
+- Rules stay absolute (clockwise on shared track, color start cells). Only the view transforms.
+- **Corner seats:** avatar at each yard corner; on a seat’s turn, **Roll sits beside that avatar** (not fixed bottom chrome for all).
+- Status text must match the on-screen yard position — or hide until rotate is correct.
 
 ## 02 — Turn engine
 
@@ -173,7 +181,8 @@ Monotonic `stateVersion` on every public state. On mismatch: stop animation, rep
 ## 04 — Acceptance checklist (DoD for #1 + rooms)
 
 - [ ] Roll 6 releases yard token; non-6 cannot  
-- [ ] Released token lands on **start cell**, not +6 steps  
+- [ ] Released token lands on **start cell**, not +6 steps and not left in yard  
+- [ ] Local player’s yard/home always rendered **bottom-left** (view rotate only)  
 - [ ] Tokens advance **clockwise** on shared track (all four colors)  
 - [ ] Exact roll required for home; overshoot not selectable  
 - [ ] Landing captures on normal cells; safe cells prevent capture  

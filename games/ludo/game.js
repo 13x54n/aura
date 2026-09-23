@@ -6,11 +6,20 @@
 
   var boardCanvas = document.getElementById("board-canvas");
   var ctx = boardCanvas.getContext("2d");
-  var diceCanvas = document.getElementById("dice-canvas");
-  var dctx = diceCanvas.getContext("2d");
   var statusEl = document.getElementById("status");
-  var rollBtn = document.getElementById("rollBtn");
   var closeBtn = document.getElementById("closeBtn");
+  var seatEls = Array.prototype.slice.call(document.querySelectorAll(".seat"));
+  var seatById = {};
+  seatEls.forEach(function (el) {
+    var id = Number(el.getAttribute("data-seat"));
+    seatById[id] = {
+      el: el,
+      dice: el.querySelector(".seat-dice"),
+      roll: el.querySelector(".seat-roll"),
+      dctx: el.querySelector(".seat-dice").getContext("2d"),
+    };
+  });
+  var DICE_SIZE = 44;
 
   var CELL = 25;
   var HOME = 150;
@@ -92,12 +101,14 @@
   var CX = 375 / 2;
   var CY = 375 / 2;
 
+  // Canvas y-down: ctx.rotate(-PI/2) maps paint (rx,ry) → (ry,-rx) (= 90° CCW on screen).
+  // toScreen must match that; fromScreen is the inverse for hit-testing.
   function toScreen(x, y) {
     var rx = x - CX;
     var ry = y - CY;
     for (var i = 0; i < VIEW_ROT; i++) {
-      var nx = -ry;
-      var ny = rx;
+      var nx = ry;
+      var ny = -rx;
       rx = nx;
       ry = ny;
     }
@@ -108,9 +119,9 @@
     var rx = x - CX;
     var ry = y - CY;
     for (var i = 0; i < VIEW_ROT; i++) {
-      // inverse of 90° CCW = 90° CW
-      var nx = ry;
-      var ny = -rx;
+      // inverse of canvas -90°: (rx,ry) → (-ry, rx)
+      var nx = -ry;
+      var ny = rx;
       rx = nx;
       ry = ny;
     }
@@ -326,12 +337,18 @@
     }
   }
 
-  function drawDiceFace(n) {
-    dctx.clearRect(0, 0, 56, 56);
+  function drawDiceFace(n, seat) {
+    var target = seat != null ? seat : state.turn;
+    var box = seatById[target];
+    if (!box) return;
+    var dctx = box.dctx;
+    var s = DICE_SIZE;
+    var m = s / 56;
+    dctx.clearRect(0, 0, s, s);
     dctx.fillStyle = "#fff";
-    dctx.fillRect(0, 0, 56, 56);
+    dctx.fillRect(0, 0, s, s);
     dctx.strokeStyle = "#cbd5e1";
-    dctx.strokeRect(0.5, 0.5, 55, 55);
+    dctx.strokeRect(0.5, 0.5, s - 1, s - 1);
     var dots = {
       1: [[28, 28]],
       2: [[16, 16], [40, 40]],
@@ -343,8 +360,19 @@
     dctx.fillStyle = "#0f172a";
     (dots[n] || []).forEach(function (d) {
       dctx.beginPath();
-      dctx.arc(d[0], d[1], 4.5, 0, 2 * Math.PI);
+      dctx.arc(d[0] * m, d[1] * m, 4.5 * m, 0, 2 * Math.PI);
       dctx.fill();
+    });
+  }
+
+  function clearOtherDice(exceptSeat) {
+    Object.keys(seatById).forEach(function (k) {
+      var id = Number(k);
+      if (id === exceptSeat) return;
+      var dctx = seatById[id].dctx;
+      dctx.clearRect(0, 0, DICE_SIZE, DICE_SIZE);
+      dctx.fillStyle = "#fff";
+      dctx.fillRect(0, 0, DICE_SIZE, DICE_SIZE);
     });
   }
 
@@ -356,7 +384,7 @@
     paintBoard();
     drawPieces();
     ctx.restore();
-    if (state.die) drawDiceFace(state.die);
+    if (state.die) drawDiceFace(state.die, state.turn);
   }
 
   function legalMoves(seat, die) {
@@ -401,17 +429,33 @@
   }
 
   function updateTurnBanner() {
+    seatEls.forEach(function (el) {
+      var id = Number(el.getAttribute("data-seat"));
+      var active = state.winner == null && id === state.turn;
+      el.classList.toggle("active", active);
+      var box = seatById[id];
+      if (!box) return;
+      if (state.winner != null) {
+        box.roll.disabled = true;
+        return;
+      }
+      // Human only: enable Roll on their seat during roll phase.
+      // Bots auto-roll; their dock shows dice but button stays disabled.
+      box.roll.disabled = !(
+        id === HUMAN &&
+        id === state.turn &&
+        state.phase === "roll" &&
+        !state.rolling
+      );
+    });
     if (state.winner != null) {
       setStatus(NAMES[state.winner] + " wins · Free Play");
-      rollBtn.disabled = true;
       return;
     }
     if (state.turn === HUMAN) {
-      setStatus(state.phase === "move" ? "Tap a highlighted piece (your house = bottom-left)" : "Your turn · house bottom-left · Roll");
-      rollBtn.disabled = state.phase !== "roll" || state.rolling;
+      setStatus(state.phase === "move" ? "Tap a highlighted piece" : "Your turn · Roll beside your avatar");
     } else {
-      setStatus(NAMES[state.turn] + " thinking…");
-      rollBtn.disabled = true;
+      setStatus(NAMES[state.turn] + " · rolling from their corner");
     }
   }
 
@@ -458,7 +502,7 @@
   function afterRoll(value) {
     state.die = value;
     state.rolling = false;
-    drawDiceFace(value);
+    drawDiceFace(value, state.turn);
     if (value === 6) state.sixStreak += 1;
     else state.sixStreak = 0;
     if (state.sixStreak >= 3) {
@@ -498,10 +542,12 @@
     if (state.phase !== "roll" || state.winner != null || state.rolling) return;
     if (state.turn !== HUMAN && who !== "bot") return;
     state.rolling = true;
-    rollBtn.disabled = true;
+    updateTurnBanner();
+    clearOtherDice(state.turn);
+    var seat = state.turn;
     var ticks = 0;
     var iv = setInterval(function () {
-      drawDiceFace(1 + Math.floor(Math.random() * 6));
+      drawDiceFace(1 + Math.floor(Math.random() * 6), seat);
       ticks++;
       if (ticks > 10) {
         clearInterval(iv);
@@ -540,8 +586,13 @@
     }
   }
 
-  rollBtn.addEventListener("click", function () {
-    rollTheDice();
+  seatEls.forEach(function (el) {
+    var id = Number(el.getAttribute("data-seat"));
+    var box = seatById[id];
+    box.roll.addEventListener("click", function () {
+      if (id !== HUMAN || state.turn !== HUMAN) return;
+      rollTheDice();
+    });
   });
   closeBtn.addEventListener("click", function () {
     if (window.AuraHost && window.AuraHost.close) window.AuraHost.close();
@@ -563,7 +614,8 @@
     }, 40);
   })();
 
-  drawDiceFace(1);
+  clearOtherDice(HUMAN);
+  drawDiceFace(1, HUMAN);
   render();
   updateTurnBanner();
 })();

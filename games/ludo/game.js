@@ -15,9 +15,9 @@
     seatById[id] = {
       el: el,
       dice: el.querySelector(".seat-dice"),
-      roll: el.querySelector(".seat-roll"),
+      dieBtn: el.querySelector(".seat-die-btn"),
       dctx: el.querySelector(".seat-dice").getContext("2d"),
-      timerVal: el.querySelector(".timer-val"),
+      dieTimer: el.querySelector(".die-timer"),
     };
   });
   var DICE_SIZE = 48;
@@ -162,12 +162,18 @@
     Object.keys(seatById).forEach(function (k) {
       var id = Number(k);
       var box = seatById[id];
-      if (!box || !box.timerVal) return;
-      if (state.winner != null || id !== state.turn) {
-        box.timerVal.textContent = "—";
+      if (!box || !box.dieTimer) return;
+      var show =
+        state.winner == null &&
+        id === state.turn &&
+        turnTimer.left <= 10;
+      if (!show) {
+        box.dieTimer.hidden = true;
+        box.dieTimer.textContent = "";
         return;
       }
-      box.timerVal.textContent = String(turnTimer.left) + "s";
+      box.dieTimer.hidden = false;
+      box.dieTimer.textContent = String(turnTimer.left) + "s";
     });
   }
 
@@ -478,12 +484,12 @@
       var box = seatById[id];
       if (!box) return;
       if (state.winner != null) {
-        box.roll.disabled = true;
+        box.dieBtn.disabled = true;
         return;
       }
-      // Human only: enable Roll on their seat during roll phase.
-      // Bots auto-roll; their dock shows dice but button stays disabled.
-      box.roll.disabled = !(
+      // Human only: tap the die to roll on their seat during roll phase.
+      // Bots auto-roll; die stays non-interactive.
+      box.dieBtn.disabled = !(
         id === HUMAN &&
         id === state.turn &&
         state.phase === "roll" &&
@@ -495,7 +501,7 @@
       return;
     }
     if (state.turn === HUMAN) {
-      setStatus(state.phase === "move" ? "Tap a highlighted piece" : "Your turn · Roll beside your avatar");
+      setStatus(state.phase === "move" ? "Tap a highlighted piece" : "Your turn · tap the die");
     } else {
       setStatus(NAMES[state.turn] + " · rolling from their corner");
     }
@@ -633,7 +639,7 @@
   seatEls.forEach(function (el) {
     var id = Number(el.getAttribute("data-seat"));
     var box = seatById[id];
-    box.roll.addEventListener("click", function () {
+    box.dieBtn.addEventListener("click", function () {
       if (id !== HUMAN || state.turn !== HUMAN) return;
       rollTheDice();
     });

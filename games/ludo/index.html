@@ -20,13 +20,12 @@
         </div>
         <div class="dock">
           <div class="dock-row">
-            <canvas class="seat-dice" width="48" height="48"></canvas>
-            <div class="chips">
-              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
-              <span class="chip stake">Free</span>
-            </div>
+            <button type="button" class="seat-die-btn" disabled aria-label="Roll dice">
+              <canvas class="seat-dice" width="48" height="48"></canvas>
+              <span class="die-timer" hidden></span>
+            </button>
+            <span class="chip stake">Free</span>
           </div>
-          <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-tr" data-seat="0" data-corner="tr">
@@ -36,13 +35,12 @@
         </div>
         <div class="dock">
           <div class="dock-row">
-            <canvas class="seat-dice" width="48" height="48"></canvas>
-            <div class="chips">
-              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
-              <span class="chip stake">Free</span>
-            </div>
+            <button type="button" class="seat-die-btn" disabled aria-label="Roll dice">
+              <canvas class="seat-dice" width="48" height="48"></canvas>
+              <span class="die-timer" hidden></span>
+            </button>
+            <span class="chip stake">Free</span>
           </div>
-          <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-br" data-seat="1" data-corner="br">
@@ -52,13 +50,12 @@
         </div>
         <div class="dock">
           <div class="dock-row">
-            <canvas class="seat-dice" width="48" height="48"></canvas>
-            <div class="chips">
-              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
-              <span class="chip stake">Free</span>
-            </div>
+            <button type="button" class="seat-die-btn" disabled aria-label="Roll dice">
+              <canvas class="seat-dice" width="48" height="48"></canvas>
+              <span class="die-timer" hidden></span>
+            </button>
+            <span class="chip stake">Free</span>
           </div>
-          <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
       <div class="seat seat-bl you" data-seat="3" data-corner="bl">
@@ -68,20 +65,19 @@
         </div>
         <div class="dock">
           <div class="dock-row">
-            <canvas class="seat-dice" width="48" height="48"></canvas>
-            <div class="chips">
-              <span class="chip timer" title="Turn timer">⏱ <span class="timer-val">—</span></span>
-              <span class="chip stake">Free</span>
-            </div>
+            <button type="button" class="seat-die-btn" disabled aria-label="Roll dice">
+              <canvas class="seat-dice" width="48" height="48"></canvas>
+              <span class="die-timer" hidden></span>
+            </button>
+            <span class="chip stake">Free</span>
           </div>
-          <button type="button" class="seat-roll" disabled>Roll</button>
         </div>
       </div>
     </div>
     <div class="row">
       <button type="button" id="closeBtn" class="ghost">Close</button>
     </div>
-    <div class="hint">Active corner glows · Roll beside your avatar · Six: yard → start</div>
+    <div class="hint">Active corner glows · tap the die · Six: yard → start</div>
   </div>
   <script src="game.js"></script>
 </body>

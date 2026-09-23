@@ -48,7 +48,7 @@ html, body {
   width: 96px;
   pointer-events: none;
 }
-.seat .seat-roll { pointer-events: auto; }
+.seat .seat-die-btn { pointer-events: auto; }
 .seat-tl, .seat-tr { flex-direction: column; }
 .seat-bl, .seat-br { flex-direction: column-reverse; }
 /* Pin to stage corners = outside the canvas (in the gutter). */
@@ -138,14 +138,41 @@ html, body {
   border-color: rgba(196, 181, 253, 0.45);
   color: #e9e0ff;
 }
-.seat-roll {
-  padding: 7px 14px; border-radius: 16px; border: 0;
-  background: linear-gradient(180deg, #a78bfa, #7c3aed);
-  color: #fff; font-weight: 800; font-size: 12px;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45);
+.seat-die-btn {
+  position: relative;
+  padding: 0; border: 0; background: transparent;
+  border-radius: 12px;
+  line-height: 0;
+  cursor: pointer;
 }
-.seat-roll:disabled { opacity: 0.35; box-shadow: none; }
-.seat:not(.you).active .seat-roll { display: none; }
+.seat-die-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.seat-die-btn:not(:disabled) {
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.85), 0 4px 14px rgba(124, 58, 237, 0.4);
+}
+.seat-die-btn:not(:disabled):active {
+  transform: scale(0.96);
+}
+.die-timer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(12, 11, 20, 0.72);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+.die-timer[hidden] { display: none !important; }
+.dock-row .chip.stake {
+  align-self: center;
+}
 .row { display: flex; gap: 10px; justify-content: center; }
 button.ghost {
   padding: 10px 16px; border-radius: 22px; border: 0;

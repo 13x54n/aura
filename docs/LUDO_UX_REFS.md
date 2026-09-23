@@ -4,6 +4,7 @@
 
 ## Layer 1 — In-board (Free Play + match)
 
+- **Board fills most of the width** — thin gutter only for avatar+die; no postage-stamp board / empty navy
 - Avatar + name at **each yard corner**, in a **chrome gutter outside** the board (never over yards)
 - Turn order **screen-clockwise**: BL→TL→TR→BR (Red→Green→Blue→Yellow after rotate)
 - Human house stays **bottom-left** (view rotate)

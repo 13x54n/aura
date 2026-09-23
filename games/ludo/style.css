@@ -12,7 +12,7 @@ html, body {
 .wrap {
   min-height: 100vh; width: 100%;
   padding: 8px 6px 20px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
 }
 .meta {
   font-size: 13px; font-weight: 600; opacity: 0.92;
@@ -26,8 +26,9 @@ html, body {
 /* Chrome gutter: seats live in padding; canvas fills content box only. */
 .board-stage {
   position: relative;
-  width: min(98vw, 440px);
-  padding: 56px 96px;
+  width: min(96vw, 420px);
+  /* Thin frame: pairs live in top/bottom strips; sides stay tight so the board fills width. */
+  padding: 50px 4px;
   box-sizing: border-box;
 }
 #board-canvas {
@@ -44,7 +45,7 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: auto;
   max-width: none;
   pointer-events: none;
@@ -63,7 +64,7 @@ html, body {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
 .avatar {
-  width: 42px; height: 42px; border-radius: 50%;
+  width: 38px; height: 38px; border-radius: 50%;
   background: var(--seat, #8B5CF6);
   border: 2.5px solid rgba(255,255,255,0.9);
   box-shadow: 0 3px 12px rgba(0,0,0,0.4);
@@ -114,7 +115,7 @@ html, body {
   gap: 6px;
 }
 .seat-dice {
-  width: 48px; height: 48px; border-radius: 10px;
+  width: 40px; height: 40px; border-radius: 9px;
   background: #fff;
   box-shadow: inset 0 -2px 0 rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.25);
 }

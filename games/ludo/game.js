@@ -20,7 +20,7 @@
       dieTimer: el.querySelector(".die-timer"),
     };
   });
-  var DICE_SIZE = 48;
+  var DICE_SIZE = 40;
 
   var CELL = 25;
   var HOME = 150;

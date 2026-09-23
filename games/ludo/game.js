@@ -417,10 +417,7 @@
     Object.keys(seatById).forEach(function (k) {
       var id = Number(k);
       if (id === exceptSeat) return;
-      var dctx = seatById[id].dctx;
-      dctx.clearRect(0, 0, DICE_SIZE, DICE_SIZE);
-      dctx.fillStyle = "#fff";
-      dctx.fillRect(0, 0, DICE_SIZE, DICE_SIZE);
+      drawDiceFace(1, id);
     });
   }
 
@@ -664,8 +661,9 @@
     }, 40);
   })();
 
-  clearOtherDice(HUMAN);
-  drawDiceFace(1, HUMAN);
+  [0, 1, 2, 3].forEach(function (s) {
+    drawDiceFace(1, s);
+  });
   startTurnTimer();
   render();
   updateTurnBanner();

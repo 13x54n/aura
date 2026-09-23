@@ -93,25 +93,20 @@ html, body {
   display: block; text-align: center;
 }
 .dock {
-  display: none;
+  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: rgba(26, 24, 64, 0.92);
-  border: 2px solid rgba(76, 111, 255, 0.35);
-  border-radius: 14px;
-  padding: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-  backdrop-filter: blur(10px);
+  gap: 0;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: none;
   max-width: 100%;
+  opacity: 0.45;
 }
 .seat.active .dock {
-  display: flex;
-  border-color: rgba(76, 111, 255, 0.95);
-  box-shadow:
-    0 0 0 2px rgba(76, 111, 255, 0.45),
-    0 0 18px rgba(76, 111, 255, 0.4),
-    0 8px 24px rgba(0,0,0,0.4);
+  opacity: 1;
 }
 .dock-row {
   display: flex;

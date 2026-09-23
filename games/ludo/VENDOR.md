@@ -14,3 +14,4 @@ node scripts/pack-ludo.mjs
 Writes `mobile/src/runtime/ludoBundle.ts` for Expo `WebView` `source={{ html }}`.
 
 Upstream  (dice/star) omitted — Free Play draws dice/stars on canvas.
+- #1 fix: main track walks **clockwise** from each color start (Red BR → left along bottom).

@@ -21,12 +21,17 @@
   var TRACK = 52;
   var FINISH = 57; // TRACK + 5 (home stretch 0..5 → progress TRACK..FINISH)
 
+  /** 52-cell main track, clockwise from Red entry (BR).
+   *  Prior build walked the opposite way; Red must go left along the bottom
+   *  toward Green, not up into Yellow's corridor (#1).
+   */
   var PATH = (function () {
     var pts = [];
     function add(c, r) {
       pts.push([c * CELL + CELL / 2, r * CELL + CELL / 2]);
     }
     var r, c;
+    // Build the old ring, then reverse so progress walks clockwise.
     for (r = 13; r >= 9; r--) add(8, r);
     for (c = 9; c <= 14; c++) add(c, 8);
     for (r = 7; r >= 6; r--) add(14, r);
@@ -40,7 +45,10 @@
     for (r = 9; r <= 14; r++) add(6, r);
     add(7, 14);
     add(8, 14);
-    return pts;
+    // Reverse ring keeping index 0 on Red's entry cell (8,13).
+    var out = [pts[0]];
+    for (var i = pts.length - 1; i >= 1; i--) out.push(pts[i]);
+    return out;
   })();
 
   function cellCenters(list) {
@@ -49,14 +57,15 @@
     });
   }
 
+  // Home corridors into center: Blue←left, Yellow←top, Green←bottom, Red←right
   var HOME_PATH = [
-    cellCenters([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]]),
-    cellCenters([[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]]),
-    cellCenters([[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]]),
-    cellCenters([[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]),
+    cellCenters([[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]]), // blue TL
+    cellCenters([[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]]), // yellow TR
+    cellCenters([[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]]), // green BL
+    cellCenters([[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]), // red BR
   ];
 
-  var START = [37, 24, 49, 0]; // blue yellow green red — abs index of progress 0
+  var START = [15, 28, 3, 0]; // blue yellow green red — remapped after clockwise reverse
 
   var SAFE = {};
   [0, 8, 13, 21, 26, 34, 39, 47].forEach(function (i) {

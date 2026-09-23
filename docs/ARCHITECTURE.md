@@ -65,6 +65,10 @@ Each game has `games/<id>/manifest.json`:
 - `appId`, `version`, `entry`, `capabilities`, `sha256`, `status: draft`  
 - Immutable bytes later (portal phase 2): signed artifact = reviewed artifact  
 
+## Next.js mini-apps
+
+**Locked:** Next.js only as WebView content — **static export** (`output: 'export'`) packed like Ludo. Hosted SSR off Free Play path. Not as RN screens. No in-WebView store chrome / second tab bar.
+
 ## Out of scope (for now)
 
 CDN / signed-manifest / kill-switch UI, Module Federation remotes, third-party native modules, real-money gambling UX.

@@ -83,6 +83,38 @@
     [[275, 275], [325, 275], [275, 325], [325, 325]],
   ];
 
+  /** Screen rotation so HUMAN house is bottom-left (Rule Book / Lex).
+   *  1 = 90° CCW: board BR (Red) → screen BL. Rules/PATH stay absolute.
+   */
+  var VIEW_ROT = 1; // quarter-turns CCW
+  var CX = 375 / 2;
+  var CY = 375 / 2;
+
+  function toScreen(x, y) {
+    var rx = x - CX;
+    var ry = y - CY;
+    for (var i = 0; i < VIEW_ROT; i++) {
+      var nx = -ry;
+      var ny = rx;
+      rx = nx;
+      ry = ny;
+    }
+    return [CX + rx, CY + ry];
+  }
+
+  function fromScreen(x, y) {
+    var rx = x - CX;
+    var ry = y - CY;
+    for (var i = 0; i < VIEW_ROT; i++) {
+      // inverse of 90° CCW = 90° CW
+      var nx = ry;
+      var ny = -rx;
+      rx = nx;
+      ry = ny;
+    }
+    return [CX + rx, CY + ry];
+  }
+
   var state = {
     pieces: [
       [-1, -1, -1, -1],
@@ -315,8 +347,13 @@
   }
 
   function render() {
+    ctx.save();
+    ctx.translate(CX, CY);
+    for (var i = 0; i < VIEW_ROT; i++) ctx.rotate(-Math.PI / 2);
+    ctx.translate(-CX, -CY);
     paintBoard();
     drawPieces();
+    ctx.restore();
     if (state.die) drawDiceFace(state.die);
   }
 
@@ -368,7 +405,7 @@
       return;
     }
     if (state.turn === HUMAN) {
-      setStatus(state.phase === "move" ? "Tap a highlighted Red piece" : "Your turn (Red) · Roll");
+      setStatus(state.phase === "move" ? "Tap a highlighted piece (your house = bottom-left)" : "Your turn · house bottom-left · Roll");
       rollBtn.disabled = state.phase !== "roll" || state.rolling;
     } else {
       setStatus(NAMES[state.turn] + " thinking…");
@@ -395,10 +432,14 @@
 
   function doMove(move) {
     var seat = move.seat;
+    var fromYard = state.pieces[seat][move.idx] < 0;
     state.pieces[seat][move.idx] = move.to;
     var captured = 0;
     if (move.to < TRACK) captured = applyCapture(seat, move.to);
     var homed = move.to >= FINISH;
+    if (fromYard && move.to === 0) {
+      setStatus(NAMES[seat] + " · yard → start cell");
+    }
     render();
     if (checkWin(seat)) {
       state.winner = seat;
@@ -442,6 +483,12 @@
       setTimeout(function () {
         doMove(moves[Math.floor(Math.random() * moves.length)]);
       }, 380);
+    } else if (moves.length === 1 && moves[0].to === 0) {
+      // Rule Book: 6 from yard → start cell. Auto-apply sole entry so it never looks stuck in yard.
+      setStatus("6 · out to your start");
+      setTimeout(function () {
+        doMove(moves[0]);
+      }, 280);
     }
   }
 
@@ -468,10 +515,10 @@
 
   function canvasCoords(ev) {
     var rect = boardCanvas.getBoundingClientRect();
-    var t = ev.changedTouches ? ev.changedTouches[0] : ev.touches ? ev.touches[0] : ev;
-    var x = ((t.clientX - rect.left) / rect.width) * boardCanvas.width;
-    var y = ((t.clientY - rect.top) / rect.height) * boardCanvas.height;
-    return [x, y];
+    var tch = ev.changedTouches ? ev.changedTouches[0] : ev.touches ? ev.touches[0] : ev;
+    var x = ((tch.clientX - rect.left) / rect.width) * boardCanvas.width;
+    var y = ((tch.clientY - rect.top) / rect.height) * boardCanvas.height;
+    return fromScreen(x, y);
   }
 
   function onBoardPointer(ev) {
@@ -483,7 +530,8 @@
       var pos = piecePos(m.seat, m.idx);
       var dx = pos[0] - pt[0];
       var dy = pos[1] - pt[1];
-      if (dx * dx + dy * dy <= 20 * 20) {
+      var rad = state.pieces[m.seat][m.idx] < 0 ? 28 : 20;
+      if (dx * dx + dy * dy <= rad * rad) {
         doMove(m);
         return;
       }

@@ -68,8 +68,12 @@
   var START = [15, 28, 3, 0]; // blue yellow green red — remapped after clockwise reverse
 
   var SAFE = {};
+  // Stars + each color's start cell (Rule Book: safe cells cannot be captured)
   [0, 8, 13, 21, 26, 34, 39, 47].forEach(function (i) {
     SAFE[i] = 1;
+  });
+  START.forEach(function (s) {
+    SAFE[s] = 1;
   });
 
   var YARD = [
@@ -333,17 +337,22 @@
   }
 
   function applyCapture(seat, progress) {
-    if (progress < 0 || progress >= TRACK) return;
+    var captured = 0;
+    if (progress < 0 || progress >= TRACK) return 0;
     var abs = absCell(seat, progress);
-    if (SAFE[abs]) return;
+    if (SAFE[abs]) return 0;
     for (var o = 0; o < 4; o++) {
       if (o === seat) continue;
       for (var i = 0; i < 4; i++) {
         var op = state.pieces[o][i];
         if (op < 0 || op >= TRACK) continue;
-        if (absCell(o, op) === abs) state.pieces[o][i] = -1;
+        if (absCell(o, op) === abs) {
+          state.pieces[o][i] = -1;
+          captured++;
+        }
       }
     }
+    return captured;
   }
 
   function checkWin(seat) {
@@ -373,6 +382,7 @@
     state.phase = "roll";
     state.rolling = false;
     if (!extra) {
+      // Non-bonus end: pass turn. Streak clears on pass (and on non-6 in afterRoll).
       state.sixStreak = 0;
       state.turn = (state.turn + 1) % 4;
     }
@@ -386,7 +396,9 @@
   function doMove(move) {
     var seat = move.seat;
     state.pieces[seat][move.idx] = move.to;
-    if (move.to < TRACK) applyCapture(seat, move.to);
+    var captured = 0;
+    if (move.to < TRACK) captured = applyCapture(seat, move.to);
+    var homed = move.to >= FINISH;
     render();
     if (checkWin(seat)) {
       state.winner = seat;
@@ -395,7 +407,8 @@
       updateTurnBanner();
       return;
     }
-    var extra = state.die === 6 && state.sixStreak < 3;
+    // Rule Book: one bonus roll after 6, capture, or home (not stacked)
+    var extra = state.die === 6 || captured > 0 || homed;
     endTurn(extra);
   }
 

@@ -54,7 +54,9 @@ Free Play has wrong-way piece tags (path/color vs clockwise track). Multiplayer 
 
 ## UX lock (rooms)
 
-Ludo hub → **Create / Join / Random / Free Play** → stake sheet only on paid paths → glass load → full-bleed board → Back to shelf.
+See [LUDO_UX_REFS.md](./LUDO_UX_REFS.md) for Lex board/mode/rooms refs.
+
+Ludo hub → mode sheet → **Create / Join / Random / Free Play** → stake sheet only on paid paths → glass load → full-bleed board (corner avatars + seat dice) → Back to shelf.
 
 ## Out of scope (this ADR)
 

@@ -12,6 +12,7 @@ Deep product and platform docs. **Build priority:** three playable boards first;
 | [OPS_PHASE2.md](./OPS_PHASE2.md) | Developer portal + admin console (later) |
 | [LUDO_MULTIPLAYER_ADR.md](./LUDO_MULTIPLAYER_ADR.md) | Rooms, Colyseus, stake validate, H3 v1.1, build sequence |
 | [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) | Canonical Ludo Rule Book v1.0 + RuleProfile + acceptance |
+| [LUDO_UX_REFS.md](./LUDO_UX_REFS.md) | Board chrome, mode sheet, rooms lobby (Lex refs) |
 | [../RESEARCH.md](../RESEARCH.md) | Competitors, ADRs, OSS starters, visual locks |
 
 Path on Mac: `/Users/lex-work/aura`  

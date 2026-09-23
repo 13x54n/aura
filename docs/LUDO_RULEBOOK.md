@@ -76,6 +76,9 @@ Show legal tokens **only after** the die result is **committed** by the authorit
 - **Human seat is always bottom-left:** rotate/camera the board so the local player’s yard + home lane sit bottom-left — do **not** mirror or reverse rule routes.
 - Rules stay absolute (clockwise on shared track, color start cells). Only the view transforms.
 - **Corner seats:** avatar at each yard corner; on a seat’s turn, **Roll sits beside that avatar** (not fixed bottom chrome for all).
+- Avatar + dice dock live in the **margin outside the board** — never over the yard/tokens.
+- **No Roll button** — player taps the **die**; show turn timer on the die only when ≤10s remain.
+- After view-rotate, turn order advances **clockwise on screen** (BL→TL→TR→BR).
 - Status text must match the on-screen yard position — or hide until rotate is correct.
 
 ## 02 — Turn engine

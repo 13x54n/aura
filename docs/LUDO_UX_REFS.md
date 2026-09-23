@@ -20,6 +20,7 @@
 - **No Free / gold / stake chip** on Free Play dock — die (+ timer≤10s) only
 - Die sits **left or right of the avatar only** (never above/below) — Lex map: **TL right · TR left · BL right · BR left** (horizontal pair in gutter, off yard)
 - Chat / quick reactions = later overlay (don’t block #1)
+- **Juice:** dice spin/rattle SFX+anim on roll; token path anim + soft land SFX on move (stronger hit on capture later) — short, readable; **animate only from accepted events**
 
 ## Layer 2 — Mode sheet (before START)
 

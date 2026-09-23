@@ -21,14 +21,14 @@ const html = `<!DOCTYPE html>
 <body>
   <div class="wrap">
     <h1>Ludo</h1>
-    <div class="meta" id="status">Free Play · you are Red · roll to start</div>
+    <div class="meta" id="status">Free Play · your house is bottom-left · roll to start</div>
     <canvas id="board-canvas" width="375" height="375"></canvas>
     <div class="row">
       <canvas id="dice-canvas" width="56" height="56"></canvas>
       <button type="button" id="rollBtn">Roll</button>
       <button type="button" id="closeBtn" class="ghost">Close</button>
     </div>
-    <div class="hint">Tap a highlighted piece to move. Six to leave yard. Exact finish.</div>
+    <div class="hint">Your house is bottom-left. Six: yard → start cell (not +6). Exact home.</div>
   </div>
   <script>${js}</script>
 </body>

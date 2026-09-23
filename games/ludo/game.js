@@ -45,7 +45,7 @@
     for (r = 9; r <= 14; r++) add(6, r);
     add(7, 14);
     add(8, 14);
-    // Reverse ring keeping index 0 on Red's entry cell (8,13).
+    // Reverse ring (clockwise). Red painted start is PATH[43]=(13,8), not index 0.
     var out = [pts[0]];
     for (var i = pts.length - 1; i >= 1; i--) out.push(pts[i]);
     return out;
@@ -65,11 +65,11 @@
     cellCenters([[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]), // red BR
   ];
 
-  var START = [15, 28, 3, 0]; // blue yellow green red — remapped after clockwise reverse
+  var START = [17, 30, 4, 43]; // blue yellow green red — painted start cells (13 apart)
 
   var SAFE = {};
-  // Stars + each color's start cell (Rule Book: safe cells cannot be captured)
-  [0, 8, 13, 21, 26, 34, 39, 47].forEach(function (i) {
+  // Painted stars + each color's start cell (Rule Book: safe cells cannot be captured)
+  [12, 25, 38, 51].forEach(function (i) {
     SAFE[i] = 1;
   });
   START.forEach(function (s) {
@@ -84,9 +84,11 @@
   ];
 
   /** Screen rotation so HUMAN house is bottom-left (Rule Book / Lex).
-   *  1 = 90° CCW: board BR (Red) → screen BL. Rules/PATH stay absolute.
+   *  Seat→CCW quarters from painted layout: Blue0 Yellow1 Green2 Red3→BL.
+   *  Red human = 3 quarters. Rules/PATH stay absolute — view only.
    */
-  var VIEW_ROT = 1; // quarter-turns CCW
+  // Lex shot: 90° left Red at TR. Need 270° CCW (3) so Red BR → screen BL.
+  var VIEW_ROT = 3; // quarter-turns CCW
   var CX = 375 / 2;
   var CY = 375 / 2;
 

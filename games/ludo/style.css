@@ -50,10 +50,10 @@ html, body {
   pointer-events: none;
 }
 .seat .seat-die-btn { pointer-events: auto; }
-/* Die on the OUTER side of each corner (left/right only — never above/below).
-   DOM order: identity then dock. Reverse on left corners so die is outward. */
-.seat-tl, .seat-bl { flex-direction: row-reverse; } /* die | avatar (die on left) */
-.seat-tr, .seat-br { flex-direction: row; }         /* avatar | die (die on right) */
+/* Lex die map (horizontal only): TL/BL die RIGHT, TR/BR die LEFT.
+   DOM order: identity then dock. */
+.seat-tl, .seat-bl { flex-direction: row; }          /* avatar | die (die on right) */
+.seat-tr, .seat-br { flex-direction: row-reverse; }  /* die | avatar (die on left) */
 /* Pin to stage corners = outside the canvas (in the gutter). */
 .seat-tl { top: 2px; left: 2px; }
 .seat-tr { top: 2px; right: 2px; }

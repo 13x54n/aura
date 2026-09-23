@@ -17,7 +17,7 @@
 - **No Roll button** — tap the **die** to roll
 - **Timer hidden** until ≤10s left, then show countdown **on the die** (not a separate chip)
 - **No Free / gold / stake chip** on Free Play dock — die (+ timer≤10s) only
-- Die sits **left or right of the avatar only** (never above/below) — side chosen so it stays in the gutter off the board
+- Die sits **left or right of the avatar only** (never above/below) — Lex map: **TL right · TR left · BL right · BR left** (horizontal pair in gutter, off yard)
 - Chat / quick reactions = later overlay (don’t block #1)
 
 ## Layer 2 — Mode sheet (before START)

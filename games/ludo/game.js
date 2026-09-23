@@ -738,18 +738,19 @@
     var box = seatById[seat];
     if (box && box.dieBtn) box.dieBtn.classList.add("die-rolling");
     ensureAudio();
+    // ~320ms rattle (8×40ms) then snap — UX band 280–400ms
     var ticks = 0;
     var iv = setInterval(function () {
       drawDiceFace(1 + Math.floor(Math.random() * 6), seat);
       sfxRollTick();
       ticks++;
-      if (ticks > 12) {
+      if (ticks >= 8) {
         clearInterval(iv);
         if (box && box.dieBtn) box.dieBtn.classList.remove("die-rolling");
         sfxRollSettle();
         afterRoll(1 + Math.floor(Math.random() * 6));
       }
-    }, 45);
+    }, 40);
   }
 
   function botTurn() {

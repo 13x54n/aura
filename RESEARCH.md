@@ -50,6 +50,13 @@
 ## Loop
 Create/join/random room → Solana skill-escrow stake → realtime Ludo → winner payout
 
+## Seeker / Solana Mobile host (locked)
+- Aura host follows Solana Mobile docs: scaffold via `create-solana-dapp` / Expo **custom development build** (not Expo Go for real wallet)
+- MWA + Seed Vault; Android via `expo run:android`
+- Expo Go = UI / Free Play smoke only (Phantom deeplink); Seed Vault needs Seeker custom/EAS client
+- Mini-games stay WebView; **wallet + escrow only on Aura host** via MWA
+- Refs: https://docs.solanamobile.com/react-native/expo , sample apps (cause-pots, Settle, Idle Farming)
+
 ## Wallets
 - **Seeker / Seed Vault auto when available** (default; grant + CLOCK IN Seeker path by Sep 30)
 - **Phantom real connect** as Expo Go / Mac option (deep-link / mobile connect — not mock-only)
@@ -86,6 +93,15 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 
 - Aura RN host: catalog + Host SDK + escrow/wallet only — mounts the packed HTML in WebView
 - North star: **playable Ludo**, not hackathon date theater
+
+## Ludo Rule Book v1.0 (canonical)
+- [`docs/LUDO_RULEBOOK.md`](./docs/LUDO_RULEBOOK.md) — shared DoD for client/server/QA
+- Key: 6→start (not +6), clockwise, exact home, safe cells, one bonus, three 6s forfeit turn
+
+## ADR — Ludo multiplayer (accepted 2026-09-23)
+- Full doc: [`docs/LUDO_MULTIPLAYER_ADR.md`](./docs/LUDO_MULTIPLAYER_ADR.md)
+- Order: (1) Free Play direction → (2) rooms sans H3 → (3) stake validate → (4) H3 res-8 nearby
+- Colyseus/WS + commands/events; host wallet/escrow; Free Play wallet-free
 
 ## ADR — Ludo mini-game (Sep 2026)
 - **Split:** WebView = portable Ludo (board, input, animation, client prediction); **authoritative match server** = dice, legal moves, timers, event log, results; RN host = identity, catalog, wallet, escrow, policy

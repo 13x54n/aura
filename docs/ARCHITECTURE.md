@@ -56,7 +56,7 @@ Headline capabilities today: `host.handshake` / `host.ready`, `wallet.getAddress
 
 Clients send **commands**; only server-approved **events** mutate canonical state. Deterministic reducer + versioned **`RuleProfile`** per match (immutable once referenced — publish `classic-v2`, never mutate `classic-v1`). Free Play may run local/bots without ranked claims.
 
-Sample Ludo `classic-v1`: 2–4 players, 4 pieces, enter on 6, extra turn on 6, max 3 consecutive sixes, exact finish, blockades off, ~20s turn timer, 60s disconnect grace.
+Sample Ludo `classic-v1`: see [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) — enter on 6→start (not +6), exact home, safe cells, bonus on 6/capture/home (one only), max 3 consecutive sixes (third ignored), blockades off, friendly stacking.
 
 ## Package / release (near-term stub)
 

@@ -2,6 +2,9 @@
 
 ## Wallet
 
+**Seeker path (product):** Expo **custom development build** + Mobile Wallet Adapter → Seed Vault (`expo run:android`). Expo Go is UI/smoke only (Phantom). Scaffold reference: Solana Mobile `create-solana-dapp` / RN Expo docs.
+
+
 | Context | Behavior |
 |---------|----------|
 | Seeker custom client | **Seed Vault / MWA** preferred — auto when present |

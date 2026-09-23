@@ -3,7 +3,7 @@
 **Name:** Aura  
 **Home:** `/Users/lex-work/aura` (Expo app: `mobile/`; mini-apps: `games/`)  
 **Repo:** https://github.com/13x54n/aura (private)  
-**Platform:** Solana Mobile Seeker first; Expo Go for day-to-day UI (Phantom connect)
+**Platform:** Solana Mobile Seeker first — Expo **custom dev client** + MWA/Seed Vault for real wallet; Expo Go for UI/Free Play smoke (Phantom) only
 
 ## Vision
 

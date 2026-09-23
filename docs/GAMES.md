@@ -54,3 +54,7 @@ node scripts/pack-snakes.mjs
 ```
 
 Outputs land under `mobile/src/runtime/` for Metro. Icons/covers also mirrored under `mobile/assets/games/<id>/`.
+
+## Multiplayer roadmap
+
+See [LUDO_MULTIPLAYER_ADR.md](./LUDO_MULTIPLAYER_ADR.md). Free Play direction (#1) gates rooms.

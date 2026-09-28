@@ -34,7 +34,7 @@ export function RandomMatchScreen() {
 
   if (finding) {
     return (
-      <LudoScreen title="Quick match" footer={<GhostButton label="Cancel" onPress={cancel} />}>
+      <LudoScreen title="Quick match" toHub footer={<GhostButton label="Cancel" onPress={cancel} />}>
         <PulseRing label="Finding a table…" />
         <Muted style={{ textAlign: "center" }}>{stake} USDC stake · 4 players</Muted>
       </LudoScreen>
@@ -42,7 +42,7 @@ export function RandomMatchScreen() {
   }
 
   return (
-    <LudoScreen title="Quick match" footer={<PrimaryButton icon="lightning-bolt" label="Find table" onPress={find} />}>
+    <LudoScreen title="Quick match" toHub footer={<PrimaryButton icon="lightning-bolt" label="Find table" onPress={find} />}>
       <Glass style={{ gap: 10 }}>
         <Label>Stake</Label>
         <StakeChips value={stake} onChange={setStake} />

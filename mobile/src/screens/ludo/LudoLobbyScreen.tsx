@@ -47,6 +47,7 @@ export function LudoLobbyScreen() {
   return (
     <LudoScreen
       title="Lobby"
+      toHub
       footer={
         <PrimaryButton
           icon={youReady ? "lock" : "check"}

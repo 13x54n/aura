@@ -14,6 +14,7 @@ export function CreateRoomScreen() {
   return (
     <LudoScreen
       title="Create match"
+      toHub
       footer={
         <PrimaryButton
           icon="lock"

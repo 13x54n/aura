@@ -13,15 +13,22 @@ export function LudoScreen({
   title = "Ludo",
   children,
   footer,
+  toHub,
 }: {
   title?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Close returns to the Ludo hub (not the store) — flow screens deep in the stack. */
+  toHub?: boolean;
 }) {
   const navigation = useNavigation<any>();
   return (
     <View style={s.root}>
-      <GameHeader gameId="ludo" title={title} onClose={() => navigation.goBack()} />
+      <GameHeader
+        gameId="ludo"
+        title={title}
+        onClose={() => (toHub ? navigation.navigate("LudoHub") : navigation.goBack())}
+      />
       <ScrollView contentContainerStyle={s.scroll}>{children}</ScrollView>
       {footer ? <View style={s.footer}>{footer}</View> : null}
     </View>

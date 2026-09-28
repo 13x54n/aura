@@ -17,6 +17,7 @@ export function JoinRoomScreen() {
   return (
     <LudoScreen
       title="Join by code"
+      toHub
       footer={
         <PrimaryButton
           icon="seat"
@@ -57,9 +58,9 @@ export function JoinRoomScreen() {
           <SummaryRow k="Seats" v={`${table.seated}/${table.players} filled`} />
           <SummaryRow k="Stake per player" v={`${table.stake} USDC`} />
           <SummaryRow k="Winner takes" v={`${payoutFor(table.stake, table.players).payout} USDC`} strong />
-          <Muted style={{ fontSize: 11, marginTop: 6 }}>Example table until rooms go live.</Muted>
         </Glass>
       ) : null}
+      {table ? <Muted style={{ fontSize: 11, textAlign: "center" }}>Example table until rooms go live.</Muted> : null}
     </LudoScreen>
   );
 }

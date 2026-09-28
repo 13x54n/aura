@@ -1,30 +1,18 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
-import { useMobileWallet } from "../../utils/useMobileWallet";
 import { aura } from "../../theme/tokens";
-import { Big, GhostButton, Glass, Label, LudoScreen, Muted } from "./ludoUi";
-import { useHostUsdc } from "./useHostUsdc";
+import { Glass, Label, LudoScreen, Muted } from "./ludoUi";
+import { BalanceCard } from "./BalanceCard";
 import { MOCK_LEDGER } from "./ludoMock";
 
 /** Wallet / history (wireframe 8): host USDC balance + match ledger. Host-only. */
 export function LudoWalletScreen() {
-  const { connect } = useMobileWallet();
-  const { balance, loading, connected, address } = useHostUsdc();
   const net = MOCK_LEDGER.reduce((a, m) => a + m.delta, 0);
 
   return (
-    <LudoScreen title="Wallet">
-      <Glass>
-        <Label>USDC balance</Label>
-        <Big style={{ marginVertical: 6 }}>
-          {!connected ? "—" : loading || balance == null ? "…" : balance.toFixed(2)}
-        </Big>
-        <Muted>{address ? `${address.slice(0, 4)}…${address.slice(-4)}` : "Not connected"}</Muted>
-        <View style={{ marginTop: 12 }}>
-          <GhostButton label={connected ? "Add funds" : "Connect wallet"} onPress={() => connect().catch(() => {})} />
-        </View>
-      </Glass>
+    <LudoScreen title="Wallet" toHub>
+      <BalanceCard />
 
       <View style={styles.head}>
         <Label>Match history</Label>

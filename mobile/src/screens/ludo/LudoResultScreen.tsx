@@ -28,6 +28,7 @@ export function LudoResultScreen() {
   return (
     <LudoScreen
       title="Result"
+      toHub
       footer={
         <>
           <PrimaryButton icon="replay" label="Play again" onPress={() => navigation.replace("LudoRandomMatch")} />

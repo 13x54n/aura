@@ -13,7 +13,7 @@ Aura Ludo adheres to a strict separation of trust:
 
 ```mermaid
 flowchart TD
-    subgraph Players["Player Devices (iOS / Android / Web)"]
+    subgraph Players["Player Devices (Android)"]
         P1["Player 1 (Host / Red Seat 3)"]
         P2["Player 2 (Joiner / Blue Seat 0)"]
     end
@@ -342,5 +342,5 @@ node scripts/pack-ludo.mjs
 
 When running on an Android Emulator:
 - The emulator accesses the host machine's `localhost` via IP **`10.0.2.2`**.
-- `MatchClient.ts` automatically switches the server URL to `ws://10.0.2.2:3001` on Android and `ws://localhost:3001` on iOS and Web.
+- `MatchClient.ts` automatically switches the server URL to `ws://10.0.2.2:3001` on the Android Emulator (and uses the Mac's network address on a real phone).
 

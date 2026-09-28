@@ -1,5 +1,7 @@
 # Aura: local development
 
+> **Platform: Android only** (Seeker first), locked 2026-09-28. There are no iOS builds, iOS testing or iOS fixes.
+
 This doc gets you from a fresh checkout to playing a **Ludo room on your phone**.
 
 > **Do I need a server?** Only for rooms. **Free Play** runs entirely in the app.
@@ -39,7 +41,7 @@ Press `Ctrl+C` once to stop both the server and Expo.
 - **Git** and this repo checked out at `~/aura`. Always run from **this** checkout (see Troubleshooting).
 - **Expo Go** on your phone, for UI testing and Free Play.
 - For the **real wallet** path: an Android / Seeker device with a custom dev client (`npm run android`, which runs `expo run:android`) and Mobile Wallet Adapter (MWA) / Seed Vault. Expo Go can't do MWA.
-- **Optional:** the Xcode iOS Simulator or an Android Emulator.
+- **Optional:** an Android Emulator (Android Studio).
 
 ## 3. Install
 
@@ -82,7 +84,7 @@ npx expo start -c             # -c clears the Metro cache
 
 1. `EXPO_PUBLIC_MATCH_SERVER_URL`, if it's set. For example `ws://192.168.1.20:3001`, or `wss://…` once hosted.
 2. Otherwise, the network address Expo is serving from. This usually just works in Expo Go on the same Wi-Fi.
-3. Otherwise, `localhost` on the iOS Simulator or `10.0.2.2` on the Android Emulator.
+3. Otherwise, `10.0.2.2` on the Android Emulator (`localhost` is only a code fallback).
 
 To pin it explicitly:
 
@@ -93,12 +95,11 @@ EXPO_PUBLIC_MATCH_SERVER_URL=ws://192.168.1.20:3001 npx expo start -c
 
 `EXPO_PUBLIC_*` values are baked in when Metro bundles the app, so restart with `-c` after you change one.
 
-## 5. Phone vs simulator
+## 5. Phone vs emulator
 
 | Target | How | Server address |
 |---|---|---|
 | Phone (Expo Go) | Scan the QR code, same Wi-Fi | Auto (the Mac's network address), or the env var |
-| iOS Simulator | Press `i` in the Expo terminal | `localhost:3001` |
 | Android Emulator | Press `a` | `10.0.2.2:3001` |
 | Seeker / real wallet | `npm run android` (dev client) | The env var is recommended |
 
@@ -106,7 +107,7 @@ EXPO_PUBLIC_MATCH_SERVER_URL=ws://192.168.1.20:3001 npx expo start -c
 
 You need one client per seat.
 
-- **Phone + simulator(s):** on the phone, open Ludo hub → **Create private** → pick 2, 3 or 4 players → **Create table**, and note the code. On the simulator: **Join with code** → enter the code. Repeat until every seat is filled. The match starts only when all seats are taken.
+- **Phone + emulator(s):** on the phone, open Ludo hub → **Create private** → pick 2, 3 or 4 players → **Create table**, and note the code. On the emulator: **Join with code** → enter the code. Repeat until every seat is filled. The match starts only when all seats are taken.
 - **Quick match** pairs real players only, by **stake and table size**. Everyone is on 0 USDC until escrow ships. "Finding a table…" stays up until a match is found. After 60 seconds it offers Keep waiting or Back to hub, and it never adds bots.
 - **Headless checks** (no UI). These only check seat constants and rules, not a live server, so still test with real clients:
   ```bash

@@ -9,6 +9,8 @@
 
 Aura is a **first-party game publisher shell** on Seeker: a glass “App Store for our games” that discovers, launches, and governs **independently packaged mini-games**. Games are not embedded forever in the binary — they ship as sealed packages Aura mounts in a WebView.
 
+**Platform:** Android only (Seeker first), locked 2026-09-28.
+
 We are **not** rebuilding the Solana dApp Store. We ship *our* catalog into Seeker and, later, let studios submit through a governed portal.
 
 ## North star (current)

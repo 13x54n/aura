@@ -35,7 +35,7 @@ Hard boundary: WebView never receives primary access/refresh tokens, keychain ac
 
 - Render board, legal highlights, sound, local prefs  
 - Call Host SDK methods only (see [HOST_SDK.md](./HOST_SDK.md))  
-- Remain portable HTML5/Canvas (one build for iOS/Android WebView)
+- Remain portable HTML5/Canvas (Android WebView; Aura is Android-only as of 2026-09-28)
 
 ## Play handoff UX
 
@@ -75,4 +75,4 @@ CDN / signed-manifest / kill-switch UI, Module Federation remotes, third-party n
 
 ## Policy note (store)
 
-Apple Guideline **4.7** (mini apps / mini games) favors WebView + an **explicit capability bridge** over unrestricted native bridges. Confirm the exact design before any App Store path. Re.Pack Module Federation is composition, not isolation — Lane B is trusted first-party only.
+*(Parked: Aura is Android-only as of 2026-09-28.)* Apple Guideline **4.7** (mini apps / mini games) favors WebView + an **explicit capability bridge** over unrestricted native bridges. Confirm the exact design before any App Store path. Re.Pack Module Federation is composition, not isolation — Lane B is trusted first-party only.

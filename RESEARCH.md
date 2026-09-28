@@ -82,7 +82,8 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - **Lane B later:** Re.Pack Module Federation only for trusted first-party native modules (not the sandbox)
 - **Trust boundary:** games get short-lived game-scoped session + approved capabilities — never primary tokens, keychain, arbitrary FS, or generic native handles
 - **Ship cut:** shell + catalog + Play → WebView game (Ludo deep; Chess/Snakes lighter). Signed manifest / CDN / kill-switch later. *(Hackathon dates deprioritized — playable Ludo first.)*
-- **Policy note:** Apple 4.7 / mini-app posture favors WebView + explicit bridge over unrestricted RN bridges — confirm before App Store path
+- **Platform lock (2026-09-28, Lex):** Android only (Seeker first). iOS work and tests are dropped.
+- **Policy note (parked, iOS):** Apple 4.7 / mini-app posture favors WebView + explicit bridge over unrestricted RN bridges — confirm before App Store path
 - **Play UX:** shell chrome until WebView mounts → short load → full-bleed game; Back restores shelf position (not cold Home)
 
 ## Package layout (build focus)

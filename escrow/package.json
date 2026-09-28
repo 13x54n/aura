@@ -1,0 +1,9 @@
+{
+  "name": "aura-escrow-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node tests/escrow.test.mjs" },
+  "devDependencies": {
+    "litesvm": "^0.3.3"
+  }
+}

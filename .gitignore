@@ -12,3 +12,8 @@ node_modules/
 
 # match server local history
 server/data/
+
+# Solana keys never go in git
+*-keypair.json
+**/target/deploy/
+.config/

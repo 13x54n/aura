@@ -1,0 +1,13 @@
+# build output + program keypairs (never commit keys)
+target/*
+!target/idl/
+!target/types/
+target/deploy/
+*.json.key
+*-keypair.json
+keys/
+test-ledger/
+.anchor/
+node_modules/
+target/deploy/*.json
+.config/

@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.32.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+aura_escrow = "Df1YjMHGeeXVvayPHX7Vb5svqUkV3dbdfKU9D4UZ4m2"
+
+[programs.devnet]
+aura_escrow = "Df1YjMHGeeXVvayPHX7Vb5svqUkV3dbdfKU9D4UZ4m2"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/aura/escrow-authority.json"
+
+[scripts]
+test = "node tests/escrow.test.mjs"

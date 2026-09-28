@@ -94,6 +94,16 @@ ipconfig getifaddr en0        # → e.g. 192.168.1.20
 EXPO_PUBLIC_MATCH_SERVER_URL=ws://192.168.1.20:3001 npx expo start -c
 ```
 
+### Solana RPC (429s)
+
+The app uses the public devnet RPC by default, and it rate-limits with `429` errors. To avoid that, put a free dedicated devnet key (Helius or QuickNode) in `mobile/.env`:
+
+```
+EXPO_PUBLIC_SOLANA_RPC_URL=https://devnet.helius-rpc.com/?api-key=<your key>
+```
+
+The app shares one `Connection` and caches balances per wallet for 20s. They refresh when a screen opens and on pull-to-refresh. On a `429` the app backs off quietly and shows the last balance with an "Updated Xm ago" line. The escrow deploy uses its own RPC, separate from the app's.
+
 `EXPO_PUBLIC_*` values are baked in when Metro bundles the app, so restart with `-c` after you change one.
 
 ## 5. Phone vs emulator

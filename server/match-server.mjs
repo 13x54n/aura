@@ -47,6 +47,18 @@ function saveHistory() {
   }
 }
 
+// Forfeits outlive their room for a while, so a late returner hears "forfeited".
+const recentForfeits = new Map(); // "CODE:playerId" -> expiresAt
+function noteForfeit(code, playerId) {
+  const now = Date.now();
+  for (const [k, t] of recentForfeits) if (t < now) recentForfeits.delete(k);
+  recentForfeits.set(`${code}:${playerId}`, now + 30 * 60 * 1000);
+}
+function wasForfeited(code, playerId) {
+  const t = recentForfeits.get(`${code}:${playerId}`);
+  return !!t && t > Date.now();
+}
+
 // Seat held this long for the same playerId after a drop (BM: 30s grace, all modes).
 const GRACE_MS = Number(process.env.GRACE_MS || 30000);
 // Delay before the clock auto-moves after an auto-roll (so boards see the die land).
@@ -62,6 +74,8 @@ class LudoRoom {
     this.createdAt = Date.now();
     // Everyone who sat down when the match started (for standings + history).
     this.roster = new Map();
+    // playerIds whose seat forfeited — a returner gets "forfeited", not "room_full".
+    this.forfeitedIds = new Set();
     this.seatOrder = mode === "2p" ? SEATS_2P : mode === "3p" ? SEATS_3P : SEATS_4P;
     this.maxPlayers = this.seatOrder.length;
     this.onDestroy = onDestroy;
@@ -200,6 +214,10 @@ class LudoRoom {
     if (!p || this.status !== "playing") return;
     if (p.graceTimer) clearTimeout(p.graceTimer);
     this.players.delete(seat);
+    if (p.playerId) {
+      this.forfeitedIds.add(p.playerId);
+      noteForfeit(this.roomCode, p.playerId);
+    }
     if (this.forfeitOrder) this.forfeitOrder.push(seat);
     this.broadcast({ type: "player.left", seat, forfeited: true, reason });
     const remaining = Array.from(this.players.keys());
@@ -375,6 +393,8 @@ class LudoRoom {
       players: playersObj,
       turnMs: TURN_MS,
       turnEndsAt: this.turnEndsAt,
+      // Clock-skew-free: clients set deadline = their now + turnMsLeft.
+      turnMsLeft: this.turnEndsAt ? Math.max(0, this.turnEndsAt - Date.now()) : null,
       legalMoves: this.die !== null ? this.getLegalMoves(this.currentSeat, this.die) : [],
     };
   }
@@ -528,12 +548,14 @@ class LudoRoom {
       }
       this.currentSeat = this.seatOrder[this.turnIndex];
     }
+    this.armTurnTimer();
     this.broadcast({
       type: "turn.changed",
       currentSeat: this.currentSeat,
       extraTurn: !!extraTurn,
+      turnEndsAt: this.turnEndsAt,
+      turnMsLeft: this.turnEndsAt ? TURN_MS : null,
     });
-    this.armTurnTimer();
   }
 }
 
@@ -608,10 +630,16 @@ function onMessage(ws, msg) {
     case "room.join": {
       const roomCode = String(msg.roomCode || "").toUpperCase().trim();
       const room = rooms.get(roomCode);
+      if (!room && msg.playerId && wasForfeited(roomCode, msg.playerId)) {
+        return sendErr(ws, "forfeited", "Your seat at this table was forfeited.");
+      }
       if (!room) return sendErr(ws, "room_not_found", `Room ${roomCode} does not exist.`);
       if (ws.room && ws.room !== room) return sendErr(ws, "already_seated", "Leave your current table first.");
 
       // Same playerId → give back the held seat (grace) with a full snapshot.
+      if (msg.playerId && room.forfeitedIds.has(msg.playerId)) {
+        return sendErr(ws, "forfeited", "Your seat at this table was forfeited.");
+      }
       const back = room.rejoin(ws, msg.playerId);
       if (back !== null) {
         ws.send(JSON.stringify({ type: "room.joined", roomCode, seat: back, mode: room.mode, rejoined: true, state: room.getSnapshot() }));
@@ -685,6 +713,11 @@ function onMessage(ws, msg) {
       break;
     }
 
+    case "ping": {
+      ws.send(JSON.stringify({ type: "pong", t: msg.t ?? null }));
+      break;
+    }
+
     case "room.leave": {
       // Keyed to this socket's actual room, never a code lookup.
       if (ws.room) ws.room.handleLeave(ws.seat, ws);
@@ -693,7 +726,24 @@ function onMessage(ws, msg) {
   }
 }
 
+// Heartbeat: a socket that misses a protocol pong within 10s is terminated,
+// which starts the 30s seat grace promptly after a silent Wi-Fi drop.
+const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS || 10000);
+const heartbeat = setInterval(() => {
+  for (const c of wss.clients) {
+    if (c.isAlive === false) {
+      c.terminate();
+      continue;
+    }
+    c.isAlive = false;
+    try { c.ping(); } catch {}
+  }
+}, HEARTBEAT_MS);
+wss.on("close", () => clearInterval(heartbeat));
+
 wss.on("connection", (ws) => {
+  ws.isAlive = true;
+  ws.on("pong", () => { ws.isAlive = true; });
   ws.on("message", (raw) => {
     let msg;
     try {

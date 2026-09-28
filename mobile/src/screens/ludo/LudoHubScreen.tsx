@@ -1,12 +1,32 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { ActionTile, Glass, Label, LudoScreen, Muted, PrimaryButton } from "./ludoUi";
-import { BalanceCard } from "./BalanceCard";
+import { HostWalletCard } from "../../components/wallet/HostWalletCard";
+import { matchClient } from "../../match/MatchClient";
 import { whenLabel } from "./ludoShared";
 import { useMatchHistory } from "../../match/useMatchHistory";
+
+/** The saved room code, only while the server says that table is still playing. */
+function useLiveSavedRoom() {
+  const [code, setCode] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      await matchClient.ready();
+      const saved = matchClient.savedRoomCode;
+      if (!saved) return;
+      const info = await matchClient.peekRoom(saved).catch(() => null);
+      if (alive && info && !("error" in info) && info.status === "playing") setCode(saved);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return code;
+}
 
 /**
  * Ludo home (wireframe 1). One glass screen — no second tab bar inside Ludo:
@@ -16,10 +36,22 @@ export function LudoHubScreen() {
   const navigation = useNavigation<any>();
   const history = useMatchHistory();
   const recent = history.rows.filter((r) => r.game === "Ludo").slice(0, 8);
+  const rejoin = useLiveSavedRoom();
 
   return (
     <LudoScreen>
-      <BalanceCard />
+      <HostWalletCard />
+
+      {rejoin ? (
+        <ActionTile
+          icon="backup-restore"
+          title={`Rejoin table ${rejoin}`}
+          sub="Your match is still running"
+          onPress={() =>
+            navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo", roomCode: rejoin, mode: "join" })
+          }
+        />
+      ) : null}
 
       <ActionTile
         icon="play-circle"

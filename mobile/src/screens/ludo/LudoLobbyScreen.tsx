@@ -16,7 +16,7 @@ export type LudoLobbyParams = {
   stake: number;
 };
 
-type Phase = "connecting" | "seated" | "unreachable" | "not_found" | "full" | "exists" | "lost";
+type Phase = "connecting" | "seated" | "unreachable" | "not_found" | "full" | "exists" | "lost" | "forfeited";
 
 /**
  * Real pre-game lobby. Seats come only from the server's room.state; the
@@ -58,6 +58,7 @@ export function LudoLobbyScreen() {
         if (msg.error === "room_not_found") setPhase("not_found");
         else if (msg.error === "room_full") setPhase("full");
         else if (msg.error === "room_exists") setPhase("exists");
+        else if (msg.error === "forfeited") setPhase("forfeited");
       }
     });
     const unsubDrop = matchClient.on("disconnected", () => live && setPhase("lost"));
@@ -101,7 +102,7 @@ export function LudoLobbyScreen() {
 
   if (phase !== "seated" && phase !== "connecting") {
     const title =
-      phase === "not_found" ? "Table not found" : phase === "full" ? "Table is full" : phase === "exists" ? "Table code in use" : phase === "lost" ? "Connection lost" : "Can't reach match server";
+      phase === "not_found" ? "Table not found" : phase === "full" ? "Table is full" : phase === "exists" ? "Table code in use" : phase === "forfeited" ? "You forfeited this match" : phase === "lost" ? "Connection lost" : "Can't reach match server";
     const body =
       phase === "not_found"
         ? `No open table uses ${roomCode}. The host may have left.`
@@ -109,6 +110,8 @@ export function LudoLobbyScreen() {
           ? "Every seat is taken, or the match already started."
           : phase === "exists"
             ? "Another table already uses this code. Go back and create a new one."
+            : phase === "forfeited"
+              ? "Your seat at this table is gone. Start a new match from the hub."
             : phase === "lost"
               ? "Your seat is held for 30 seconds. Retry to jump back in."
               : "Check you're on the same network as the match server, then retry.";

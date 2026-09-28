@@ -9,15 +9,21 @@ import { EmptyShelf } from "../components/store/EmptyShelf";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 import { AURA_GAMES, launchGame } from "../data/catalog";
+import { useRecentPlays } from "../data/recentPlays";
 import { aura } from "../theme/tokens";
 
 /**
  * Home — carousel of all real titles (Ludo · Chess · Snakes).
- * Continue stays empty until real play history.
+ * Continue appears only once real play history exists (no placeholders).
  */
 export function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const recent = useRecentPlays();
+  const continueGames = useMemo(
+    () => recent.map((r) => AURA_GAMES.find((g) => g.id === r.gameId)).filter((g): g is (typeof AURA_GAMES)[number] => !!g),
+    [recent]
+  );
   const play = useCallback(
     (gameId: string, title: string) =>
       launchGame(navigation, gameId, title),
@@ -47,6 +53,22 @@ export function HomeScreen() {
         <View/>
 
         <FeaturedHero slides={slides} autoMs={4500} />
+
+        {continueGames.length > 0 ? (
+          <StoreShelf label="Continue">
+            {continueGames.map((g) => (
+              <GameCover
+                key={g.id}
+                title={g.title}
+                subtitle={g.subtitle}
+                accent={g.accent}
+                cover={g.icon}
+                onPress={() => navigation.navigate(g.route)}
+                width={132}
+              />
+            ))}
+          </StoreShelf>
+        ) : null}
 
         <StoreShelf label="Our games">
           {AURA_GAMES.map((g) => (

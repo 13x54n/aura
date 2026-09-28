@@ -291,6 +291,17 @@
   /** Soft turn clock for dock chrome (ref layer 1). Free Play: visual only, no forfeit. */
   var TURN_SECS = 20;
   var turnTimer = { left: TURN_SECS, handle: null };
+  // Room boards: the server owns the clock. Deadline in *our* clock = now + turnMsLeft.
+  var serverDeadline = null;
+  function syncDeadline(msLeft) {
+    serverDeadline = typeof msLeft === "number" ? Date.now() + msLeft : null;
+  }
+  function secsLeft() {
+    if (isMultiplayer && serverDeadline != null) {
+      return Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000));
+    }
+    return Math.max(0, turnTimer.left - 1);
+  }
 
   function stopTurnTimer() {
     if (turnTimer.handle) {
@@ -320,14 +331,17 @@
 
   function startTurnTimer() {
     stopTurnTimer();
-    turnTimer.left = TURN_SECS;
+    turnTimer.left =
+      isMultiplayer && serverDeadline != null
+        ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
+        : TURN_SECS;
     paintTimers();
     turnTimer.handle = setInterval(function () {
       if (state.winner != null) {
         stopTurnTimer();
         return;
       }
-      turnTimer.left = Math.max(0, turnTimer.left - 1);
+      turnTimer.left = secsLeft();
       paintTimers();
       // Free Play: hold at 0 — rooms will enforce later
     }, 1000);
@@ -1022,6 +1036,7 @@
     state.phase = "roll";
     state.rolling = false;
     state.turn = payload.currentSeat;
+    syncDeadline(payload.turnMsLeft);
     startTurnTimer();
     updateTurnBanner();
     render();
@@ -1162,6 +1177,9 @@
     } else {
       setStatus("Multiplayer match · " + (state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn"));
     }
+    // Server clock: restart the corner timer from the snapshot's time left.
+    syncDeadline(data.state ? data.state.turnMsLeft : null);
+    if (data.state && data.state.status === "playing") startTurnTimer();
     render();
     updateTurnBanner();
   }

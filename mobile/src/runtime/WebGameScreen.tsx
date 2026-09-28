@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   View,
@@ -20,6 +21,7 @@ import { matchClient } from "../match/MatchClient";
 import type { MatchCommand } from "../match/types";
 import { GameHeader } from "../components/top-bar/GameHeader";
 import { aura } from "../theme/tokens";
+import { recordPlay } from "../data/recentPlays";
 
 export type WebGameParams = {
   gameId: string;
@@ -107,7 +109,7 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
   // Room boards: connecting → online | unreachable. Free Play never uses this.
-  const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full" | "exists">("connecting");
+  const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full" | "exists" | "forfeited">("connecting");
   const [retry, setRetry] = useState(0);
   // The lobby / quick queue may have seated us (and even started) before this mounts.
   const seatedAlready = !!roomCode && matchClient.currentRoomCode === roomCode;
@@ -142,6 +144,11 @@ export function WebGameScreen({ route, navigation }: Props) {
     webRef.current?.injectJavaScript(js);
   }, []);
 
+  // Real play history for Home's Continue shelf.
+  useEffect(() => {
+    if (gameId) recordPlay(gameId);
+  }, [gameId]);
+
   // Real-time Match Server Connection for Multiplayer
   useEffect(() => {
     if (!roomCode) return;
@@ -153,8 +160,11 @@ export function WebGameScreen({ route, navigation }: Props) {
       if (msg?.type === "room.created" || msg?.type === "room.joined" || msg?.type === "match.resync") {
         seatedRef.current = true;
       }
-      if (msg?.type === "error" && (msg.error === "room_not_found" || msg.error === "room_full" || msg.error === "room_exists")) {
-        if (mounted) setConn(msg.error === "room_full" ? "full" : msg.error === "room_exists" ? "exists" : "not_found");
+      if (msg?.type === "error" && ["room_not_found", "room_full", "room_exists", "forfeited"].includes(msg.error)) {
+        if (mounted)
+          setConn(
+            msg.error === "room_full" ? "full" : msg.error === "room_exists" ? "exists" : msg.error === "forfeited" ? "forfeited" : "not_found"
+          );
       }
       if (mounted) {
         emitHostEvent(msg.type, msg);
@@ -196,6 +206,19 @@ export function WebGameScreen({ route, navigation }: Props) {
       matchClient.leaveRoom();
     };
   }, [roomCode, mode, players, emitHostEvent, retry]);
+
+  // Leaving a live room board forfeits the seat, so ask first.
+  const confirmClose = useCallback(() => {
+    const live = !!roomCode && startedRef.current && matchClient.currentState?.status === "playing";
+    if (!live) {
+      navigation?.goBack?.();
+      return;
+    }
+    Alert.alert("Leave match?", "You'll forfeit this match.", [
+      { text: "Stay", style: "cancel" },
+      { text: "Leave", style: "destructive", onPress: () => navigation?.goBack?.() },
+    ]);
+  }, [navigation, roomCode]);
 
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
@@ -275,13 +298,13 @@ export function WebGameScreen({ route, navigation }: Props) {
           return { handled: true };
         },
         "nav.close": async () => {
-          navigation?.goBack?.();
+          confirmClose();
           return true;
         },
       });
       if (response) reply(response);
     },
-    [broker, connect, escrowLocked, matchId, mode, navigation, players, reply, roomCode, selectedAccount, stake]
+    [broker, confirmClose, connect, escrowLocked, matchId, mode, navigation, players, reply, roomCode, selectedAccount, stake]
   );
 
   return (
@@ -289,7 +312,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       <GameHeader
         gameId={gameId}
         title={title}
-        onClose={() => navigation?.goBack?.()}
+        onClose={confirmClose}
       />
 
       <View style={styles.gameContainer}>
@@ -314,7 +337,7 @@ export function WebGameScreen({ route, navigation }: Props) {
           onLoadEnd={() => setLoading(false)}
           onError={() => setLoading(false)}
         />
-        {roomCode && (conn === "unreachable" || conn === "lost" || conn === "not_found" || conn === "full" || conn === "exists") ? (
+        {roomCode && (conn === "unreachable" || conn === "lost" || conn === "not_found" || conn === "full" || conn === "exists" || conn === "forfeited") ? (
           <View style={styles.overlay}>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>
@@ -326,7 +349,9 @@ export function WebGameScreen({ route, navigation }: Props) {
                       ? "Table is full"
                       : conn === "exists"
                         ? "Table code in use"
-                        : "Can't reach match server"}
+                        : conn === "forfeited"
+                          ? "You forfeited this match"
+                          : "Can't reach match server"}
               </Text>
               <Text style={styles.cardBody}>
                 {conn === "not_found"
@@ -335,6 +360,8 @@ export function WebGameScreen({ route, navigation }: Props) {
                     ? "Every seat at this table is taken, or the match already started."
                     : conn === "exists"
                       ? `Another table is already using ${roomCode}. Go back and create a new one.`
+                      : conn === "forfeited"
+                        ? "You were away longer than 30 seconds or left the table, so your seat is gone. Start a new match from the hub."
                       : conn === "lost"
                         ? "Your seat is held for 30 seconds. Retry to jump back in."
                         : "Check you're on the same network as the match server, then retry."}

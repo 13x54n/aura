@@ -1,23 +1,20 @@
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  Alert, Animated, Image, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
+  Animated, Image, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
 } from "react-native";
 import { Text } from "react-native-paper";
-import * as Clipboard from "expo-clipboard";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { aura } from "../theme/tokens";
-import { useMobileWallet } from "../utils/useMobileWallet";
 import { useHostBalances } from "../wallet/useHostBalances";
+import { HostWalletCard } from "../components/wallet/HostWalletCard";
 import { AURA_GAMES } from "../data/catalog";
-import { Big, Glass, Label, Muted, PrimaryButton } from "./ludo/ludoUi";
+import { Glass, Label, Muted, PrimaryButton } from "./ludo/ludoUi";
 import { whenLabel } from "./ludo/ludoShared";
 import { HistoryRow } from "../match/MatchClient";
 import { useMatchHistory } from "../match/useMatchHistory";
 
-/** Withdraw from escrow ships with staked rooms; until then it's dimmed and explains. */
-const STAKED_ROOMS_LIVE = false;
 const FILTERS = ["All", "Ludo", "Chess", "Snakes"] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -25,22 +22,16 @@ const ICON_BY_GAME: Record<string, any> = Object.fromEntries(
   AURA_GAMES.map((g) => [g.title.toLowerCase().startsWith("snakes") ? "Snakes" : g.title, g.icon])
 );
 
-const num = (v: number | null, dp: number, loading: boolean) =>
-  loading && v == null ? "…" : v == null ? "—" : v.toFixed(dp);
-
 /** Host Wallet tab (replaces Library). Wallet UI is host-only — games never render this. */
 export function WalletScreen() {
   const insets = useSafeAreaInsets();
-  const { connect } = useMobileWallet();
   const b = useHostBalances();
   const [filter, setFilter] = useState<Filter>("All");
   const history = useMatchHistory();
   const navigation = useNavigation<any>();
   const toast = useRef(new Animated.Value(0)).current;
 
-  const copy = async () => {
-    if (!b.address) return;
-    await Clipboard.setStringAsync(b.address);
+  const showToast = () => {
     toast.stopAnimation();
     toast.setValue(0);
     Animated.sequence([
@@ -79,83 +70,9 @@ export function WalletScreen() {
           ) : undefined
         }
       >
-        {!b.connected ? (
-          // Signed out: one Connect prompt — no zero balances, no history.
-          <Glass style={styles.connectCard}>
-            <View style={styles.connectIcon}>
-              <Icon name="wallet-outline" size={28} color={aura.purpleBright} />
-            </View>
-            <Text style={styles.connectTitle}>Connect your wallet</Text>
-            <Muted style={{ textAlign: "center", marginBottom: 14 }}>
-              See your USDC, fund stakes and track winnings across every game.
-            </Muted>
-            <PrimaryButton label="Connect wallet" icon="link-variant" onPress={() => connect().catch(() => {})} />
-          </Glass>
-        ) : (
+        <HostWalletCard balances={b} onCopied={showToast} />
+        {b.connected ? (
           <>
-            <Glass>
-              <Label>USDC balance · host wallet</Label>
-              <View style={styles.bigRow}>
-                <Big>{num(b.usdc, 2, b.loading)}</Big>
-                <Text style={styles.unit}>USDC</Text>
-              </View>
-              <View style={styles.chips}>
-                <View style={styles.chip}>
-                  <Text style={styles.chipK}>SOL</Text>
-                  <Text style={styles.chipV}>{num(b.sol, 3, b.loading)}</Text>
-                </View>
-                {b.skrConfigured ? (
-                  <View style={styles.chip}>
-                    <Text style={styles.chipK}>SKR</Text>
-                    <Text style={styles.chipV}>{num(b.skr, 2, b.loading)}</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {b.address ? (
-                <Pressable onPress={copy} style={styles.addr} hitSlop={8} accessibilityLabel="Copy wallet address">
-                  <Text style={styles.addrText}>
-                    {b.address.slice(0, 4)}…{b.address.slice(-4)}
-                  </Text>
-                  <Icon name="content-copy" size={15} color={aura.textMuted} />
-                </Pressable>
-              ) : null}
-
-              <View style={styles.actions}>
-                <View style={{ flex: 1 }}>
-                  <PrimaryButton
-                    label="Add funds"
-                    icon="plus"
-                    onPress={async () => {
-                      await Clipboard.setStringAsync(b.address!);
-                      Alert.alert(
-                        "Add USDC",
-                        `Your address is copied. Send devnet USDC to:\n\n${b.address}\n\nPull down to refresh once it lands.`
-                      );
-                    }}
-                  />
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() =>
-                    Alert.alert(
-                      "Withdraw",
-                      STAKED_ROOMS_LIVE
-                        ? "Withdraw your escrowed winnings."
-                        : "Your USDC already sits in your own wallet. Withdrawing winnings from escrow goes live with staked rooms."
-                    )
-                  }
-                  style={({ pressed }) => [
-                    styles.glassBtn,
-                    !STAKED_ROOMS_LIVE && styles.dimmed,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Icon name="arrow-top-right" size={17} color={aura.text} />
-                  <Text style={styles.glassBtnText}>Withdraw</Text>
-                </Pressable>
-              </View>
-            </Glass>
 
             <View style={styles.head}>
               <Label>Match history</Label>
@@ -228,7 +145,7 @@ export function WalletScreen() {
               ))
             )}
           </>
-        )}
+        ) : null}
       </ScrollView>
 
       <Animated.View

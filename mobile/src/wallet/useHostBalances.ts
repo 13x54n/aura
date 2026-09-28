@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { useConnection } from "../utils/ConnectionProvider";
 import { useAuthorization } from "../utils/useAuthorization";
-import { USDC_MINT } from "../screens/ludo/useHostUsdc";
+
+/** Devnet USDC mint (Circle faucet). */
+export const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 /**
  * SKR mint is set per cluster via EXPO_PUBLIC_SKR_MINT. Unset → SKR shows "—"

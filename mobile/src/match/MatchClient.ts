@@ -35,6 +35,10 @@ export type PlayerInfo = {
 /** Persisted per install: held seats and match history are keyed to this id. */
 const PLAYER_ID_KEY = "aura.match.playerId";
 const GUEST_NAME_KEY = "aura.match.guestName";
+/** Table we're seated at, so the Ludo hub can offer Rejoin after an app reload. */
+const LAST_ROOM_KEY = "aura.match.lastRoom";
+const PING_EVERY_MS = 10_000;
+const PONG_WAIT_MS = 5_000;
 
 /** Public table card from room.peek (all real server data). */
 export type RoomInfo = {
@@ -88,6 +92,10 @@ class MatchClient {
   public currentRoomCode: string | null = null;
   /** Last table we were seated at; survives a drop so Retry can rejoin it. */
   public lastRoomCode: string | null = null;
+  /** Restored from storage on launch; cleared when that match ends or we leave. */
+  public savedRoomCode: string | null = null;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private lastHeard = 0;
   public playerId = "aura-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
   public guestName = "Guest " + Math.floor(1000 + Math.random() * 9000);
   private identityReady: Promise<void>;
@@ -104,10 +112,12 @@ class MatchClient {
 
   private async loadIdentity() {
     try {
-      const [id, name] = await Promise.all([
+      const [id, name, room] = await Promise.all([
         AsyncStorage.getItem(PLAYER_ID_KEY),
         AsyncStorage.getItem(GUEST_NAME_KEY),
+        AsyncStorage.getItem(LAST_ROOM_KEY),
       ]);
+      if (room) this.savedRoomCode = room;
       if (id) this.playerId = id;
       else await AsyncStorage.setItem(PLAYER_ID_KEY, this.playerId);
       if (name) this.guestName = name;
@@ -126,6 +136,52 @@ class MatchClient {
 
   getServerUrl(): string {
     return this.serverUrl;
+  }
+
+  /** Wait for the persisted playerId / saved table to load. */
+  ready(): Promise<void> {
+    return this.identityReady;
+  }
+
+  private saveRoom(code: string | null) {
+    this.savedRoomCode = code;
+    (code ? AsyncStorage.setItem(LAST_ROOM_KEY, code) : AsyncStorage.removeItem(LAST_ROOM_KEY)).catch(() => {});
+  }
+
+  /** App-level heartbeat: no reply within 5s → treat as dropped so grace/Retry kick in. */
+  private startHeartbeat(sock: WebSocket) {
+    this.stopHeartbeat();
+    this.lastHeard = Date.now();
+    this.pingTimer = setInterval(() => {
+      if (this.ws !== sock) return this.stopHeartbeat();
+      if (Date.now() - this.lastHeard > PING_EVERY_MS + PONG_WAIT_MS) {
+        this.dropSocket(sock);
+        return;
+      }
+      try {
+        sock.send(JSON.stringify({ type: "ping", t: Date.now() }));
+      } catch {
+        this.dropSocket(sock);
+      }
+    }, PING_EVERY_MS);
+  }
+
+  private stopHeartbeat() {
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.pingTimer = null;
+  }
+
+  /** Silent drop: don't wait for the OS to notice; surface "disconnected" now. */
+  private dropSocket(sock: WebSocket) {
+    this.stopHeartbeat();
+    if (this.ws !== sock) return;
+    const wasConnected = this.isConnected;
+    this.ws = null;
+    this.isConnected = false;
+    this.currentRoomCode = null;
+    this.mySeat = null;
+    try { sock.close(); } catch {}
+    if (wasConnected) this.emit("disconnected", { reason: "heartbeat" });
   }
 
   async connect(customUrl?: string): Promise<boolean> {
@@ -154,11 +210,13 @@ class MatchClient {
         sock.onopen = () => {
           clearTimeout(timeout);
           this.isConnected = true;
+          this.startHeartbeat(sock);
           this.emit("connected", { url });
           resolve(true);
         };
 
         sock.onmessage = (event) => {
+          if (this.ws === sock) this.lastHeard = Date.now();
           try {
             const data = JSON.parse(event.data as string);
             this.handleMessage(data);
@@ -176,6 +234,8 @@ class MatchClient {
         sock.onclose = () => {
           // Ignore closes from stale attempts once a newer socket exists.
           if (this.ws !== sock && this.ws !== null) return;
+          if (this.ws === null && !this.isConnected) return; // already surfaced by dropSocket
+          this.stopHeartbeat();
           const wasConnected = this.isConnected;
           this.isConnected = false;
           if (this.ws === sock) this.ws = null;
@@ -191,6 +251,7 @@ class MatchClient {
   }
 
   disconnect() {
+    this.stopHeartbeat();
     if (this.ws) {
       try {
         this.ws.close();
@@ -219,6 +280,7 @@ class MatchClient {
         this.lastRoomCode = msg.roomCode;
         this.mySeat = msg.seat;
         this.currentState = msg.state;
+        this.saveRoom(msg.roomCode);
         break;
 
       case "match.resync":
@@ -226,6 +288,7 @@ class MatchClient {
         this.lastRoomCode = msg.roomCode;
         this.mySeat = msg.yourSeat;
         this.currentState = msg.state;
+        this.saveRoom(msg.roomCode);
         break;
 
       case "room.state":
@@ -236,6 +299,12 @@ class MatchClient {
         if (msg.state) {
           this.currentState = msg.state;
         }
+        break;
+
+      case "pong":
+        return; // heartbeat only
+      case "error":
+        if (msg.error === "forfeited" || msg.error === "room_not_found") this.saveRoom(null);
         break;
 
       case "turn.changed":
@@ -265,6 +334,7 @@ class MatchClient {
           standings: Array.isArray(msg.standings) ? msg.standings : [],
           stake: Number(msg.stake ?? 0),
         };
+        this.saveRoom(null);
         if (this.currentState) {
           this.currentState.status = "completed";
           this.currentState.winner = msg.winner;
@@ -369,6 +439,7 @@ class MatchClient {
     this.send({
       type: "room.leave",
     });
+    this.saveRoom(null);
     this.currentRoomCode = null;
     this.mySeat = null;
     this.currentState = null;

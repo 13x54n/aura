@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Text } from "react-native-paper";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { aura } from "../../theme/tokens";
@@ -23,7 +24,17 @@ export function BalanceCard() {
           : "Connect your wallet to see your balance."}
       </Muted>
       <View style={{ marginTop: 12 }}>
-        <GhostButton label={connected ? "Add funds" : "Connect wallet"} onPress={() => connect().catch(() => {})} />
+        <GhostButton label={connected ? "Add funds" : "Connect wallet"} onPress={async () => {
+            if (!connected || !address) {
+              connect().catch(() => {});
+              return;
+            }
+            await Clipboard.setStringAsync(address);
+            Alert.alert(
+              "Add USDC",
+              `Your wallet address is copied. Send devnet USDC to:\n\n${address}\n\nYour balance updates here once it lands.`
+            );
+          }} />
       </View>
     </Glass>
   );

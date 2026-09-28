@@ -1,13 +1,14 @@
-import React from "react";
-import { Share, StyleSheet, View } from "react-native";
+import React, { useCallback } from "react";
+import { BackHandler, Share, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { Big, GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SummaryRow } from "./ludoUi";
 import { payoutFor, SEAT_COLORS } from "./ludoMock";
 
 export type LudoResultParams = {
+  mode?: "create" | "join" | "random";
   won: boolean;
   winnerName?: string;
   roomCode?: string;
@@ -23,6 +24,30 @@ export function LudoResultScreen() {
   const stake = p.stake ?? 0;
   const players = p.players ?? 4;
   const { pot, fee, payout } = payoutFor(stake, players);
+  // Android back / Close → Ludo hub, never back into Create/Join.
+  const toHub = useCallback(() => {
+    navigation.navigate("LudoHub");
+    return true;
+  }, [navigation]);
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", toHub);
+      return () => sub.remove();
+    }, [toHub])
+  );
+
+  // Play again repeats the same mode, with the Ludo hub underneath.
+  const playAgain = () => {
+    const target = p.mode === "create" ? "LudoCreateRoom" : p.mode === "join" ? "LudoJoinRoom" : "LudoRandomMatch";
+    const st = navigation.getState();
+    const hubIdx = st.routes.findIndex((r: any) => r.name === "LudoHub");
+    if (hubIdx < 0) {
+      navigation.replace(target);
+      return;
+    }
+    navigation.reset({ index: hubIdx + 1, routes: [...st.routes.slice(0, hubIdx + 1), { name: target }] });
+  };
+
   const standings = p.standings ?? (p.won ? ["You", "Maya", "Kofi", "Iris"] : [p.winnerName ?? "Maya", "You", "Kofi", "Iris"]).slice(0, players);
 
   return (
@@ -31,7 +56,7 @@ export function LudoResultScreen() {
       toHub
       footer={
         <>
-          <PrimaryButton icon="replay" label="Play again" onPress={() => navigation.replace("LudoRandomMatch")} />
+          <PrimaryButton icon="replay" label="Play again" onPress={playAgain} />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
               <GhostButton
@@ -82,6 +107,7 @@ export function LudoResultScreen() {
           </View>
         ))}
       </Glass>
+      <Muted style={{ fontSize: 11, textAlign: "center" }}>Standings are example data until rooms go live.</Muted>
     </LudoScreen>
   );
 }

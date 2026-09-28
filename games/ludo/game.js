@@ -1015,6 +1015,17 @@
       setStatus((NAMES[payload.winner] || "Opponent") + " wins!");
     }
     render();
+    // Hand off to host payout after the win lands (same 1.4s as local wins).
+    setTimeout(function () {
+      if (window.AuraHost && window.AuraHost.matchFinished) {
+        window.AuraHost.matchFinished({
+          won: payload.winner === HUMAN,
+          winnerSeat: payload.winner,
+          winnerName: NAMES[payload.winner] || "Opponent",
+          reason: payload.reason || null,
+        });
+      }
+    }, 1400);
   }
 
   function handleHostEvent(event, payload) {
@@ -1033,6 +1044,9 @@
       handleRemoteTurn(payload);
     } else if (event === "match.completed") {
       handleRemoteCompleted(payload);
+    } else if (event === "match.unavailable") {
+      // Host couldn't reach the match server — keep the local board playable.
+      if (!isMultiplayer) setStatus("Match server unreachable · playing locally vs bots");
     } else if (event === "room.state") {
       if (payload.state && payload.state.status === "waiting") {
         setStatus("Waiting for opponent to join…");

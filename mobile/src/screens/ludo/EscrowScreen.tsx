@@ -66,9 +66,6 @@ export function EscrowScreen() {
 
   return (
     <View style={styles.container}>
-      <Text variant="headlineSmall" style={styles.title}>
-        Skill match escrow
-      </Text>
       <Text variant="bodyMedium" style={styles.blurb}>
         Host locks stake before the board loads. The WebView only plays rules —
         never wallet or payout UI. Winner payout uses a server-attested result.
@@ -84,10 +81,14 @@ export function EscrowScreen() {
         value={stake}
         onChangeText={setStake}
         keyboardType="decimal-pad"
+        editable={!route.params.stake}
+        right={route.params.stake ? <TextInput.Icon icon="lock" /> : undefined}
         mode="outlined"
       />
       <HelperText type="info">
-        Demo amounts. Real PDA deposit lands with Seed Vault (by Sep 30).
+        {route.params.stake
+          ? "Stake was set for this table and can't change here."
+          : "Demo amounts. Real PDA deposit lands with Seed Vault (by Sep 30)."}
       </HelperText>
 
       <Divider style={{ marginVertical: 12 }} />

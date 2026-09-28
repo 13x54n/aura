@@ -3,6 +3,24 @@
  * Real-time WebSocket client connecting to the authoritative Ludo match server.
  */
 import { Platform } from "react-native";
+import Constants from "expo-constants";
+
+/**
+ * Match server address, in priority order:
+ * 1. EXPO_PUBLIC_MATCH_SERVER_URL (e.g. ws://192.168.1.20:3001 or wss://…)
+ * 2. The Expo dev server's LAN host (so a real phone in Expo Go reaches the Mac)
+ * 3. localhost / 10.0.2.2 (simulator / emulator)
+ */
+export function resolveMatchServerUrl(): string {
+  const env = process.env.EXPO_PUBLIC_MATCH_SERVER_URL;
+  if (env) return env;
+  const hostUri: string | undefined =
+    (Constants.expoConfig as any)?.hostUri ?? (Constants as any).expoGoConfig?.debuggerHost;
+  const lan = hostUri?.split(":")[0];
+  if (lan && lan !== "localhost" && lan !== "127.0.0.1") return `ws://${lan}:3001`;
+  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  return `ws://${host}:3001`;
+}
 
 export type RoomMode = "2p" | "4p";
 
@@ -36,9 +54,7 @@ class MatchClient {
   public isConnected = false;
 
   constructor() {
-    // Default server address: 10.0.2.2 for Android emulator, localhost for iOS/web
-    const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-    this.serverUrl = `ws://${host}:3001`;
+    this.serverUrl = resolveMatchServerUrl();
   }
 
   setServerUrl(url: string) {

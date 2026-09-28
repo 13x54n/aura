@@ -143,12 +143,14 @@ export function WebGameScreen({ route, navigation }: Props) {
     (async () => {
       const ok = await matchClient.connect();
       if (!ok) {
-        console.warn("[WebGameScreen] Could not connect to match server");
+        console.warn("[WebGameScreen] Could not connect to match server", matchClient.getServerUrl());
+        if (mounted) emitHostEvent("match.unavailable", { url: matchClient.getServerUrl() });
         return;
       }
       if (matchClient.currentRoomCode !== roomCode) {
         if (mode === "create") {
-          matchClient.createRoom(roomCode, "2p");
+          // Server supports 2p / 4p seatings; 3 players sit in the 4p layout.
+          matchClient.createRoom(roomCode, (players ?? 2) <= 2 ? "2p" : "4p");
         } else if (mode === "random") {
           matchClient.joinRandom();
         } else {
@@ -162,7 +164,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       unsub();
       matchClient.leaveRoom();
     };
-  }, [roomCode, mode, emitHostEvent]);
+  }, [roomCode, mode, players, emitHostEvent]);
 
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
@@ -192,7 +194,7 @@ export function WebGameScreen({ route, navigation }: Props) {
         }),
         "match.create": async () => matchService.create(),
         "match.get": async (params) => {
-          if (roomCode) {
+          if (roomCode && matchClient.isConnected) {
             return {
               matchId: roomCode,
               roomCode,
@@ -209,7 +211,7 @@ export function WebGameScreen({ route, navigation }: Props) {
         },
         "match.command": async (params) => {
           const cmd = (params?.command || params) as any;
-          if (roomCode) {
+          if (roomCode && matchClient.isConnected) {
             if (cmd?.type === "roll") {
               matchClient.sendRoll();
               return { ok: true };
@@ -228,6 +230,7 @@ export function WebGameScreen({ route, navigation }: Props) {
           // Free Play stays on the board (no stake, no receipt).
           if (!roomCode) return { handled: false };
           navigation?.replace?.("LudoResult", {
+            mode,
             won: !!params?.won,
             winnerName: params?.winnerName ? String(params.winnerName) : undefined,
             roomCode,
@@ -243,7 +246,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       });
       if (response) reply(response);
     },
-    [broker, connect, escrowLocked, matchId, navigation, players, reply, roomCode, selectedAccount, stake]
+    [broker, connect, escrowLocked, matchId, mode, navigation, players, reply, roomCode, selectedAccount, stake]
   );
 
   return (

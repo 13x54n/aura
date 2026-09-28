@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { ActionTile, Glass, Label, LudoScreen, Muted, PrimaryButton } from "./ludoUi";
 import { HostWalletCard } from "../../components/wallet/HostWalletCard";
@@ -12,19 +12,25 @@ import { useMatchHistory } from "../../match/useMatchHistory";
 /** The saved room code, only while the server says that table is still playing. */
 function useLiveSavedRoom() {
   const [code, setCode] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      await matchClient.ready();
-      const saved = matchClient.savedRoomCode;
-      if (!saved) return;
-      const info = await matchClient.peekRoom(saved).catch(() => null);
-      if (alive && info && !("error" in info) && info.status === "playing") setCode(saved);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // Re-peek every time the hub gains focus (coming back from a board / lobby).
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        await matchClient.ready();
+        const saved = matchClient.savedRoomCode;
+        if (!saved) {
+          if (alive) setCode(null);
+          return;
+        }
+        const info = await matchClient.peekRoom(saved).catch(() => null);
+        if (alive) setCode(info && !("error" in info) && info.status === "playing" ? saved : null);
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
   return code;
 }
 

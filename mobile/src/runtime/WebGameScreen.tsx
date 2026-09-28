@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  BackHandler,
   Pressable,
   StyleSheet,
   View,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import { useFocusEffect } from "@react-navigation/native";
 import { CapabilityBroker } from "../host-sdk/CapabilityBroker";
 import { handleHostRequest } from "../host-sdk/bridge";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -22,6 +23,7 @@ import type { MatchCommand } from "../match/types";
 import { GameHeader } from "../components/top-bar/GameHeader";
 import { aura } from "../theme/tokens";
 import { recordPlay } from "../data/recentPlays";
+import { LeaveMatchSheet } from "../screens/ludo/LeaveMatchSheet";
 
 export type WebGameParams = {
   gameId: string;
@@ -207,18 +209,68 @@ export function WebGameScreen({ route, navigation }: Props) {
     };
   }, [roomCode, mode, players, emitHostEvent, retry]);
 
-  // Leaving a live room board forfeits the seat, so ask first.
-  const confirmClose = useCallback(() => {
-    const live = !!roomCode && startedRef.current && matchClient.currentState?.status === "playing";
-    if (!live) {
-      navigation?.goBack?.();
-      return;
-    }
-    Alert.alert("Leave match?", "You'll forfeit this match.", [
-      { text: "Stay", style: "cancel" },
-      { text: "Leave", style: "destructive", onPress: () => navigation?.goBack?.() },
-    ]);
-  }, [navigation, roomCode]);
+  // Leaving a live room board forfeits the seat, so ask first. Every exit path
+  // (header X, nav.close, Android hardware back, back-swipe gesture) funnels
+  // through here; `leavingRef` lets the confirmed exit through beforeRemove once.
+  const leavingRef = useRef(false);
+  const pendingLeaveRef = useRef<(() => void) | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetOpenRef = useRef(false);
+  const isLive = useCallback(
+    () => !!roomCode && startedRef.current && matchClient.currentState?.status === "playing",
+    [roomCode]
+  );
+  const openSheet = useCallback((open: boolean) => {
+    sheetOpenRef.current = open;
+    setSheetOpen(open);
+  }, []);
+  const confirmClose = useCallback(
+    (leave?: () => void) => {
+      const go = () => {
+        leavingRef.current = true;
+        if (leave) leave();
+        else navigation?.goBack?.();
+      };
+      if (leavingRef.current || !isLive()) return go();
+      if (sheetOpenRef.current) return; // one sheet at a time
+      pendingLeaveRef.current = go;
+      openSheet(true);
+    },
+    [isLive, navigation, openSheet]
+  );
+  const keepPlaying = useCallback(() => {
+    pendingLeaveRef.current = null;
+    openSheet(false);
+  }, [openSheet]);
+  const leaveAndForfeit = useCallback(() => {
+    const go = pendingLeaveRef.current;
+    pendingLeaveRef.current = null;
+    openSheet(false);
+    go?.();
+  }, [openSheet]);
+
+  // Back-swipe gesture / any stack pop: intercept while the match is live.
+  useEffect(() => {
+    if (!navigation?.addListener) return;
+    return navigation.addListener("beforeRemove", (e: any) => {
+      if (leavingRef.current || !isLive()) return;
+      e.preventDefault();
+      confirmClose(() => navigation.dispatch(e.data.action));
+    });
+  }, [navigation, isLive, confirmClose]);
+
+  // Android hardware back: same confirm; we always consume the event.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        // Sheet open: back = Keep playing (Modal usually handles this first).
+        if (sheetOpenRef.current) keepPlaying();
+        else confirmClose();
+        return true;
+      });
+      return () => sub.remove();
+    }, [confirmClose, keepPlaying])
+  );
 
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
@@ -287,6 +339,7 @@ export function WebGameScreen({ route, navigation }: Props) {
           if (!roomCode) return { handled: false };
           // Only a match that really ran on the server gets a receipt.
           if (!startedRef.current || !matchClient.isConnected) return { handled: false };
+          leavingRef.current = true;
           navigation?.replace?.("LudoResult", {
             mode,
             won: !!params?.won,
@@ -312,7 +365,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       <GameHeader
         gameId={gameId}
         title={title}
-        onClose={confirmClose}
+        onClose={() => confirmClose()}
       />
 
       <View style={styles.gameContainer}>
@@ -363,7 +416,9 @@ export function WebGameScreen({ route, navigation }: Props) {
                       : conn === "forfeited"
                         ? "You were away longer than 30 seconds or left the table, so your seat is gone. Start a new match from the hub."
                       : conn === "lost"
-                        ? "Your seat is held for 30 seconds. Retry to jump back in."
+                        ? startedRef.current
+                          ? "Your seat is held for 30 seconds. Retry to jump back in."
+                          : "Retry to get back to your table."
                         : "Check you're on the same network as the match server, then retry."}
               </Text>
               {conn === "unreachable" || conn === "lost" ? (
@@ -378,6 +433,12 @@ export function WebGameScreen({ route, navigation }: Props) {
           </View>
         ) : null}
       </View>
+      <LeaveMatchSheet
+        visible={sheetOpen}
+        stake={Number(matchClient.currentState?.stake ?? stake ?? 0) || 0}
+        onKeep={keepPlaying}
+        onLeave={leaveAndForfeit}
+      />
     </View>
   );
 }

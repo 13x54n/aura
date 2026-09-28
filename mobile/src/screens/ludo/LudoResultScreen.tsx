@@ -66,7 +66,11 @@ export function LudoResultScreen() {
                 label="Share"
                 onPress={() =>
                   Share.share({
-                    message: p.won ? `I just won ${payout} USDC in Ludo on Aura 🎲` : `Just played Ludo on Aura 🎲`,
+                    message: p.won
+                      ? stake > 0
+                        ? `I just won ${payout} USDC in Ludo on Aura 🎲`
+                        : `I won a friendly Ludo match on Aura 🎲`
+                      : `Just played Ludo on Aura 🎲`,
                   }).catch(() => {})
                 }
               />

@@ -110,7 +110,9 @@ const AppStack = () => {
         options={{
           headerShown: false,
           animation: "fade",
-          gestureEnabled: true,
+          // Android back (button + edge swipe) is handled in WebGameScreen so a live
+          // room board always asks "Leave match?" before forfeiting.
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen

@@ -48,11 +48,30 @@ function saveHistory() {
 }
 
 // Forfeits outlive their room for a while, so a late returner hears "forfeited".
+// Persisted (with TTL) next to the history file so a server restart keeps them.
+const FORFEITS_FILE = process.env.FORFEITS_FILE || join(dirname(HISTORY_FILE), "forfeits.json");
 const recentForfeits = new Map(); // "CODE:playerId" -> expiresAt
+try {
+  if (existsSync(FORFEITS_FILE)) {
+    const now = Date.now();
+    for (const [k, t] of Object.entries(JSON.parse(readFileSync(FORFEITS_FILE, "utf8")))) {
+      if (typeof t === "number" && t > now) recentForfeits.set(k, t);
+    }
+  }
+} catch {}
+function saveForfeits() {
+  try {
+    mkdirSync(dirname(FORFEITS_FILE), { recursive: true });
+    writeFileSync(FORFEITS_FILE, JSON.stringify(Object.fromEntries(recentForfeits)));
+  } catch (e) {
+    console.error("[Aura Match Server] could not save forfeits:", e.message);
+  }
+}
 function noteForfeit(code, playerId) {
   const now = Date.now();
   for (const [k, t] of recentForfeits) if (t < now) recentForfeits.delete(k);
   recentForfeits.set(`${code}:${playerId}`, now + 30 * 60 * 1000);
+  saveForfeits();
 }
 function wasForfeited(code, playerId) {
   const t = recentForfeits.get(`${code}:${playerId}`);
@@ -146,6 +165,8 @@ class LudoRoom {
     if (seat === null) return null;
     const p = this.players.get(seat);
     const old = p.ws;
+    // Only a seat that really dropped announces "back" (not a board re-mount).
+    const wasAway = !p.connected || !!p.graceTimer;
     if (old && old !== ws) {
       old.room = null; // its close must not touch this seat
       try { old.close(); } catch {}
@@ -157,7 +178,7 @@ class LudoRoom {
     p.connected = true;
     this.attach(ws, seat);
     if (this.status === "playing") {
-      this.broadcast({ type: "player.joined", seat }, ws);
+      if (wasAway) this.broadcast({ type: "player.joined", seat }, ws);
       this.send(ws, {
         type: "match.resync",
         roomCode: this.roomCode,
@@ -572,8 +593,21 @@ function queueSize() {
 function leaveQueues(ws) {
   for (const [k, q] of queues.entries()) {
     const i = q.findIndex((e) => e.ws === ws);
-    if (i !== -1) q.splice(i, 1);
-    if (q.length === 0) queues.delete(k);
+    if (i === -1) continue;
+    q.splice(i, 1);
+    if (q.length === 0) {
+      queues.delete(k);
+      continue;
+    }
+    // Tell whoever is still waiting the new count.
+    const [p, st] = k.split(":");
+    const players = Number(p.replace("p", ""));
+    const stake = Number(st);
+    for (const e of q) {
+      if (e.ws.readyState === WebSocket.OPEN) {
+        e.ws.send(JSON.stringify({ type: "queue.waiting", players, stake, waiting: q.length }));
+      }
+    }
   }
 }
 

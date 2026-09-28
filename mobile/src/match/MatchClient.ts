@@ -37,8 +37,9 @@ const PLAYER_ID_KEY = "aura.match.playerId";
 const GUEST_NAME_KEY = "aura.match.guestName";
 /** Table we're seated at, so the Ludo hub can offer Rejoin after an app reload. */
 const LAST_ROOM_KEY = "aura.match.lastRoom";
-const PING_EVERY_MS = 10_000;
-const PONG_WAIT_MS = 5_000;
+// Ping every 5s; 15s of silence = dropped (grace / Retry kick in at ~15s).
+const PING_EVERY_MS = 5_000;
+const SILENCE_DROP_MS = 15_000;
 
 /** Public table card from room.peek (all real server data). */
 export type RoomInfo = {
@@ -148,22 +149,27 @@ class MatchClient {
     (code ? AsyncStorage.setItem(LAST_ROOM_KEY, code) : AsyncStorage.removeItem(LAST_ROOM_KEY)).catch(() => {});
   }
 
-  /** App-level heartbeat: no reply within 5s → treat as dropped so grace/Retry kick in. */
+  /** App-level heartbeat: 15s without any server message → treat as dropped so grace/Retry kick in. */
   private startHeartbeat(sock: WebSocket) {
     this.stopHeartbeat();
     this.lastHeard = Date.now();
+    let lastPing = 0;
+    // 1s tick: silence is caught within a second of the 15s mark; pings go out every 5s.
     this.pingTimer = setInterval(() => {
       if (this.ws !== sock) return this.stopHeartbeat();
-      if (Date.now() - this.lastHeard > PING_EVERY_MS + PONG_WAIT_MS) {
+      const now = Date.now();
+      if (now - this.lastHeard >= SILENCE_DROP_MS) {
         this.dropSocket(sock);
         return;
       }
+      if (now - lastPing < PING_EVERY_MS) return;
+      lastPing = now;
       try {
-        sock.send(JSON.stringify({ type: "ping", t: Date.now() }));
+        sock.send(JSON.stringify({ type: "ping", t: now }));
       } catch {
         this.dropSocket(sock);
       }
-    }, PING_EVERY_MS);
+    }, 1000);
   }
 
   private stopHeartbeat() {

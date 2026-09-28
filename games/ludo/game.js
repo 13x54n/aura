@@ -1102,9 +1102,11 @@
       }
       render();
     } else if (event === "player.joined") {
+      // Only a genuine return after "reconnecting…" gets the toast (not a board mount).
+      var wasAway = reconnecting[payload.seat] != null;
       delete reconnecting[payload.seat];
       paintReconnect();
-      setStatus((NAMES[payload.seat] || "A player") + " is back");
+      if (wasAway) setStatus((NAMES[payload.seat] || "A player") + " is back");
     } else if (event === "match.resync") {
       // We reconnected: rebuild the whole board from the server snapshot.
       initMultiplayer({

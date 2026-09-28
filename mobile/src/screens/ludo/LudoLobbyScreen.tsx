@@ -113,7 +113,7 @@ export function LudoLobbyScreen() {
             : phase === "forfeited"
               ? "Your seat at this table is gone. Start a new match from the hub."
             : phase === "lost"
-              ? "Your seat is held for 30 seconds. Retry to jump back in."
+              ? "The connection to the match server dropped. Retry to get back to your table."
               : "Check you're on the same network as the match server, then retry.";
     const canRetry = phase === "unreachable" || phase === "lost";
     return (

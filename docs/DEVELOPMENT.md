@@ -118,6 +118,21 @@ The escrow side (`server/escrow.mjs` and `escrow/scripts/devnet-setup.mjs`) read
 | Android Emulator | Press `a` | `10.0.2.2:3001` |
 | Future dev client (MWA / Seed Vault) | `npm run android`, optional and not needed today | The env var is recommended |
 
+### Remote / tunnel (phone off the Mac's Wi-Fi, or iOS Local Network trouble)
+
+This is a stopgap until the match server is hosted on Fly or Railway. A Cloudflare quick tunnel gives the Mac's server on 3001 a public `wss://` address:
+
+1. Start the server: `cd ~/aura/mobile && npm run match-server` (port 3001).
+2. In a second terminal: `cloudflared tunnel --url http://localhost:3001`. It prints `https://<random>.trycloudflare.com`. Keep it running.
+3. Check it: open `https://<random>.trycloudflare.com/health` in the phone's browser. It should return `"status":"healthy"`. If a brand-new hostname doesn't resolve, toggle Airplane mode and try again.
+4. Put the `wss://` form in `mobile/.env`: `EXPO_PUBLIC_MATCH_SERVER_URL=wss://<random>.trycloudflare.com`, with no port.
+5. Restart Metro with the cache cleared: `npx expo start -c`, then reload the app. The hub should say "Connected to match server".
+
+Caveats:
+- **The URL changes every time `cloudflared` restarts**, so repeat steps 3 to 5 each time.
+- **`npm run dev` currently overrides `.env`** and sets the LAN `ws://…:3001` address. Use `npx expo start -c` while tunnelling, until `scripts/dev.mjs` respects `.env`.
+- Anyone with the URL can reach the server. That's fine for friendly tables. Don't point a real-money settle key at a quick tunnel.
+
 ## 6. Test a 2p / 3p / 4p room on one Mac
 
 You need one client per seat.

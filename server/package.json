@@ -1,0 +1,14 @@
+{
+  "name": "aura-match-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Authoritative Ludo match server for Aura rooms (WebSocket, port 3001).",
+  "main": "match-server.mjs",
+  "scripts": {
+    "start": "node match-server.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

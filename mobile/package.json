@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -13,7 +14,7 @@
     "test": "echo \"No tests specified\" && exit 0",
     "start:go": "expo start",
     "start:dev-client": "expo start --dev-client",
-    "match-server": "node ../server/match-server.mjs"
+    "match-server": "npm --prefix ../server install --no-audit --no-fund --silent && node ../server/match-server.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

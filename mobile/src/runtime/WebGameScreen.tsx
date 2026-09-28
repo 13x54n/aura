@@ -107,9 +107,11 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
   // Room boards: connecting → online | unreachable. Free Play never uses this.
-  const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full">("connecting");
+  const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full" | "exists">("connecting");
   const [retry, setRetry] = useState(0);
   const startedRef = useRef(false);
+  // Once seated at this table, every Retry is a room.join with our playerId.
+  const seatedRef = useRef(false);
   const injected = useMemo(
     () => (roomCode ? INJECTED + "\nwindow.__AURA_ROOM__ = true; true;" : INJECTED),
     [roomCode]
@@ -145,9 +147,12 @@ export function WebGameScreen({ route, navigation }: Props) {
     let mounted = true;
     setConn("connecting");
     const unsub = matchClient.on("*", (msg: any) => {
-      if (msg?.type === "match.started") startedRef.current = true;
-      if (msg?.type === "error" && (msg.error === "room_not_found" || msg.error === "room_full")) {
-        if (mounted) setConn(msg.error === "room_full" ? "full" : "not_found");
+      if (msg?.type === "match.started" || msg?.type === "match.resync") startedRef.current = true;
+      if (msg?.type === "room.created" || msg?.type === "room.joined" || msg?.type === "match.resync") {
+        seatedRef.current = true;
+      }
+      if (msg?.type === "error" && (msg.error === "room_not_found" || msg.error === "room_full" || msg.error === "room_exists")) {
+        if (mounted) setConn(msg.error === "room_full" ? "full" : msg.error === "room_exists" ? "exists" : "not_found");
       }
       if (mounted) {
         emitHostEvent(msg.type, msg);
@@ -162,7 +167,10 @@ export function WebGameScreen({ route, navigation }: Props) {
         return;
       }
       if (mounted) setConn("online");
-      if (matchClient.currentRoomCode !== roomCode) {
+      if (seatedRef.current && matchClient.lastRoomCode) {
+        // Reconnect: take our held seat back (grace window) — never re-create the table.
+        matchClient.rejoin();
+      } else if (matchClient.currentRoomCode !== roomCode) {
         if (mode === "create") {
           // Server seatings: 2p (Red/Blue), 3p (Red/Green/Blue), 4p.
           matchClient.createRoom(roomCode, (players ?? 2) <= 2 ? "2p" : players === 3 ? "3p" : "4p");
@@ -304,7 +312,7 @@ export function WebGameScreen({ route, navigation }: Props) {
           onLoadEnd={() => setLoading(false)}
           onError={() => setLoading(false)}
         />
-        {roomCode && (conn === "unreachable" || conn === "lost" || conn === "not_found" || conn === "full") ? (
+        {roomCode && (conn === "unreachable" || conn === "lost" || conn === "not_found" || conn === "full" || conn === "exists") ? (
           <View style={styles.overlay}>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>
@@ -314,14 +322,20 @@ export function WebGameScreen({ route, navigation }: Props) {
                     ? "Table not found"
                     : conn === "full"
                       ? "Table is full"
-                      : "Can't reach match server"}
+                      : conn === "exists"
+                        ? "Table code in use"
+                        : "Can't reach match server"}
               </Text>
               <Text style={styles.cardBody}>
                 {conn === "not_found"
                   ? `No open table with code ${roomCode}. Check the code with the host.`
                   : conn === "full"
-                    ? "Every seat at this table is taken."
-                    : "Your stake stays in host escrow. Check you're on the same network as the server, then retry."}
+                    ? "Every seat at this table is taken, or the match already started."
+                    : conn === "exists"
+                      ? `Another table is already using ${roomCode}. Go back and create a new one.`
+                      : conn === "lost"
+                        ? "Your seat is held for 30 seconds. Retry to jump back in."
+                        : "Your stake stays in host escrow. Check you're on the same network as the server, then retry."}
               </Text>
               {conn === "unreachable" || conn === "lost" ? (
                 <Pressable style={styles.cardPrimary} onPress={() => setRetry((n) => n + 1)}>

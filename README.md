@@ -28,6 +28,8 @@ Seeker-native **game publisher shell** + first title: **staked Ludo** (skill + e
 
 ## Documentation
 
+**Run it locally:** [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) (match server, Expo, rooms on your phone).
+
 Deep docs live in [`docs/`](./docs/README.md):
 
 - Product, architecture, games, wallet/escrow, phase-2 ops

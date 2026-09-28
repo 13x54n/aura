@@ -215,6 +215,36 @@
   }
   setupSeats(HUMAN, activeSeats);
 
+  // Seats in the 30s reconnect grace: seat -> graceUntil (ms epoch).
+  var reconnecting = {};
+  var reconnectIv = null;
+  function paintReconnect() {
+    var any = false;
+    for (var s = 0; s < 4; s++) {
+      var box = seatById[s];
+      if (!box) continue;
+      var until = reconnecting[s];
+      var on = until != null && activeSeats.indexOf(s) !== -1;
+      box.el.classList.toggle("seat-reconnecting", on);
+      var tag = box.el.querySelector(".reconnect-tag");
+      if (on) {
+        any = true;
+        if (!tag) {
+          tag = document.createElement("span");
+          tag.className = "reconnect-tag";
+          var idn = box.el.querySelector(".identity") || box.el;
+          idn.appendChild(tag);
+        }
+        var left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+        tag.textContent = "Reconnecting… 0:" + (left < 10 ? "0" : "") + left;
+      } else if (tag) {
+        tag.parentNode.removeChild(tag);
+      }
+    }
+    if (any && !reconnectIv) reconnectIv = setInterval(paintReconnect, 500);
+    if (!any && reconnectIv) { clearInterval(reconnectIv); reconnectIv = null; }
+  }
+
   // Canvas y-down: ctx.rotate(-PI/2) maps paint (rx,ry) → (ry,-rx) (= 90° CCW on screen).
   // toScreen must match that; fromScreen is the inverse for hit-testing.
   function toScreen(x, y) {
@@ -606,6 +636,7 @@
       // Human only: tap the die to roll on their seat during roll phase.
       // Bots auto-roll; die stays non-interactive.
       box.dieBtn.disabled = !(
+        !(awaitingRoom && !isMultiplayer) &&
         id === HUMAN &&
         id === state.turn &&
         state.phase === "roll" &&
@@ -1041,11 +1072,32 @@
     } else if (event === "piece.moved") {
       handleRemoteMove(payload);
     } else if (event === "player.left") {
-      // Dropped seat leaves the rotation — show its corner as empty.
-      activeSeats = activeSeats.filter(function (s) { return s !== payload.seat; });
-      setupSeats(HUMAN, activeSeats);
-      setStatus((NAMES[payload.seat] || "A player") + " left the table");
+      if (payload.reconnecting) {
+        // Seat held for 30s; the server clock plays its turns meanwhile.
+        reconnecting[payload.seat] = payload.graceUntil || (Date.now() + (payload.graceMs || 30000));
+        paintReconnect();
+        setStatus((NAMES[payload.seat] || "A player") + " is reconnecting…");
+      } else {
+        // Forfeited: seat leaves the rotation — show its corner as empty.
+        delete reconnecting[payload.seat];
+        activeSeats = activeSeats.filter(function (s) { return s !== payload.seat; });
+        setupSeats(HUMAN, activeSeats);
+        paintReconnect();
+        setStatus((NAMES[payload.seat] || "A player") + " left the table");
+      }
       render();
+    } else if (event === "player.joined") {
+      delete reconnecting[payload.seat];
+      paintReconnect();
+      setStatus((NAMES[payload.seat] || "A player") + " is back");
+    } else if (event === "match.resync") {
+      // We reconnected: rebuild the whole board from the server snapshot.
+      initMultiplayer({
+        isMultiplayer: true,
+        mySeat: payload.yourSeat != null ? payload.yourSeat : HUMAN,
+        seats: payload.seats,
+        state: payload.state,
+      });
     } else if (event === "turn.changed") {
       handleRemoteTurn(payload);
     } else if (event === "match.completed") {
@@ -1075,10 +1127,33 @@
     } else if (data.state && data.state.seats) {
       activeSeats = data.state.seats;
     }
+    reconnecting = {};
+    if (data.state && data.state.players && data.state.status === "playing") {
+      var ps = data.state.players;
+      // Forfeited seats are gone from players; held seats show Reconnecting.
+      activeSeats = activeSeats.filter(function (s) { return ps[s] != null; });
+      Object.keys(ps).forEach(function (k) {
+        if (ps[k] && ps[k].connected === false && ps[k].graceUntil) reconnecting[Number(k)] = ps[k].graceUntil;
+      });
+    }
     setupSeats(HUMAN, activeSeats);
+    paintReconnect();
     if (data.state) {
       if (data.state.pieces) state.pieces = data.state.pieces;
       if (data.state.currentSeat != null) state.turn = data.state.currentSeat;
+      state.die = data.state.die != null ? data.state.die : null;
+      if (state.die != null) {
+        drawDiceFace(state.die, state.turn);
+        if (state.turn === HUMAN && data.state.legalMoves && data.state.legalMoves.length) {
+          // Mid-turn resync: we already rolled — pick a piece.
+          state.phase = "move";
+          state.highlight = data.state.legalMoves.map(function (m) {
+            return { seat: HUMAN, idx: m.idx, to: m.to };
+          });
+        } else {
+          state.phase = "wait";
+        }
+      }
       if (data.state.status === "waiting") {
         setStatus("Waiting for opponent to join…");
       } else {

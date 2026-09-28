@@ -27,7 +27,12 @@ export type RoomMode = "2p" | "3p" | "4p";
 export type PlayerInfo = {
   name: string;
   seat: number;
+  connected?: boolean;
+  graceUntil?: number | null;
 };
+
+/** Stable for this app session: the server gives a held seat back only to this id. */
+const PLAYER_ID = "aura-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 export type MatchState = {
   roomCode: string;
@@ -49,6 +54,9 @@ class MatchClient {
   private listeners = new Map<string, Set<Listener>>();
   private serverUrl: string;
   public currentRoomCode: string | null = null;
+  /** Last table we were seated at; survives a drop so Retry can rejoin it. */
+  public lastRoomCode: string | null = null;
+  public readonly playerId = PLAYER_ID;
   public mySeat: number | null = null;
   public currentState: MatchState | null = null;
   public isConnected = false;
@@ -155,7 +163,15 @@ class MatchClient {
       case "room.created":
       case "room.joined":
         this.currentRoomCode = msg.roomCode;
+        this.lastRoomCode = msg.roomCode;
         this.mySeat = msg.seat;
+        this.currentState = msg.state;
+        break;
+
+      case "match.resync":
+        this.currentRoomCode = msg.roomCode;
+        this.lastRoomCode = msg.roomCode;
+        this.mySeat = msg.yourSeat;
         this.currentState = msg.state;
         break;
 
@@ -206,6 +222,7 @@ class MatchClient {
       type: "room.create",
       roomCode,
       mode,
+      playerId: this.playerId,
       playerName,
     });
   }
@@ -214,13 +231,22 @@ class MatchClient {
     this.send({
       type: "room.join",
       roomCode: roomCode.trim().toUpperCase(),
+      playerId: this.playerId,
       playerName,
     });
+  }
+
+  /** Retry after a drop: same playerId back to the same table (never a new create). */
+  rejoin(): boolean {
+    if (!this.lastRoomCode) return false;
+    this.joinRoom(this.lastRoomCode);
+    return true;
   }
 
   joinRandom(playerName = "Player") {
     this.send({
       type: "room.random",
+      playerId: this.playerId,
       playerName,
     });
   }

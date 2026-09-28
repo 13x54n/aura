@@ -17,3 +17,4 @@ Deep product and platform docs. **Build priority:** three playable boards first;
 
 Path on Mac: `/Users/lex-work/aura`  
 Repo: **https://github.com/13x54n/aura** (private)
+- [DEVELOPMENT.md](./DEVELOPMENT.md): local setup, match server, rooms on device, troubleshooting

@@ -11,6 +11,7 @@ export const COPY = {
   confirming: "Confirming on Solana…",
   notApproved: "Not approved",
   slow: "Network is slow",
+  startFailed: "Couldn't start the deposit. No USDC was moved.",
   reprompt: "That took too long, please approve once more",
   locked: "Locked ✓",
   approve: "Approve in Phantom",
@@ -39,6 +40,8 @@ export function depositView(state: DepositStep | null, stake: number, chainLocke
       return { status: null, detail: null, spinner: false, primary: { label: COPY.approve, disabled: false }, leave: false };
     case "starting": // vetting the deposit RPC (genesis check, 5s timeout)
       return busy(COPY.preparing);
+    case "startFailed": // raw error is logged, never shown
+      return retry(COPY.startFailed, null, true);
     case "slow": // the 5s timeout hit: say so, don't fall back silently
       return retry(COPY.slow, null, false);
     case "connecting":

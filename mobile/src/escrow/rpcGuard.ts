@@ -77,16 +77,19 @@ export async function vetClientRpc(
   if (isLocalHost(host)) return { url, reason: null }; // only reachable with allowLocal (dev)
   const timeoutMs = opts.timeoutMs ?? 5000;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false; // set only by our timer, never inferred from an error's text
   try {
     const g = await Promise.race([
       getGenesisHash(url),
       new Promise<never>((_, rej) => {
-        timer = setTimeout(() => rej(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs);
+        timer = setTimeout(() => {
+          timedOut = true;
+          rej(new Error(`timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
       }),
     ]);
     return g === DEVNET_GENESIS ? { url, reason: null } : { url: null, reason: `genesis ${g} is not devnet` };
   } catch (e: any) {
-    const timedOut = /timed out after/.test(String(e?.message));
     return { url: null, reason: `genesis check failed: ${e?.message ?? e}`, timedOut };
   } finally {
     if (timer) clearTimeout(timer);

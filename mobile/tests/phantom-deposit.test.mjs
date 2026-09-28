@@ -9,7 +9,7 @@ import bs58 from "bs58";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { encryptPayload, decryptPayload, sharedSecretFor, phantomErrorFrom, PhantomError } from "../src/escrow/phantomCrypto.ts";
 import { buildDepositTx, verifySignedDeposit, isBlockhashError, DEPOSIT_DISC, COMPUTE_BUDGET_ID } from "../src/escrow/depositTx.ts";
-import { runDeposit, awaitLandingOrExpiry, singleFlight } from "../src/escrow/depositFlow.ts";
+import { runDeposit, awaitLandingOrExpiry, singleFlight, startDeposit } from "../src/escrow/depositFlow.ts";
 import { createReturnWatcher } from "../src/escrow/appReturn.ts";
 import { clientRpcProblem, vetClientRpc, trackClientRpc, DEVNET_GENESIS } from "../src/escrow/rpcGuard.ts";
 import { depositView, COPY } from "../src/escrow/depositCopy.ts";
@@ -377,6 +377,15 @@ await t("vetClientRpc: genesis check that hangs past the timeout → timedOut (s
   assert.ok(!(await vetClientRpc("https://api.devnet.solana.com", async () => "wrong", { timeoutMs: 50 })).timedOut);
 });
 
+await t("vetClientRpc: timedOut comes from the timer, not the error text", async () => {
+  // An RPC error that merely *says* "timed out after" is not our timeout → fallback, no "Network is slow".
+  const fake = await vetClientRpc("https://api.devnet.solana.com", async () => { throw new Error("timed out after 30000ms (upstream)"); }, { timeoutMs: 1000 });
+  assert.equal(fake.url, null); assert.equal(fake.timedOut, false);
+  // Our timer firing is a timeout even if the RPC later rejects with some unrelated text.
+  const real = await vetClientRpc("https://api.devnet.solana.com", () => new Promise((_, rej) => setTimeout(() => rej(new Error("ECONNRESET")), 200)), { timeoutMs: 20 });
+  assert.equal(real.timedOut, true);
+});
+
 await t("trackClientRpc: picks up a server.info that arrives after mount", () => {
   const listeners = {};
   const src = { escrowInfo: { clientRpc: null }, on: (ev, cb) => { (listeners[ev] ??= []).push(cb); return () => (listeners[ev] = listeners[ev].filter((x) => x !== cb)); } };
@@ -425,6 +434,36 @@ await t("double-tap guard: button is never enabled while a step is in flight", (
     assert.ok(v.spinner && v.primary?.disabled === true, st.step);
   }
 });
+await t("start path: a throw before runDeposit → startFailed (Try again + Leave table), gate released, raw error only logged", async () => {
+  const RAW = "TypeError: Cannot read properties of undefined (reading 'secretKey') at loadPhantomSession";
+  const steps = []; const logged = []; let ran = 0;
+  const start = singleFlight(() => startDeposit({
+    onStep: (s) => steps.push(s),
+    prepare: async () => { throw new Error(RAW); },
+    run: async () => { ran++; },
+    log: (m, e) => logged.push(`${m} ${e?.message}`),
+  }));
+  await start();
+  assert.deepEqual(steps.map((s) => s.step), ["starting", "startFailed"]);
+  assert.equal(ran, 0, "runDeposit never reached");
+  assert.equal(start.busy(), false, "double-tap guard released");
+  assert.ok(logged.some((l) => l.includes(RAW)), "raw error goes to the log");
+  const v = depositView(steps.at(-1), 5, false);
+  assert.equal(v.status, "Couldn't start the deposit. No USDC was moved.");
+  assert.ok(!v.spinner); assert.equal(v.primary.label, "Try again"); assert.equal(v.primary.disabled, false); assert.ok(v.leave);
+  assert.equal(v.detail, null);
+  const rendered = JSON.stringify(v);
+  for (const frag of [RAW, "TypeError", "secretKey", "loadPhantomSession"]) assert.ok(!rendered.includes(frag), `sheet leaks "${frag}"`);
+  // Try again works: the next tap runs prepare again and reaches runDeposit.
+  const steps2 = [];
+  await singleFlight(() => startDeposit({ onStep: (s) => steps2.push(s), prepare: async () => ({ conn: 1 }), run: async () => { ran++; } }))();
+  assert.equal(ran, 1); assert.deepEqual(steps2.map((s) => s.step), ["starting"]);
+});
+await t("start path: timed-out RPC check → slow step, runDeposit not reached", async () => {
+  const steps = []; let ran = 0;
+  await startDeposit({ onStep: (s) => steps.push(s), prepare: async () => "slow", run: async () => { ran++; } });
+  assert.deepEqual(steps.map((s) => s.step), ["starting", "slow"]); assert.equal(ran, 0);
+});
 await t("copy: blockhash re-prompt → 'That took too long, please approve once more'", () => {
   assert.equal(depositView({ step: "wallet", retry: true }, 1, false).status, "That took too long, please approve once more");
   assert.equal(COPY.reprompt, "That took too long, please approve once more");
@@ -444,7 +483,7 @@ await t("copy: cancelled / returned without approving / error → 'Not approved'
   }
 });
 await t("copy: no state ever shows a spinner without an in-flight step", () => {
-  const all = [null, { step: "starting" }, { step: "slow" }, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }, { step: "cancelled" }, { step: "error", message: "m" }];
+  const all = [null, { step: "starting" }, { step: "slow" }, { step: "startFailed" }, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }, { step: "cancelled" }, { step: "error", message: "m" }];
   for (const st of all) {
     const v = depositView(st, 1, false);
     assert.ok(v.spinner || v.primary || v.status === "Locked ✓", `stuck state ${st?.step}`);

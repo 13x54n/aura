@@ -15,6 +15,7 @@ import { buildDepositTx, isBlockhashError, verifySignedDeposit, type DepositPara
 
 export type DepositStep =
   | { step: "starting" } // before the flow: picking/vetting the deposit RPC
+  | { step: "startFailed" } // threw before runDeposit → "Couldn't start the deposit. No USDC was moved."
   | { step: "slow" } // RPC genesis check timed out (5s) → "Network is slow" + Try again
   | { step: "connecting" }
   | { step: "preparing" }
@@ -89,6 +90,31 @@ export function singleFlight<A extends unknown[], R>(fn: (...a: A) => Promise<R>
     }
   };
   return Object.assign(run, { busy: () => inFlight });
+}
+
+/**
+ * The sheet's start path around runDeposit: "starting" → prepare (vet RPC, load session).
+ * Anything prepare throws becomes the startFailed step (Try again + Leave table), so the
+ * sheet never sticks on a busy step. The raw error goes to the log only, never the sheet.
+ * A timed-out RPC check becomes the "slow" step.
+ */
+export async function startDeposit<C>(deps: {
+  onStep: (s: DepositStep) => void;
+  prepare: () => Promise<C | "slow">;
+  run: (ctx: C) => Promise<unknown>;
+  log?: (msg: string, err: unknown) => void;
+}): Promise<void> {
+  deps.onStep({ step: "starting" });
+  let ctx: C | "slow";
+  try {
+    ctx = await deps.prepare();
+  } catch (e) {
+    (deps.log ?? ((m, err) => console.warn(m, err)))("[escrow] deposit failed before signing:", e);
+    deps.onStep({ step: "startFailed" });
+    return;
+  }
+  if (ctx === "slow") return deps.onStep({ step: "slow" });
+  await deps.run(ctx);
 }
 
 export async function runDeposit(p: DepositParams, d: DepositDeps): Promise<DepositStep> {

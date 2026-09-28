@@ -91,4 +91,6 @@ The server pays rent for `Room` and the vault, and gets it back when they close.
 
 ### Before mainnet
 
-External audit of `aura_escrow`, a pause switch that's been tested, and **legal review**. Real-money skill contests are regulated differently by province and state; Lex is in Canada. Until those three pass, it stays devnet only.
+External audit of `aura_escrow`, a pause switch that's been tested, a **verified reproducible build** (Docker `solana-verify build`, plus `verify-from-repo` from a public program repo for the explorer badge), and **legal review**.
+
+> **Devnet deploy (2026-09-28, Lex):** deployed from a normal `anchor build` without Docker. What's deployed is still checked against the local build by matching the hashes from `solana-verify get-executable-hash` and `get-program-hash`. Keys are in `~/.config/aura/` on the Mac, gitignored. Real-money skill contests are regulated differently by province and state; Lex is in Canada. Until those three pass, it stays devnet only.

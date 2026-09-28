@@ -17,8 +17,10 @@ if lsof -ti tcp:8899 >/dev/null; then echo "port 8899 busy — run '$0 stop' fir
 [[ -f target/deploy/aura_escrow.so ]] || anchor build
 PID=$(solana-keygen pubkey $K/aura-escrow-program.json)
 AUTH=$(solana-keygen pubkey $K/escrow-authority.json)
-solana-test-validator --reset --quiet --ledger "$LEDGER" \
-  --upgradeable-program "$PID" target/deploy/aura_escrow.so "$AUTH" > /tmp/aura-validator.log 2>&1 &
+# nohup + disown so the validator outlives the shell that started it
+nohup solana-test-validator --reset --quiet --ledger "$LEDGER" \
+  --upgradeable-program "$PID" target/deploy/aura_escrow.so "$AUTH" > /tmp/aura-validator.log 2>&1 < /dev/null &
+disown || true
 for i in $(seq 1 60); do
   solana cluster-version --url $RPC >/dev/null 2>&1 && break
   sleep 1

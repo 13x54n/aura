@@ -48,7 +48,9 @@ Smoke gate: **Free Play → real board → real moves** for all three. No hub st
 
 Single product-family bar for store + Free Play:
 
-1. **IA** — App Store–for-games: Home · Arcade · Friends · Library · Search (floating frosted tab capsule)  
+1. **IA** — App Store–for-games: Home · Arcade · Friends · Wallet · Search (floating frosted tab capsule)  
+> **2026-09-28 (Lex):** Library tab replaced by **Wallet** (host-only): glass balance card, USDC/SOL/SKR, address + copy, Add funds / Withdraw, cross-game match ledger (example data tagged). Recently played lives in Home → Continue. Ludo's Wallet screen opens this tab.
+
 2. **Look** — dark + purple + glass; real `icon` / `cover` art (no letter tiles)  
 3. **CTA** — **Play** only (never Get / Buy / price)  
 4. **Wallet / escrow** — host chrome only; WebView never shows Connect or stake UI  

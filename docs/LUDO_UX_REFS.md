@@ -58,7 +58,7 @@ Home dashboard · Create match · Join by code · Quick match (stake chips + fin
 - Balance / Add cash = **host USDC wallet**; stakes = escrow, host signs — no fake cash
 - Wireframe Home · Play · Wallet tabs → **Ludo hub sections** (locked 2026-09-28: UX call, Lex go) — no second tab bar in WebView
 - Live game keeps locks: human BL, die beside avatar (TL/BL right, TR/BR left), tap die, timer ≤10s
-- Create/Join/Quick/Lobby/Payout on mock data until rooms backend (sans H3)
+- ~~Mock data~~ **Superseded 2026-09-28 (Lex): real players only.** Lobby seats from server `room.state` (empty = "Waiting for player…"); Join card from server (bad code → Table not found); Quick = real stake/count queue, ~60s → Keep waiting / Back to hub, never bots; no fake online counts; Recent/Result/Wallet history real or empty state. Bots = Free Play only. Until escrow ships, rooms default to 0 USDC friendly; paid chips show "Unlocks with escrow".
 - Moves slower: `HOP_MS` 200 / `LAND_MS` 160 in `games/ludo/game.js` (6-cell ≈1.4s)
 - Hub layout: USDC balance card (Add funds → host Connect) · Create / Join / Quick · Recent strip → Wallet/history; lobby 2×2 seat grid; finding = pulsing ring + Cancel; payout card → Play again / Back to hub
 - Audio OK on Lex device; bridge + expo-audio (playsInSilentMode) held in reserve

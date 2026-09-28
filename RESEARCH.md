@@ -12,7 +12,7 @@
 
 ## IA / UI lock (updated)
 - Feel: **App Store for games** + **glass** (frosted cards/headers)
-- Tabs: **Home · Arcade · Friends · Library · Search**
+- Tabs: **Home · Arcade · Friends · Wallet · Search**
 - Catalog: **real titles only** (Ludo for now; empty shelves OK — don’t fake games)
 - CTA: cover → **Play** straight into game — **no Get** button
 - Connect stays in header (Phantom on Expo Go; Seeker Seed Vault when client present)
@@ -22,7 +22,7 @@
 - Ref 1 (Gamehaven-style): featured hero, chip row under title, horizontal shelves
 - Ref 2 (Xbox/Arcade-style): **full-bleed hero with Play on the art**, “For You” tag, page dots under hero, **Continue Playing** shelf, **floating frosted tab capsule** (Search as round glass button beside bar)
 - Do **not** copy: Store/Profile, Buy/prices/trials, fake multi-title catalogs, Subscriber Arcade chrome
-- Ours: tabs Home · Arcade · Friends · Library · Search; cover/hero → **Play**; real titles only (Ludo · Chess · Snakes)
+- Ours: tabs Home · Arcade · Friends · Wallet · Search; cover/hero → **Play**; real titles only (Ludo · Chess · Snakes)
 - Header: **thin**, clear of status bar (safe-area) — **Connect or profile top-right only** (no heavy title chrome / no merge into notch)
 - Hero carousel: **dynamic** (swipe + auto-advance + live dots); carousel slides for all three real titles
 - Hero art: **remote HTTPS bg URLs** full-bleed per slide (Xbox-ref style) — not flat color blocks; three real titles only

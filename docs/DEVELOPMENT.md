@@ -62,7 +62,9 @@ npm run match-server          # installs server deps if needed, then runs node .
 
 - Port: `3001`. Override it with `PORT=4000 npm run match-server`.
 - It listens on `0.0.0.0`, meaning every network interface, so your phone can reach it at the Mac's network address.
-- Turn clock: 20 seconds by default. Override it with `TURN_MS=10000`.
+- Turn clock: 20 seconds by default (one clock covers the roll and the move). Override it with `TURN_MS=10000`.
+- Reconnect grace: 30 seconds by default. Override it with `GRACE_MS=10000`, which is handy for testing drops quickly.
+- Stakes are forced to 0 on the server until escrow ships, so every room is a "Friendly · no stake" table.
 
 **Terminal B: Expo**
 
@@ -102,8 +104,8 @@ EXPO_PUBLIC_MATCH_SERVER_URL=ws://192.168.1.20:3001 npx expo start -c
 You need one client per seat.
 
 - **Phone + simulator(s):** on the phone, open Ludo hub → **Create private** → pick 2, 3 or 4 players → **Create table**, and note the code. On the simulator: **Join with code** → enter the code. Repeat until every seat is filled. The match starts only when all seats are taken.
-- **Quick match** is always 2 players. Two clients tapping Quick match at the same stake get paired together.
-- **Headless checks** (no UI):
+- **Quick match** pairs real players only, by **stake and table size**. Everyone is on 0 USDC until escrow ships. "Finding a table…" stays up until a match is found. After 60 seconds it offers Keep waiting or Back to hub, and it never adds bots.
+- **Headless checks** (no UI). These only check seat constants and rules, not a live server, so still test with real clients:
   ```bash
   cd ~/aura && node server/test-room.mjs && node server/test-multiplayer-sim.mjs
   ```
@@ -111,7 +113,7 @@ You need one client per seat.
 What to expect:
 - **Seats:** a 3p room uses Red, Green and Blue (seats `[3,2,0]`). The 4th corner shows as an empty, dimmed seat.
 - **Idle turns:** if nobody taps, the server's turn clock plays the turn after 20 seconds.
-- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Tap Retry within that window to take your seat back. The server plays your turn if it comes up while you are away.
+- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Tap Retry within that window to take your seat back. That works even after an app reload, because your `playerId` is saved on the device (`aura.match.playerId`). The server plays your turn if it comes up while you're away. If the window has already run out, your seat is gone.
 
 ## 7. Rebuild the Ludo bundle
 
@@ -134,7 +136,10 @@ Move speed can be tuned with `HOP_MS` (200) and `LAND_MS` (160) at the top of `g
 5. From the phone's browser, open `http://<mac-ip>:3001`. Any response at all means the port is reachable.
 
 **"Table not found" / "Table is full"**
-The code is wrong or already used, or the room has every seat taken. Go back to the hub and create a new table.
+The code is wrong or the table has ended, or every seat is taken. Go back to the hub and create a new table.
+
+**"Table code in use"**
+You tried to create a table with a code a live table already has. Create again to get a fresh code. If you were already seated there, use Retry, which rejoins instead of creating.
 
 **Old screens / the new hub doesn't show (stale bundle)**
 - Restart with `npx expo start -c`.

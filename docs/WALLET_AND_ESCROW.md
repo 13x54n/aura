@@ -52,7 +52,7 @@ Product kill: Phantom-only as the forever path. Seed Vault remains the Seeker de
 
 | Account | Seeds | Holds |
 |---|---|---|
-| `Config` | `["config"]` | `admin`, `settle_authority` (the match server's key), `fee_bps = 500`, `treasury` (a USDC token account), `usdc_mint`, `paused` |
+| `Config` | `["config"]` | `admin`, `settle_authority` (the match server's key), `fee_bps = 500` (capped at 500), `treasury` (a USDC token account), `usdc_mint`, `paused` |
 | `Room` | `["room", room_id]` (a 16-byte id) | `stake`, `seats` (2 to 4), `players[4]`, `deposited` (bitmask), `status` (Open, Locked, Settled or Refunded), `dice_commit` (32 bytes), `deposit_deadline`, `settle_deadline`, `winner` |
 | Vault | The associated token account (ATA) for `usdc_mint` owned by the **Room PDA** | The pot. Only program-signed transfers can move it |
 
@@ -72,6 +72,23 @@ The server pays rent for `Room` and the vault, and gets it back when they close.
    Refund recipients are passed as extra accounts. The program **checks each one against `players[]` and rejects duplicates**, which was the critical issue in the wager-program audit.
 
 **Fee math** (USDC has 6 decimals): `pot = stake × seats`, `fee = pot × 500 / 10_000` (rounded down), `winner = pot − fee`. For example, 2 players at 5 USDC is a 10 USDC pot, a 0.50 fee and **9.50 to the winner**. 4 players at 1 USDC is a 4 pot, a 0.20 fee and 3.80 to the winner.
+
+### As built: review decisions (v1.1, 2026-09-28)
+
+These rules come from the program review (up to `34430f3`) and Business Management's decisions. Where they conflict with the v1 text above, they win. Items marked **pre-deploy** must land before the devnet deploy.
+
+- **The referee is fully trusted to name the winner.** The program checks *who* can be paid, never *who won*. Honesty comes from the dice commit, the replayable log and the timeout refund, not from the chain. Say this plainly to players.
+- **Fee:** `fee_bps` is capped at **500 (5%) on-chain**. `init_config` and `update_config` reject anything higher. (The first build allowed up to 10%; that's changed.)
+- **Stakes:** only **1 / 3 / 5 / 10 USDC** are accepted, enforced in both `init_room` and `server/escrow.mjs`. **Pre-deploy.**
+- **Seats are bound at `init_room`.** The server signs each seat to the wallet of the player who joined it, and `deposit` rejects any other wallet, so a stranger can't squat a seat and force a refund. If a player changes wallets, the server cancels and re-inits the room. Seats can't be edited.
+- **Dice seed:** each roll comes from the server's committed seed **mixed with the slot hash at lock time**, so the server can't know the rolls when it commits. Per-player nonces are deferred to mainnet. **Pre-deploy.**
+- **Payout:** `settle` pays from `stake × seats`, not the vault balance. Stray tokens sent straight to the vault get swept to the treasury, on settle or refund. **Pre-deploy.**
+- **Deadlines:** a match has a hard **60-minute** limit inside the 2h `settle_deadline`. Settle retries early, and an alert fires at 90 minutes after lock. After `settle_deadline`, settle is rejected and only refund remains. **Pre-deploy.**
+- **Referee refund of a locked room:** allowed only **before the first roll**, or with a **reason code** that's recorded in the `Refunded` event. Refunds only ever pay depositors.
+- **Key separation:** `update_config` repeats `init_config`'s check that the settle key can't own the treasury account, so the server never holds USDC. **Pre-deploy.**
+- **Sending transactions:** after an unclear timeout, `send()` checks whether the first signature landed before building a new one, so a settle that paid out is never reported as failed. **Pre-deploy.**
+- **RPC guard:** scripts parse `SOLANA_RPC` as a URL and refuse public devnet whatever the case, query string, or `devnet` shorthand. **Pre-deploy.**
+- **Buffers:** close orphaned deploy buffers by address only (`solana program close <BUFFER_ADDRESS>`). Never use `--buffers`, which closes every buffer owned by the key.
 
 ### How settlement is proven
 
@@ -93,4 +110,4 @@ The server pays rent for `Room` and the vault, and gets it back when they close.
 
 External audit of `aura_escrow`, a pause switch that's been tested, a **verified reproducible build** (Docker `solana-verify build`, plus `verify-from-repo` from a public program repo for the explorer badge), and **legal review**.
 
-> **Devnet deploy (2026-09-28, Lex):** deployed from a normal `anchor build` without Docker. What's deployed is still checked against the local build by matching the hashes from `solana-verify get-executable-hash` and `get-program-hash`. Keys are in `~/.config/aura/` on the Mac, gitignored. Real-money skill contests are regulated differently by province and state; Lex is in Canada. Until those three pass, it stays devnet only.
+> **Devnet deploy plan (2026-09-28, Lex):** not deployed yet; it's waiting on a dedicated `SOLANA_RPC`. It'll deploy from a normal `anchor build` without Docker. What's deployed will be checked against the local build by matching the hashes from `solana-verify get-executable-hash` and `get-program-hash`. Keys are in `~/.config/aura/` on the Mac, gitignored. Real-money skill contests are regulated differently by province and state; Lex is in Canada. Until those three pass, it stays devnet only.

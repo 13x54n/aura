@@ -373,6 +373,13 @@ class MatchClient {
     });
   }
 
+  /** Reachability probe for the hub status pill: true only if the server answers a ping. */
+  async checkServer(): Promise<boolean> {
+    if (!(await this.connect())) return false;
+    const r = await this.request({ type: "ping" }, "pong", () => true, 3000);
+    return r === true;
+  }
+
   /** Real table card for Join-by-code. */
   async peekRoom(roomCode: string): Promise<RoomInfo | { error: string } | null> {
     if (!(await this.connect())) return null;

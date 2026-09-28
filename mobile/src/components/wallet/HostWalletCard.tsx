@@ -68,6 +68,15 @@ export function HostWalletCard({
                 <Big>{num(b.usdc, 2, b.loading)}</Big>
                 <Text style={styles.unit}>USDC</Text>
               </View>
+              {b.error && b.usdc == null ? (
+                <Pressable onPress={b.refresh} style={styles.errRow} accessibilityLabel="Retry balance">
+                  <Icon name="alert-circle-outline" size={15} color={aura.textMuted} />
+                  <Muted style={{ flex: 1, fontSize: 12 }}>Couldn't load balance: {b.error}. Tap to retry.</Muted>
+                </Pressable>
+              ) : null}
+              {b.usdc === 0 ? (
+                <Muted style={styles.updated}>No devnet USDC yet. Get some at faucet.circle.com (pick Solana Devnet).</Muted>
+              ) : null}
               {b.stale && b.updatedAt ? (
                 <Muted style={styles.updated}>Updated {agoLabel(b.updatedAt)}</Muted>
               ) : null}
@@ -160,5 +169,6 @@ const styles = StyleSheet.create({
   },
   glassBtnText: { color: aura.text, fontWeight: "800" },
   dimmed: { opacity: 0.45 },
+  errRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   updated: { fontSize: 12, marginTop: -2, marginBottom: 8 },
 });

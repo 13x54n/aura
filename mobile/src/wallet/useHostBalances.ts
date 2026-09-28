@@ -29,6 +29,10 @@ export type HostBalances = {
   address: string | null;
   /** When the shown balances were fetched (ms epoch), null if never. */
   updatedAt: number | null;
+  /** Why the last fetch failed (shown on the card), null when fine. */
+  error: string | null;
+  /** RPC endpoint the app reads from (devnet unless overridden). */
+  endpoint: string;
   /** True when showing a cached value that is older than the freshness window. */
   stale: boolean;
   refresh: () => void;
@@ -57,6 +61,14 @@ let backoffMs = 0;
 
 const is429 = (e: any) => /429|Too Many Requests/i.test(String(e?.message ?? e));
 
+const lastError = new Map<string, string | null>();
+const describe = (e: any) => {
+  const msg = String(e?.message ?? e);
+  if (is429(e)) return "Network busy (devnet RPC rate limit)";
+  if (/Network request failed|fetch failed|ENOTFOUND|timed out/i.test(msg)) return "Can't reach the Solana RPC";
+  return msg.slice(0, 120);
+};
+
 async function fetchBalances(connection: Connection, owner: PublicKey): Promise<Snapshot | null> {
   const key = cacheKey(connection.rpcEndpoint, owner.toBase58());
   const running = inflight.get(key);
@@ -75,9 +87,12 @@ async function fetchBalances(connection: Connection, owner: PublicKey): Promise<
       const snap = { usdc, sol: lamports / LAMPORTS_PER_SOL, skr };
       cache.set(key, { snap, at: Date.now() });
       backoffMs = 0;
+      lastError.set(key, null);
       notify(key);
       return snap;
     } catch (e) {
+      console.warn("[balances]", connection.rpcEndpoint, String((e as any)?.message ?? e));
+      lastError.set(key, describe(e));
       if (is429(e)) {
         backoffMs = Math.min(backoffMs ? backoffMs * 2 : 2000, 60_000);
         cooldownUntil = Date.now() + backoffMs;
@@ -101,6 +116,7 @@ export function useHostBalances(): HostBalances {
   const [snap, setSnap] = useState<Snapshot | null>(key ? cache.get(key)?.snap ?? null : null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(key ? cache.get(key)?.at ?? null : null);
   const [now, setNow] = useState(Date.now());
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((n) => n + 1), []);
@@ -118,11 +134,15 @@ export function useHostBalances(): HostBalances {
     }
     const forced = tick > 0;
     const fresh = hit && Date.now() - hit.at < FRESH_MS;
-    if ((fresh && !forced) || Date.now() < cooldownUntil) return;
+    if ((fresh && !forced) || Date.now() < cooldownUntil) {
+      if (!hit && Date.now() < cooldownUntil) setError(lastError.get(key) ?? "Network busy (devnet RPC rate limit)");
+      return;
+    }
     setLoading(true);
     fetchBalances(connection, owner)
       .then((s) => {
         if (!alive) return;
+        setError(lastError.get(key) ?? null);
         if (s) {
           setSnap(s);
           setUpdatedAt(cache.get(key)?.at ?? Date.now());
@@ -171,6 +191,8 @@ export function useHostBalances(): HostBalances {
   }, []);
 
   return {
+    error,
+    endpoint: connection.rpcEndpoint,
     updatedAt,
     stale: !!updatedAt && !!snap && now - updatedAt > FRESH_MS,
     usdc: snap?.usdc ?? null, sol: snap?.sol ?? null, skr: snap?.skr ?? null,

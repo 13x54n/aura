@@ -9,6 +9,21 @@ import { matchClient } from "../../match/MatchClient";
 import { whenLabel } from "./ludoShared";
 import { useMatchHistory } from "../../match/useMatchHistory";
 
+/** Hub pill: can this phone actually reach the match server? Re-checked on focus. */
+function useServerReachable() {
+  const [state, setState] = useState<"checking" | "ok" | "down">("checking");
+  const check = useCallback(() => {
+    setState("checking");
+    matchClient.checkServer().then((ok) => setState(ok ? "ok" : "down"));
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      check();
+    }, [check])
+  );
+  return { state, check, url: matchClient.getServerUrl() };
+}
+
 /** The saved room code, only while the server says that table is still playing. */
 function useLiveSavedRoom() {
   const [code, setCode] = useState<string | null>(null);
@@ -43,10 +58,27 @@ export function LudoHubScreen() {
   const history = useMatchHistory();
   const recent = history.rows.filter((r) => r.game === "Ludo").slice(0, 8);
   const rejoin = useLiveSavedRoom();
+  const server = useServerReachable();
 
   return (
     <LudoScreen>
       <HostWalletCard />
+
+      <Pressable onPress={server.check} style={styles.serverPill} accessibilityRole="button">
+        <View
+          style={[
+            styles.dot,
+            { backgroundColor: server.state === "ok" ? "#34D399" : server.state === "down" ? "#F87171" : aura.textDim },
+          ]}
+        />
+        <Text style={styles.serverText}>
+          {server.state === "ok"
+            ? "Connected to match server"
+            : server.state === "down"
+              ? `Can't reach match server (${server.url.replace("ws://", "")}). Is npm run dev running, same Wi-Fi? Tap to retry.`
+              : "Checking match server…"}
+        </Text>
+      </Pressable>
 
       {rejoin ? (
         <ActionTile
@@ -112,6 +144,9 @@ export function LudoHubScreen() {
 }
 
 const styles = StyleSheet.create({
+  serverPill: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  serverText: { color: aura.textMuted, fontSize: 12, flex: 1 },
   recentHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
   link: { color: aura.purpleBright, fontWeight: "700" },
   recent: { width: 132, gap: 2, padding: 14 },

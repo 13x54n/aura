@@ -147,6 +147,11 @@ export function LudoLobbyScreen() {
             disabled
             onPress={() => {}}
           />
+          {phase !== "connecting" ? (
+            <Muted style={{ textAlign: "center", fontSize: 12 }}>
+              Real players only, no bots. Share the code so a second phone can join, then moves sync live.
+            </Muted>
+          ) : null}
           <GhostButton label="Leave table" onPress={() => navigation.navigate("LudoHub")} />
         </>
       }

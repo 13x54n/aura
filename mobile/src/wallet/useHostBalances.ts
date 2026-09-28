@@ -201,6 +201,7 @@ export function useHostBalances(): HostBalances {
   useEffect(() => {
     if (!key) return;
     const poll = () => {
+      if (AppState.currentState !== "active") return;
       if (Date.now() < cooldownUntil || inflight.has(key)) return;
       const hit = cache.get(key);
       if (hit && Date.now() - hit.at < FRESH_MS) return;

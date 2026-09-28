@@ -8,7 +8,7 @@
  * Ctrl+C stops both. Override with MATCH_HOST=1.2.3.4 or PORT=4000.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,8 +40,23 @@ if (!existsSync(join(serverDir, "node_modules", "ws"))) {
 }
 
 const ip = lanIp();
-const matchUrl = process.env.EXPO_PUBLIC_MATCH_SERVER_URL || `ws://${ip}:${PORT}`;
-console.log(`[dev] Match server  → ${matchUrl}  (health: http://${ip}:${PORT})`);
+/** EXPO_PUBLIC_MATCH_SERVER_URL from mobile/.env (e.g. a wss:// tunnel), if set. */
+function envFileMatchUrl() {
+  const f = join(mobileDir, ".env");
+  if (!existsSync(f)) return null;
+  const m = readFileSync(f, "utf8").match(/^\s*EXPO_PUBLIC_MATCH_SERVER_URL\s*=\s*["']?([^"'\s#]+)/m);
+  return m ? m[1] : null;
+}
+// Precedence: shell env > mobile/.env > this Mac's LAN address.
+const fromEnvFile = envFileMatchUrl();
+const matchUrl = process.env.EXPO_PUBLIC_MATCH_SERVER_URL || fromEnvFile || `ws://${ip}:${PORT}`;
+const source = process.env.EXPO_PUBLIC_MATCH_SERVER_URL ? "shell env" : fromEnvFile ? "mobile/.env" : "LAN";
+const health = matchUrl.startsWith("wss://")
+  ? `${matchUrl.replace(/^wss:/, "https:").replace(/\/$/, "")}/health`
+  : `http://${ip}:${PORT}/health`;
+console.log(`[dev] Match server  → ${matchUrl}  (from ${source}; health: ${health})`);
+if (fromEnvFile && process.env.EXPO_PUBLIC_MATCH_SERVER_URL && fromEnvFile !== process.env.EXPO_PUBLIC_MATCH_SERVER_URL)
+  console.warn(`[dev] Note: shell EXPO_PUBLIC_MATCH_SERVER_URL overrides mobile/.env (${fromEnvFile}).`);
 console.log("[dev] Free Play needs nothing; Create / Join / Quick match use this server.\n");
 
 const children = [];

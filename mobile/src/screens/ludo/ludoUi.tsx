@@ -101,8 +101,8 @@ export function ActionTile({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: offline }}
-      accessibilityHint={offline ? "Online play unavailable" : undefined}
+      accessibilityLabel={offline ? `${title}, offline` : undefined}
+      accessibilityHint={offline ? "Online play unavailable right now. Opens a screen to retry." : undefined}
       onPress={onPress}
       style={({ pressed }) => [pressed && s.pressed, offline && { opacity: 0.45 }]}
     >

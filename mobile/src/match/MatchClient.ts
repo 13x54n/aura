@@ -160,6 +160,10 @@ export type MatchState = {
 
 type Listener = (data: any) => void;
 
+
+/** TLS + tunnel/DNS on a phone can take several seconds; LAN ws:// is near-instant. */
+const connectTimeoutMs = (url: string) => (url.startsWith("wss://") ? 10_000 : 3_000);
+
 class MatchClient {
   private ws: WebSocket | null = null;
   private listeners = new Map<string, Set<Listener>>();
@@ -274,8 +278,24 @@ class MatchClient {
     const url = customUrl || this.serverUrl;
     return new Promise((resolve) => {
       try {
-        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           resolve(true);
+          return;
+        }
+        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+          // Another caller is mid-handshake (slow over wss/TLS): wait for it
+          // instead of reporting "connected" before the socket can send.
+          const pending = this.ws;
+          const started = Date.now();
+          const wait = setInterval(() => {
+            if (pending.readyState === WebSocket.OPEN) {
+              clearInterval(wait);
+              resolve(true);
+            } else if (pending.readyState >= WebSocket.CLOSING || Date.now() - started > connectTimeoutMs(url)) {
+              clearInterval(wait);
+              resolve(false);
+            }
+          }, 100);
           return;
         }
 
@@ -290,7 +310,7 @@ class MatchClient {
             if (this.ws === sock) this.ws = null;
             resolve(false);
           }
-        }, 3000);
+        }, connectTimeoutMs(url));
 
         sock.onopen = () => {
           clearTimeout(timeout);
@@ -313,9 +333,9 @@ class MatchClient {
         sock.onerror = (err) => {
           const msg = (err as { message?: string })?.message;
           console.warn(
-            `[MatchClient] Can't reach match server at ${sock.url || "unknown url"}` +
+            `[MatchClient] Can't reach match server at ${sock.url || url}` +
               (msg ? ` (${msg})` : "") +
-              " — is it running, and is the phone on the same Wi-Fi?"
+              (url.startsWith("wss://") ? " — check the phone's internet connection." : " — is it running, and is the phone on the same Wi-Fi?")
           );
           this.emit("error", { error: "ws_error", details: msg ?? "connection failed" });
           resolve(false);

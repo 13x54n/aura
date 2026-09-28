@@ -85,7 +85,9 @@ export function LudoHubScreen() {
             ? "Connected to match server"
             : server.state === "down"
               ? __DEV__
-                ? `Can't reach match server (${server.url.replace("ws://", "")}). Run npm run match-server in mobile/ on the Mac, same Wi-Fi. Tap to retry.`
+                ? server.url.startsWith("wss://")
+                  ? `Can't reach match server (${server.url.replace("wss://", "")}). Check your internet connection. Tap to retry.`
+                  : `Can't reach match server (${server.url.replace("ws://", "")}). Run npm run match-server in mobile/ on the Mac, same Wi-Fi. Tap to retry.`
                 : "Online play unavailable · Tap to retry"
               : "Checking match server…"}
         </Text>

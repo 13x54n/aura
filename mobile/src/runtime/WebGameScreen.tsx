@@ -107,7 +107,7 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
   // Room boards: connecting → online | unreachable. Free Play never uses this.
-  const [conn, setConn] = useState<"connecting" | "online" | "unreachable">("connecting");
+  const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full">("connecting");
   const [retry, setRetry] = useState(0);
   const startedRef = useRef(false);
   const injected = useMemo(
@@ -146,6 +146,9 @@ export function WebGameScreen({ route, navigation }: Props) {
     setConn("connecting");
     const unsub = matchClient.on("*", (msg: any) => {
       if (msg?.type === "match.started") startedRef.current = true;
+      if (msg?.type === "error" && (msg.error === "room_not_found" || msg.error === "room_full")) {
+        if (mounted) setConn(msg.error === "room_full" ? "full" : "not_found");
+      }
       if (mounted) {
         emitHostEvent(msg.type, msg);
       }
@@ -171,9 +174,15 @@ export function WebGameScreen({ route, navigation }: Props) {
       }
     })();
 
+    // Socket dropped mid-room (server restart, Wi-Fi) → Connection lost card.
+    const unsubDrop = matchClient.on("disconnected", () => {
+      if (mounted) setConn((c) => (c === "online" ? "lost" : c));
+    });
+
     return () => {
       mounted = false;
       unsub();
+      unsubDrop();
       matchClient.leaveRoom();
     };
   }, [roomCode, mode, players, emitHostEvent, retry]);
@@ -206,7 +215,9 @@ export function WebGameScreen({ route, navigation }: Props) {
         }),
         "match.create": async () => matchService.create(),
         "match.get": async (params) => {
-          if (roomCode && matchClient.isConnected) {
+          // Live only once the server says the room is playing; a waiting room
+          // must not show "Your turn" or accept a roll.
+          if (roomCode && matchClient.isConnected && matchClient.currentState?.status === "playing") {
             return {
               matchId: roomCode,
               roomCode,
@@ -293,16 +304,30 @@ export function WebGameScreen({ route, navigation }: Props) {
           onLoadEnd={() => setLoading(false)}
           onError={() => setLoading(false)}
         />
-        {roomCode && conn === "unreachable" ? (
+        {roomCode && (conn === "unreachable" || conn === "lost" || conn === "not_found" || conn === "full") ? (
           <View style={styles.overlay}>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Can't reach match server</Text>
-              <Text style={styles.cardBody}>
-                Your stake stays in host escrow. Check you're on the same network as the server, then retry.
+              <Text style={styles.cardTitle}>
+                {conn === "lost"
+                  ? "Connection lost"
+                  : conn === "not_found"
+                    ? "Table not found"
+                    : conn === "full"
+                      ? "Table is full"
+                      : "Can't reach match server"}
               </Text>
-              <Pressable style={styles.cardPrimary} onPress={() => setRetry((n) => n + 1)}>
-                <Text style={styles.cardPrimaryText}>Retry</Text>
-              </Pressable>
+              <Text style={styles.cardBody}>
+                {conn === "not_found"
+                  ? `No open table with code ${roomCode}. Check the code with the host.`
+                  : conn === "full"
+                    ? "Every seat at this table is taken."
+                    : "Your stake stays in host escrow. Check you're on the same network as the server, then retry."}
+              </Text>
+              {conn === "unreachable" || conn === "lost" ? (
+                <Pressable style={styles.cardPrimary} onPress={() => setRetry((n) => n + 1)}>
+                  <Text style={styles.cardPrimaryText}>Retry</Text>
+                </Pressable>
+              ) : null}
               <Pressable style={styles.cardGhost} onPress={() => navigation?.navigate?.("LudoHub")}>
                 <Text style={styles.cardGhostText}>Back to hub</Text>
               </Pressable>

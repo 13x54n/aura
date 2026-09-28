@@ -20,6 +20,8 @@ const SEATS_2P = [3, 0];
 const SEATS_4P = [3, 2, 0, 1];
 // 3-Player mode skips Yellow (1): Red 3 -> Green 2 -> Blue 0
 const SEATS_3P = [3, 2, 0];
+// Server turn clock per turn (roll + move). Matches the board's 20s timer.
+const TURN_MS = Number(process.env.TURN_MS || 20000);
 
 class LudoRoom {
   constructor(roomCode, mode = "2p") {
@@ -72,21 +74,50 @@ class LudoRoom {
   }
 
   removePlayer(seat) {
+    const wasCurrent = this.status === "playing" && this.currentSeat === seat;
     this.players.delete(seat);
     if (this.status === "playing") {
+      this.broadcast({ type: "player.left", seat });
       // Award forfeit win to remaining player if 1v1
       const remaining = Array.from(this.players.keys());
       if (remaining.length === 1) {
         this.winner = remaining[0];
         this.status = "completed";
+      this.clearTurnTimer();
         this.broadcast({
           type: "match.completed",
           winner: this.winner,
           reason: "opponent_disconnected",
         });
+        this.clearTurnTimer();
+      } else if (wasCurrent) {
+        // Dropped seat leaves the rotation; don't stall on its turn.
+        this.nextTurn(false);
       }
     }
     this.broadcastState();
+  }
+
+  /** Server turn clock: auto-roll, then auto-move the first legal piece. */
+  armTurnTimer() {
+    this.clearTurnTimer();
+    if (this.status !== "playing") return;
+    const seat = this.currentSeat;
+    this.turnTimer = setTimeout(() => {
+      if (this.status !== "playing" || this.currentSeat !== seat) return;
+      if (this.die === null) {
+        this.handleRoll(seat);
+      } else {
+        const legal = this.getLegalMoves(seat, this.die);
+        if (legal.length > 0) this.handleMove(seat, legal[0].idx);
+        else this.nextTurn(false);
+      }
+    }, TURN_MS);
+  }
+
+  clearTurnTimer() {
+    if (this.turnTimer) clearTimeout(this.turnTimer);
+    this.turnTimer = null;
   }
 
   startGame() {
@@ -109,6 +140,7 @@ class LudoRoom {
         );
       }
     }
+    this.armTurnTimer();
   }
 
   getSnapshot() {
@@ -202,6 +234,7 @@ class LudoRoom {
       sixStreak: this.sixStreak,
       legalMoves: legal,
     });
+    if (legal.length > 0) this.armTurnTimer();
 
     // If no legal moves, advance to next player automatically
     if (legal.length === 0) {
@@ -265,6 +298,7 @@ class LudoRoom {
     if (won) {
       this.winner = seat;
       this.status = "completed";
+      this.clearTurnTimer();
       this.broadcast({
         type: "match.completed",
         winner: seat,
@@ -280,10 +314,17 @@ class LudoRoom {
   }
 
   nextTurn(extraTurn) {
+    if (this.status !== "playing") return;
     this.die = null;
+    // A bonus turn for a seat that just left becomes a normal pass.
+    if (extraTurn && !this.players.has(this.currentSeat)) extraTurn = false;
     if (!extraTurn) {
       this.sixStreak = 0;
-      this.turnIndex = (this.turnIndex + 1) % this.seatOrder.length;
+      // Skip seats whose player has left.
+      for (let i = 0; i < this.seatOrder.length; i++) {
+        this.turnIndex = (this.turnIndex + 1) % this.seatOrder.length;
+        if (this.players.has(this.seatOrder[this.turnIndex])) break;
+      }
       this.currentSeat = this.seatOrder[this.turnIndex];
     }
     this.broadcast({
@@ -291,6 +332,7 @@ class LudoRoom {
       currentSeat: this.currentSeat,
       extraTurn: !!extraTurn,
     });
+    this.armTurnTimer();
   }
 }
 

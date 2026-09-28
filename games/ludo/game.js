@@ -1040,6 +1040,12 @@
       handleRemoteRoll(payload);
     } else if (event === "piece.moved") {
       handleRemoteMove(payload);
+    } else if (event === "player.left") {
+      // Dropped seat leaves the rotation — show its corner as empty.
+      activeSeats = activeSeats.filter(function (s) { return s !== payload.seat; });
+      setupSeats(HUMAN, activeSeats);
+      setStatus((NAMES[payload.seat] || "A player") + " left the table");
+      render();
     } else if (event === "turn.changed") {
       handleRemoteTurn(payload);
     } else if (event === "match.completed") {
@@ -1055,6 +1061,12 @@
     if (!data || !data.isMultiplayer) return;
     isMultiplayer = true;
     awaitingRoom = false;
+    // Fresh roll state — a pre-start tap must never leave the die stuck.
+    state.rolling = false;
+    state.phase = "roll";
+    state.highlight = [];
+    juice.moving = false;
+    juice.animPiece = null;
     if (data.mySeat != null) {
       HUMAN = data.mySeat;
     }

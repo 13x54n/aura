@@ -20,7 +20,7 @@ export function RandomMatchScreen() {
       navigation.replace("LudoLobby", {
         mode: "random",
         roomCode: "RND-" + Math.floor(1000 + Math.random() * 9000),
-        players: 4,
+        players: 2, // server quick match seats 2 (Red vs Blue)
         stake,
         visibility: "Public",
       });
@@ -36,7 +36,7 @@ export function RandomMatchScreen() {
     return (
       <LudoScreen title="Quick match" toHub footer={<GhostButton label="Cancel" onPress={cancel} />}>
         <PulseRing label="Finding a table…" />
-        <Muted style={{ textAlign: "center" }}>{stake} USDC stake · 4 players</Muted>
+        <Muted style={{ textAlign: "center" }}>{stake} USDC stake · 2 players</Muted>
       </LudoScreen>
     );
   }
@@ -48,8 +48,8 @@ export function RandomMatchScreen() {
         <StakeChips value={stake} onChange={setStake} />
       </Glass>
       <Glass>
-        <SummaryRow k="Players" v="4" />
-        <SummaryRow k="Winner takes" v={`${payoutFor(stake, 4).payout} USDC`} strong />
+        <SummaryRow k="Players" v="2" />
+        <SummaryRow k="Winner takes" v={`${payoutFor(stake, 2).payout} USDC`} strong />
       </Glass>
     </LudoScreen>
   );

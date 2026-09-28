@@ -77,25 +77,27 @@ class MatchClient {
           return;
         }
 
-        this.ws = new WebSocket(url);
+        const sock = new WebSocket(url);
+        this.ws = sock;
 
         const timeout = setTimeout(() => {
-          if (!this.isConnected) {
-            // Drop the half-open socket so Retry really reconnects.
-            try { this.ws?.close(); } catch (_) {}
-            this.ws = null;
+          if (sock.readyState !== WebSocket.OPEN) {
+            // Drop only this attempt's half-open socket so Retry really reconnects
+            // (never a newer socket from a later attempt).
+            try { sock.close(); } catch (_) {}
+            if (this.ws === sock) this.ws = null;
             resolve(false);
           }
         }, 3000);
 
-        this.ws.onopen = () => {
+        sock.onopen = () => {
           clearTimeout(timeout);
           this.isConnected = true;
           this.emit("connected", { url });
           resolve(true);
         };
 
-        this.ws.onmessage = (event) => {
+        sock.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data as string);
             this.handleMessage(data);
@@ -104,15 +106,22 @@ class MatchClient {
           }
         };
 
-        this.ws.onerror = (err) => {
+        sock.onerror = (err) => {
           console.warn("[MatchClient] WebSocket error:", err);
           this.emit("error", { error: "ws_error", details: err });
           resolve(false);
         };
 
-        this.ws.onclose = () => {
+        sock.onclose = () => {
+          // Ignore closes from stale attempts once a newer socket exists.
+          if (this.ws !== sock && this.ws !== null) return;
+          const wasConnected = this.isConnected;
           this.isConnected = false;
-          this.emit("disconnected", {});
+          if (this.ws === sock) this.ws = null;
+          // Server dropped us from the room; a Retry must rejoin, not assume we're seated.
+          this.currentRoomCode = null;
+          this.mySeat = null;
+          if (wasConnected) this.emit("disconnected", {});
         };
       } catch (err) {
         resolve(false);

@@ -64,6 +64,9 @@ npm run match-server          # installs server deps if needed, then runs node .
 - It listens on `0.0.0.0`, meaning every network interface, so your phone can reach it at the Mac's network address.
 - Turn clock: 20 seconds by default (one clock covers the roll and the move). Override it with `TURN_MS=10000`.
 - Reconnect grace: 30 seconds by default. Override it with `GRACE_MS=10000`, which is handy for testing drops quickly.
+- Heartbeat: the server pings every 10 seconds by default. Override it with `HEARTBEAT_MS`.
+- Match history is saved to a JSON file (the last 5000 matches). Point it somewhere else with `HISTORY_FILE=/path/history.json`.
+- `ESCROW_LIVE=1` allows real stakes. Leave it unset for now, which forces every stake to 0 on the server. Don't set it until gate 3 passes.
 - Stakes are forced to 0 on the server until escrow ships, so every room is a "Friendly · no stake" table.
 
 **Terminal B: Expo**
@@ -113,7 +116,7 @@ You need one client per seat.
 What to expect:
 - **Seats:** a 3p room uses Red, Green and Blue (seats `[3,2,0]`). The 4th corner shows as an empty, dimmed seat.
 - **Idle turns:** if nobody taps, the server's turn clock plays the turn after 20 seconds.
-- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Tap Retry within that window to take your seat back. That works even after an app reload, because your `playerId` is saved on the device (`aura.match.playerId`). The server plays your turn if it comes up while you're away. If the window has already run out, your seat is gone and you'll see "You forfeited this match". Both ends check the connection every 10 seconds, so a silent Wi-Fi drop (15 seconds with no reply) starts the grace period right away. If your saved table is still playing, the Ludo hub shows a **Rejoin** tile.
+- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Within that window, tap Retry on the "Connection lost" card to take your seat back. If the app was reloaded or killed, go back through the Ludo hub's **Rejoin** tile or **Join with code** instead. Your seat is still yours because your `playerId` is saved on the device (`aura.match.playerId`). The server plays your turn if it comes up while you're away. If the window has already run out, your seat is gone and you'll see "You forfeited this match". Both ends check the connection every 10 seconds, so a silent Wi-Fi drop (15 seconds with no reply) starts the grace period right away. If your saved table is still playing, the Ludo hub shows a **Rejoin** tile.
 
 ## 7. Rebuild the Ludo bundle
 
@@ -139,10 +142,10 @@ Move speed can be tuned with `HOP_MS` (200) and `LAND_MS` (160) at the top of `g
 The code is wrong or the table has ended, or every seat is taken. Go back to the hub and create a new table.
 
 **"You forfeited this match"**
-Your seat's 30-second grace period ran out, so that seat left the match. Start or join a new table.
+You tapped Leave (and confirmed the forfeit), or your seat's 30-second grace period ran out, so that seat left the match. Start or join a new table.
 
 **"Table code in use"**
-You tried to create a table with a code a live table already has. Create again to get a fresh code. If you were already seated there, use Retry, which rejoins instead of creating.
+You tried to create a table with a code a live table already has. This card has no Retry button. Go back to the hub and create again to get a fresh code. If you were already seated at that table, use the **Rejoin** tile or **Join with code**.
 
 **Old screens / the new hub doesn't show (stale bundle)**
 - Restart with `npx expo start -c`.

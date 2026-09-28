@@ -272,7 +272,16 @@ export function LudoLobbyScreen() {
           {stake > 0 ? "Once every seat is filled, each player locks their stake, then the match starts." : "The match starts on its own once every seat is filled."}
         </Muted>
       )}
-      {esc ? <DepositSheet visible={sheetOpen} escrow={esc} mySeat={mySeat} onClose={closeSheet} /> : null}
+      {esc ? <DepositSheet
+          visible={sheetOpen}
+          escrow={esc}
+          mySeat={mySeat}
+          onClose={closeSheet}
+          onLeave={() => {
+            setSheetOpen(false);
+            navigation.navigate("LudoHub"); // unmount leaves the table → server refunds any deposits
+          }}
+        /> : null}
     </LudoScreen>
   );
 }

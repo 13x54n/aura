@@ -10,6 +10,7 @@ import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana
 import { encryptPayload, decryptPayload, sharedSecretFor, phantomErrorFrom, PhantomError } from "../src/escrow/phantomCrypto.ts";
 import { buildDepositTx, verifySignedDeposit, isBlockhashError, DEPOSIT_DISC, COMPUTE_BUDGET_ID } from "../src/escrow/depositTx.ts";
 import { runDeposit } from "../src/escrow/depositFlow.ts";
+import { depositView, COPY } from "../src/escrow/depositCopy.ts";
 
 let pass = 0, fail = 0;
 const t = async (name, fn) => {
@@ -62,9 +63,9 @@ await t("tampered payload / wrong key / wrong nonce are rejected", () => {
   assert.throws(() => decryptPayload(a.payload, bs58.encode(nacl.randomBytes(24)), s));
 });
 
-await t("Phantom error codes: 4001 → Cancelled in Phantom, 4100 → session, other → phantom_error", () => {
+await t("Phantom error codes: 4001 → Not approved, 4100 → session, other → phantom_error", () => {
   assert.equal(phantomErrorFrom("4001", "User rejected the request.").kind, "rejected");
-  assert.equal(phantomErrorFrom("4001", "x").message, "Cancelled in Phantom");
+  assert.equal(phantomErrorFrom("4001", "x").message, "Not approved");
   assert.equal(phantomErrorFrom("4100", "Unauthorized").kind, "session");
   assert.equal(phantomErrorFrom("-32603", "Internal error").kind, "phantom_error");
 });
@@ -170,7 +171,7 @@ await t("flow: happy path → wallet → sending → confirming (server chain re
   assert.equal(h.log.prompts, 1); assert.equal(h.log.confirmed, 1);
 });
 
-await t("flow: expired blockhash → fresh blockhash + one automatic re-prompt ('Took a bit long')", async () => {
+await t("flow: expired blockhash → fresh blockhash + one automatic re-prompt ('That took too long, please approve once more')", async () => {
   const h = harness({ sendFails: 1 });
   const r = await runDeposit(P, h.deps);
   assert.equal(r.step, "locked");
@@ -230,6 +231,40 @@ await t("flow: signed tx returned after an Expo Go reload is submitted without r
   const orphan = buildDepositTx({ ...P, ...bh() }); orphan.partialSign(player);
   const r = await runDeposit(P, { ...h.deps, takeOrphan: () => orphan });
   assert.equal(r.step, "locked"); assert.equal(h.log.prompts, 0);
+});
+
+// ── Sheet copy (design) ──
+await t("copy: before switching apps → 'Opening Phantom to approve {stake} USDC…' with spinner", () => {
+  for (const step of [{ step: "preparing" }, { step: "wallet", retry: false }]) {
+    const v = depositView(step, 5, false);
+    assert.equal(v.status, "Opening Phantom to approve 5 USDC…"); assert.ok(v.spinner); assert.equal(v.primary, null);
+  }
+});
+await t("copy: blockhash re-prompt → 'That took too long, please approve once more'", () => {
+  assert.equal(depositView({ step: "wallet", retry: true }, 1, false).status, "That took too long, please approve once more");
+  assert.equal(COPY.reprompt, "That took too long, please approve once more");
+});
+await t("copy: on return → 'Confirming on Solana…' until the server's room read; then Locked ✓", () => {
+  for (const step of [{ step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }]) {
+    assert.equal(depositView(step, 1, false).status, "Confirming on Solana…");
+  }
+  const v = depositView({ step: "locked", sig: "x", url: null }, 1, true);
+  assert.equal(v.status, "Locked ✓"); assert.ok(!v.spinner);
+});
+await t("copy: cancelled / returned without approving / error → 'Not approved' + Try again + Leave table, no spinner", () => {
+  for (const step of [{ step: "cancelled" }, { step: "error", message: "boom" }]) {
+    const v = depositView(step, 1, false);
+    assert.equal(v.status, "Not approved"); assert.ok(!v.spinner);
+    assert.equal(v.primary.label, "Try again"); assert.ok(v.leave);
+  }
+});
+await t("copy: no state ever shows a spinner without an in-flight step", () => {
+  const all = [null, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }, { step: "cancelled" }, { step: "error", message: "m" }];
+  for (const st of all) {
+    const v = depositView(st, 1, false);
+    assert.ok(v.spinner || v.primary || v.status === "Locked ✓", `stuck state ${st?.step}`);
+    assert.ok(!(v.spinner && v.primary), "spinner and a button at once");
+  }
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

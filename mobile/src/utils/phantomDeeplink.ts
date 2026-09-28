@@ -223,7 +223,7 @@ export function reopenPhantomSign(): boolean {
 
 export function cancelPhantomSign() {
   if (!pendingSign) return;
-  pendingSign.reject(new PhantomError("rejected", "Cancelled in Phantom"));
+  pendingSign.reject(new PhantomError("rejected", "Not approved"));
   clearPendingSign();
 }
 

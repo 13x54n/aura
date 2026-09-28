@@ -5,9 +5,9 @@
  *   fresh blockhash → build unsigned tx → wallet signs (fee payer + sole signer)
  *   → app submits the signed bytes → server confirm-deposit reads the room account.
  *
- * Blockhash expired/not found at send → rebuild + re-prompt once ("Took a bit long…").
+ * Blockhash expired/not found at send → rebuild + re-prompt once ("That took too long, please approve once more").
  * Phantom session missing/expired → reconnect first, then prompt.
- * Rejected in wallet → "cancelled" (the seat can retry).
+ * Rejected in wallet / returned without approving → "cancelled" ("Not approved", retry).
  */
 import type { Transaction } from "@solana/web3.js";
 import { buildDepositTx, isBlockhashError, verifySignedDeposit, type DepositParams } from "./depositTx";
@@ -93,7 +93,7 @@ export async function runDeposit(p: DepositParams, d: DepositDeps): Promise<Depo
         sig = await d.sendAndConfirm(signed.serialize(), bh);
       } catch (e) {
         if (isBlockhashError(e) && !blockhashRetried) {
-          blockhashRetried = true; // "Took a bit long — approve again in Phantom"
+          blockhashRetried = true; // "That took too long, please approve once more"
           continue;
         }
         throw e;

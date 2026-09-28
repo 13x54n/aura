@@ -6,7 +6,7 @@ import { aura } from "../../theme/tokens";
 import { GhostButton, Glass, Muted, PrimaryButton, SummaryRow } from "./ludoUi";
 import { EscrowSnapshot } from "../../match/MatchClient";
 import { useDeposit } from "../../escrow/useDeposit";
-import { cancelPhantomSign, reopenPhantomSign } from "../../utils/phantomDeeplink";
+import { depositView } from "../../escrow/depositCopy";
 
 /**
  * "Lock {stake} USDC for this table" glass bottom sheet.
@@ -19,17 +19,19 @@ export function DepositSheet({
   escrow,
   mySeat,
   onClose,
+  onLeave,
 }: {
   visible: boolean;
   escrow: EscrowSnapshot;
   mySeat: number | null;
   onClose: () => void;
+  onLeave: () => void;
 }) {
-  const { state, start, notAnswered, walletName } = useDeposit(escrow, mySeat);
+  const { state, start } = useDeposit(escrow, mySeat);
   // Ready comes only from the server's room-account read (room.state), never from the sig.
   const chainLocked = mySeat != null && escrow.seats[mySeat]?.state === "ready";
-  const step = state?.step;
-  const busy = !chainLocked && (step === "connecting" || step === "preparing" || step === "wallet" || step === "sending" || step === "confirming" || step === "locked");
+  const view = depositView(state, escrow.stake, chainLocked);
+  const busy = view.spinner;
   const sig = state && "sig" in state ? state.sig : null;
   const url = state?.step === "locked" ? state.url : null;
 
@@ -39,22 +41,6 @@ export function DepositSheet({
       return () => clearTimeout(t);
     }
   }, [chainLocked, visible, onClose]);
-
-  const label = chainLocked
-    ? "Locked ✓"
-    : step === "connecting"
-      ? `Reconnecting ${walletName}…`
-      : step === "preparing"
-        ? "Preparing…"
-        : step === "wallet"
-          ? `Waiting for ${walletName}…`
-          : step === "sending"
-            ? "Sending…"
-            : step === "confirming" || step === "locked"
-              ? "Confirming on-chain…"
-              : step === "cancelled" || step === "error"
-                ? "Try again"
-                : `Approve in ${walletName}`;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={() => !busy && onClose()} statusBarTranslucent>
@@ -70,27 +56,17 @@ export function DepositSheet({
           </View>
           <Muted style={{ fontSize: 13 }}>Refunded automatically if the match doesn't start.</Muted>
 
-          {state?.step === "wallet" && state.retry ? (
-            <Text style={styles.note}>Took a bit long — approve again in {walletName}.</Text>
-          ) : null}
-          {state?.step === "cancelled" ? <Text style={styles.note}>Cancelled in {walletName}.</Text> : null}
-          {state?.step === "error" ? <Text style={styles.note}>{state.message}</Text> : null}
-
-          <PrimaryButton
-            icon={chainLocked ? "check-circle" : busy ? undefined : "wallet"}
-            label={label}
-            disabled={busy || chainLocked}
-            onPress={start}
-          />
-          {busy ? <ActivityIndicator color={aura.purpleBright} /> : null}
-
-          {step === "wallet" && notAnswered ? (
-            <View style={{ gap: 8 }}>
-              <Muted style={{ fontSize: 13, textAlign: "center" }}>Still waiting for {walletName}.</Muted>
-              <PrimaryButton icon="open-in-new" label={`Open ${walletName} again`} onPress={() => reopenPhantomSign()} />
-              <GhostButton label="Cancel" onPress={() => cancelPhantomSign()} />
+          {view.status ? (
+            <View style={styles.statusRow}>
+              {view.spinner ? <ActivityIndicator color={aura.purpleBright} /> : null}
+              {chainLocked ? <Icon name="check-circle" size={18} color="#34D399" /> : null}
+              <Text style={[styles.status, chainLocked && { color: "#34D399" }]}>{view.status}</Text>
             </View>
           ) : null}
+          {view.detail ? <Text style={styles.note}>{view.detail}</Text> : null}
+
+          {view.primary ? <PrimaryButton icon="wallet" label={view.primary.label} onPress={start} /> : null}
+          {view.leave ? <GhostButton label="Leave table" onPress={onLeave} /> : null}
 
           {url || sig ? (
             <Pressable onPress={() => url && Linking.openURL(url)} style={styles.link} accessibilityRole="link">
@@ -118,6 +94,8 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: aura.glassBorder, marginBottom: 4 },
   title: { color: aura.text, fontSize: 20, fontWeight: "800" },
   note: { color: aura.textMuted, fontSize: 13 },
+  statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 4 },
+  status: { color: aura.text, fontSize: 15, fontWeight: "700" },
   link: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   linkText: { color: aura.purpleBright, fontWeight: "700" },
 });

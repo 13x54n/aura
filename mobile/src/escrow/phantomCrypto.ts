@@ -42,7 +42,7 @@ export class PhantomError extends Error {
 export function phantomErrorFrom(errorCode: string | undefined, errorMessage: string | undefined): PhantomError {
   const code = String(errorCode ?? "");
   const msg = String(errorMessage ?? `Phantom error ${code}`);
-  if (code === "4001" || /reject|cancel|denied|declin/i.test(msg)) return new PhantomError("rejected", "Cancelled in Phantom", code);
+  if (code === "4001" || /reject|cancel|denied|declin/i.test(msg)) return new PhantomError("rejected", "Not approved", code);
   if (code === "4100" || code === "4900" || /session|unauthori|not connected|disconnected/i.test(msg)) {
     return new PhantomError("session", "Phantom session expired", code);
   }

@@ -8,7 +8,7 @@ import { Connection, Transaction } from "@solana/web3.js";
 import { useConnection } from "../utils/ConnectionProvider";
 import { isExpoGo } from "../utils/isExpoGo";
 import { useMobileWallet } from "../utils/useMobileWallet";
-import { connectPhantomDeeplink, loadPhantomSession, phantomSignTransaction, takeOrphanSignedTx } from "../utils/phantomDeeplink";
+import { cancelPhantomSign, connectPhantomDeeplink, loadPhantomSession, phantomSignTransaction, takeOrphanSignedTx } from "../utils/phantomDeeplink";
 import { useAuthorization } from "../utils/useAuthorization";
 import { EscrowSnapshot, matchClient } from "../match/MatchClient";
 import { DepositStep, runDeposit } from "./depositFlow";
@@ -18,7 +18,6 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
   const { signTransaction: mwaSign } = useMobileWallet();
   const { setMockAuthorization } = useAuthorization();
   const [state, setState] = useState<DepositStep | null>(null);
-  const [notAnswered, setNotAnswered] = useState(false);
   const running = useRef(false);
 
   const conn = useMemo(() => {
@@ -32,7 +31,6 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
     const player = seat?.wallet ?? matchClient.wallet;
     if (!seat || !player) return setState({ step: "error", message: "Connect the wallet you joined with." });
     running.current = true;
-    setNotAnswered(false);
     const usePhantom = isExpoGo() || !!(await loadPhantomSession());
     matchClient.depositSigning(true);
     try {
@@ -47,7 +45,8 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
           },
           getBlockhash: () => conn.getLatestBlockhash("confirmed"),
           sign: (tx: Transaction) =>
-            usePhantom ? phantomSignTransaction(tx, { onReturnWithoutAnswer: () => setNotAnswered(true) }) : mwaSign(tx),
+            // Back in the app without a Phantom answer → "Not approved" (no hanging spinner).
+            usePhantom ? phantomSignTransaction(tx, { onReturnWithoutAnswer: () => cancelPhantomSign() }) : mwaSign(tx),
           sendAndConfirm: async (raw, bh) => {
             const sig = await conn.sendRawTransaction(raw, { maxRetries: 3, preflightCommitment: "confirmed" });
             try {
@@ -65,7 +64,6 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
           takeOrphan: usePhantom ? () => takeOrphanSignedTx() : undefined,
           onStep: (s) => {
             setState(s);
-            if (s.step !== "wallet") setNotAnswered(false);
           },
         }
       );
@@ -75,5 +73,5 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
     }
   }, [escrow, mySeat, conn, mwaSign, setMockAuthorization]);
 
-  return { state, start, notAnswered, walletName: isExpoGo() ? "Phantom" : "wallet", reset: () => setState(null) };
+  return { state, start, walletName: isExpoGo() ? "Phantom" : "wallet", reset: () => setState(null) };
 }

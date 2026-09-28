@@ -12,7 +12,8 @@ aura_escrow = "Df1YjMHGeeXVvayPHX7Vb5svqUkV3dbdfKU9D4UZ4m2"
 aura_escrow = "Df1YjMHGeeXVvayPHX7Vb5svqUkV3dbdfKU9D4UZ4m2"
 
 [provider]
-cluster = "devnet"
+# Never the public devnet RPC: pass --provider.cluster "$SOLANA_RPC" (dedicated devnet RPC).
+cluster = "localnet"
 wallet = "~/.config/aura/escrow-authority.json"
 
 [scripts]

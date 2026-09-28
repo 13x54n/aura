@@ -46,6 +46,18 @@ const pk = (x) => (x instanceof PublicKey ? x : new PublicKey(x));
 const w = (pubkey, isSigner = false) => ({ pubkey: pk(pubkey), isSigner, isWritable: true });
 const r = (pubkey, isSigner = false) => ({ pubkey: pk(pubkey), isSigner, isWritable: false });
 
+/** Public devnet RPC rate-limits the whole IP (it blanked Lex's app balances). Never default to it. */
+export const PUBLIC_DEVNET_RPC = /^https?:\/\/api\.devnet\.solana\.com\/?$/i;
+export function requireRpc(env = process.env) {
+  const rpc = (env.SOLANA_RPC || "").trim();
+  if (!rpc || PUBLIC_DEVNET_RPC.test(rpc) || /mainnet/i.test(rpc)) {
+    const why = !rpc ? "SOLANA_RPC is not set" : /mainnet/i.test(rpc) ? "SOLANA_RPC points at mainnet" : "SOLANA_RPC is the public devnet endpoint";
+    console.error(`\n!!!! aura escrow: ${why}. Set SOLANA_RPC to a dedicated DEVNET RPC (e.g. Helius). Refusing to hit api.devnet.solana.com. !!!!\n`);
+    return null;
+  }
+  return rpc;
+}
+
 export const explorerTx = (sig, cluster = "devnet") => `https://explorer.solana.com/tx/${sig}?cluster=${cluster}`;
 export const ata = (owner, mint) =>
   PublicKey.findProgramAddressSync([pk(owner).toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), pk(mint).toBuffer()], ATA_PROGRAM_ID)[0];
@@ -220,9 +232,11 @@ export class EscrowService {
   static fromEnv(env = process.env, log = console) {
     const keyPath = env.ESCROW_AUTHORITY_KEYPAIR;
     if (!keyPath) return null;
+    const rpc = requireRpc(env);
+    if (!rpc) return null; // staked rooms stay off
     const clamp = (v, lo, hi, d) => Math.min(hi, Math.max(lo, Number(v) || d));
     return new EscrowService({
-      rpc: env.SOLANA_RPC || "https://api.devnet.solana.com",
+      rpc,
       programId: env.ESCROW_PROGRAM_ID || DEFAULT_PROGRAM_ID,
       mint: env.ESCROW_MINT || CIRCLE_DEVNET_USDC,
       authority: loadKeypair(keyPath),
@@ -234,7 +248,7 @@ export class EscrowService {
 
   /** Reads the on-chain config + mint so the server refuses to run half-configured. */
   async init() {
-    if (this.rpc.includes("mainnet")) throw new Error("escrow: devnet only");
+    if (!requireRpc({ SOLANA_RPC: this.rpc })) throw new Error("escrow: dedicated devnet SOLANA_RPC required");
     const [cfgInfo, mintInfo] = await Promise.all([
       this.conn.getAccountInfo(configPda(this.programId, this.mint)),
       this.conn.getParsedAccountInfo(this.mint),

@@ -2,7 +2,7 @@
   "name": "aura-escrow-tests",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node tests/escrow.test.mjs" },
+  "scripts": { "test": "node tests/escrow.test.mjs && node tests/service.test.mjs" },
   "devDependencies": {
     "litesvm": "^0.3.3"
   }

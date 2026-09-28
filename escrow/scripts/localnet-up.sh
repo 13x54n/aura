@@ -3,23 +3,44 @@
 # ~/.config/aura/escrow-authority.json), a 6-dp test mint, config + fee-wallet ATA, and the
 # test players funded with SOL + 100 test USDC. No devnet/mainnet calls.
 #   escrow/scripts/localnet-up.sh        # start (resets the ledger)
-#   escrow/scripts/localnet-up.sh stop   # stop the validator
+#   escrow/scripts/localnet-up.sh stop   # stop the validator this script started (pid in /tmp/aura-validator.pid)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RPC=http://127.0.0.1:8899
 LEDGER=${AURA_LEDGER:-/tmp/aura-ledger}
 K=~/.config/aura
+PIDFILE=${AURA_VALIDATOR_PIDFILE:-/tmp/aura-validator.pid}
+# stop: kill only the validator this script started (recorded pid), never whatever holds :8899.
 if [[ "${1:-}" == "stop" ]]; then
-  lsof -ti tcp:8899 | xargs kill 2>/dev/null && echo "validator stopped" || echo "no validator on 8899"
+  if [[ -f "$PIDFILE" ]]; then
+    VPID=$(cat "$PIDFILE")
+    if kill -0 "$VPID" 2>/dev/null && ps -p "$VPID" -o command= | grep -q solana-test-validator; then
+      kill "$VPID"
+      for i in $(seq 1 20); do kill -0 "$VPID" 2>/dev/null || break; sleep 0.5; done
+      echo "validator $VPID stopped"
+    else
+      echo "recorded validator $VPID is not running"
+    fi
+    rm -f "$PIDFILE"
+  else
+    echo "no validator started by this script ($PIDFILE missing)"
+  fi
   exit 0
 fi
-if lsof -ti tcp:8899 >/dev/null; then echo "port 8899 busy — run '$0 stop' first" >&2; exit 1; fi
+# Refuse to start next to any running validator (ours or someone else's).
+if RUNNING=$(pgrep -f solana-test-validator); then
+  echo "a solana-test-validator is already running (pid $(echo $RUNNING | tr '\n' ' ')) — not starting another." >&2
+  echo "If it's ours: $0 stop. Otherwise leave it alone." >&2
+  exit 1
+fi
+if lsof -ti tcp:8899 >/dev/null; then echo "port 8899 is in use by something else — not starting." >&2; exit 1; fi
 [[ -f target/deploy/aura_escrow.so ]] || anchor build
 PID=$(solana-keygen pubkey $K/aura-escrow-program.json)
 AUTH=$(solana-keygen pubkey $K/escrow-authority.json)
 # nohup + disown so the validator outlives the shell that started it
 nohup solana-test-validator --reset --quiet --ledger "$LEDGER" \
   --upgradeable-program "$PID" target/deploy/aura_escrow.so "$AUTH" > /tmp/aura-validator.log 2>&1 < /dev/null &
+echo $! > "$PIDFILE"
 disown || true
 for i in $(seq 1 60); do
   solana cluster-version --url $RPC >/dev/null 2>&1 && break

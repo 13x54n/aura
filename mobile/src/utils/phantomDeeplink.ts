@@ -8,6 +8,7 @@ import { fromUint8Array } from "js-base64";
 import { Buffer } from "buffer";
 
 import type { Account } from "./useAuthorization";
+import { createReturnWatcher } from "../escrow/appReturn";
 import { decryptPayload, encryptPayload, PhantomError, phantomErrorFrom } from "../escrow/phantomCrypto";
 
 const APP_URL = "https://aura.app";
@@ -131,7 +132,7 @@ type PendingSign = {
   timer: ReturnType<typeof setTimeout>;
   url: string;
   appSub: { remove: () => void } | null;
-  resumeTimer: ReturnType<typeof setTimeout> | null;
+  watcher: ReturnType<typeof createReturnWatcher> | null;
 };
 let pendingSign: PendingSign | null = null;
 /** A signed tx that came back after Expo Go was reloaded (no promise waiting for it). */
@@ -140,7 +141,7 @@ let orphanSigned: { tx: Transaction; at: number } | null = null;
 function clearPendingSign() {
   if (!pendingSign) return;
   clearTimeout(pendingSign.timer);
-  if (pendingSign.resumeTimer) clearTimeout(pendingSign.resumeTimer);
+  pendingSign.watcher?.stop();
   pendingSign.appSub?.remove();
   pendingSign = null;
 }
@@ -185,7 +186,7 @@ export async function phantomSignTransaction(
       resolve,
       reject,
       url,
-      resumeTimer: null,
+      watcher: null,
       appSub: null,
       timer: setTimeout(() => {
         if (pendingSign === p) {
@@ -194,17 +195,11 @@ export async function phantomSignTransaction(
         }
       }, 5 * 60_000),
     };
-    // Back in Expo Go without a redirect (user switched apps): tell the UI after a short
-    // grace so it can offer "Open Phantom again" — the promise stays open.
+    // Back in Expo Go without a redirect: armed only after a real `background` (the user
+    // actually went to Phantom), never on inactive → active.
+    p.watcher = createReturnWatcher(() => pendingSign === p && opts.onReturnWithoutAnswer?.(), 2500);
     p.appSub = AppState.addEventListener("change", (st: AppStateStatus) => {
-      if (pendingSign !== p) return;
-      if (st === "active") {
-        if (p.resumeTimer) clearTimeout(p.resumeTimer);
-        p.resumeTimer = setTimeout(() => pendingSign === p && opts.onReturnWithoutAnswer?.(), 2500);
-      } else if (p.resumeTimer) {
-        clearTimeout(p.resumeTimer);
-        p.resumeTimer = null;
-      }
+      if (pendingSign === p) p.watcher?.onChange(st);
     });
     pendingSign = p;
     Linking.openURL(url).catch(() => {

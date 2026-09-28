@@ -337,18 +337,33 @@ export class EscrowService {
 
   /** Did `sig` land? true = confirmed ok, Error = landed with a program error, null = unknown. */
   async sigLanded(sig, waitMs = 12000) {
+    const r = await this.anyLanded([sig], waitMs);
+    return r === null ? null : r instanceof Error ? r : true;
+  }
+
+  /**
+   * Check every signature we tried: returns the sig of any attempt that landed OK (an earlier
+   * attempt counts as success), an Error if attempts landed only with program errors, else null.
+   */
+  async anyLanded(sigs, waitMs = 12000) {
+    if (!sigs.length) return null;
     const until = Date.now() + waitMs;
-    while (Date.now() < until) {
+    for (;;) {
+      let failed = null;
       try {
-        const { value } = await this.conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
-        const st = value?.[0];
-        if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
-          return st.err ? new Error(`failed: ${JSON.stringify(st.err)}`) : true;
+        const { value } = await this.conn.getSignatureStatuses(sigs, { searchTransactionHistory: true });
+        for (let i = 0; i < sigs.length; i++) {
+          const st = value?.[i];
+          if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
+            if (!st.err) return sigs[i];
+            failed = new Error(`failed: ${JSON.stringify(st.err)}`);
+          }
         }
       } catch {}
+      if (failed) return failed;
+      if (Date.now() >= until) return null;
       await new Promise((res) => setTimeout(res, 1000));
     }
-    return null;
   }
 
   /**
@@ -358,11 +373,11 @@ export class EscrowService {
    */
   async send(ixs, label) {
     let lastErr;
-    let lastSig = null;
+    const tried = []; // every signature we sent; any of them landing = success
     for (let attempt = 0; attempt < 3; attempt++) {
-      if (lastSig) {
-        const landed = await this.sigLanded(lastSig);
-        if (landed === true) return lastSig;
+      if (tried.length) {
+        const landed = await this.anyLanded(tried);
+        if (typeof landed === "string") return landed;
         if (landed instanceof Error) throw new Error(`${label} ${landed.message}`);
       }
       try {
@@ -372,18 +387,26 @@ export class EscrowService {
         tx.feePayer = this.authority.publicKey;
         tx.sign(this.authority);
         const sig = bs58sig(tx);
-        lastSig = sig;
+        tried.push(sig);
         await this.conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
         const res = await this.conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
         if (res.value.err) throw new ProgramError(`${label} failed: ${JSON.stringify(res.value.err)}`);
         return sig;
       } catch (e) {
         lastErr = e;
-        if (e instanceof ProgramError || /custom program error|Simulation failed|failed: \{/.test(String(e?.message))) throw e;
+        if (e instanceof ProgramError || /custom program error|Simulation failed|failed: \{/.test(String(e?.message))) {
+          // A program error on a retry can mean an earlier attempt already did the work.
+          if (tried.length > 1) {
+            const earlier = await this.anyLanded(tried.slice(0, -1), 3000);
+            if (typeof earlier === "string") return earlier;
+          }
+          throw e;
+        }
         await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
       }
     }
-    if (lastSig && (await this.sigLanded(lastSig)) === true) return lastSig;
+    const landed = await this.anyLanded(tried);
+    if (typeof landed === "string") return landed;
     throw lastErr;
   }
 
@@ -418,10 +441,23 @@ export class EscrowService {
     return this.send([startMatchIx({ programId: this.programId, authority: this.authority.publicKey, mint: this.mint, room })], "start_match");
   }
 
-  /** Confirm-deposit: read the room account; true only if `chainSeat` is funded by `wallet`. */
-  async confirmDeposit({ room, chainSeat, wallet }) {
+  /** Is this the room we opened? Config (our mint's), stake and seat count must match. */
+  roomProblem(st, expect = {}) {
+    if (!st) return "room account missing";
+    if (!st.config.equals(configPda(this.programId, this.mint))) return "room belongs to another config";
+    if (expect.stake != null && st.stake !== BigInt(expect.stake)) return "stake mismatch";
+    if (expect.seats != null && st.seats !== expect.seats) return "seat count mismatch";
+    return null;
+  }
+
+  /**
+   * Confirm-deposit: read the room account; ok only if it is the expected room
+   * (config/stake/seats) and `chainSeat` is funded by the bound `wallet`.
+   */
+  async confirmDeposit({ room, chainSeat, wallet, stake, seats }) {
     const st = await this.fetchRoom(room);
-    if (!st) return { ok: false, st: null };
+    const problem = this.roomProblem(st, { stake, seats });
+    if (problem) return { ok: false, st, problem };
     const ok = (st.deposited & (1 << chainSeat)) !== 0 && st.players[chainSeat].toBase58() === String(wallet);
     return { ok, st };
   }
@@ -489,10 +525,22 @@ export class EscrowService {
     return { sig, url: explorerTx(sig, this.cluster) };
   }
 
+  /**
+   * Is `sig` a landed, successful tx paid by `wallet` that touched `room`? (Used before storing
+   * a client-reported deposit signature.)
+   */
+  async verifyDepositSig(sig, { room, wallet }) {
+    const tx = await this.conn.getTransaction(sig, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+    if (!tx || tx.meta?.err) return false;
+    const keys = tx.transaction.message.staticAccountKeys ?? tx.transaction.message.accountKeys;
+    const k = keys.map((x) => x.toBase58());
+    return k[0] === String(wallet) && k.includes(pk(room).toBase58());
+  }
+
   /** submitDeposit + confirm-deposit read of the room account. */
-  async submitAndConfirmDeposit({ signedTx, expectMessage, room, chainSeat, wallet }) {
+  async submitAndConfirmDeposit({ signedTx, expectMessage, room, chainSeat, wallet, stake, seats }) {
     const r = await this.submitDeposit({ signedTx, expectMessage });
-    const c = await this.confirmDeposit({ room, chainSeat, wallet });
+    const c = await this.confirmDeposit({ room, chainSeat, wallet, stake, seats });
     return { ...r, confirmed: c.ok, locked: c.st?.status === ROOM_LOCKED };
   }
 

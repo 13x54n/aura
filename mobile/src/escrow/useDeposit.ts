@@ -12,6 +12,7 @@ import { cancelPhantomSign, connectPhantomDeeplink, loadPhantomSession, phantomS
 import { useAuthorization } from "../utils/useAuthorization";
 import { EscrowSnapshot, matchClient } from "../match/MatchClient";
 import { DepositStep, runDeposit } from "./depositFlow";
+import { clientRpcProblem } from "./rpcGuard";
 
 export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | null) {
   const { connection } = useConnection();
@@ -22,7 +23,10 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
 
   const conn = useMemo(() => {
     const rpc = matchClient.escrowInfo.clientRpc;
-    return rpc ? new Connection(rpc, "confirmed") : connection;
+    // Only devnet or localhost/LAN; a mainnet (or unknown) override is ignored.
+    if (rpc && !clientRpcProblem(rpc)) return new Connection(rpc, "confirmed");
+    if (rpc) console.warn(`[escrow] ignoring clientRpc ${rpc}: ${clientRpcProblem(rpc)}`);
+    return connection;
   }, [connection]);
 
   const start = useCallback(async () => {
@@ -61,7 +65,16 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
             return sig;
           },
           confirmOnServer: (sig) => matchClient.confirmDeposit(sig).then((r) => ({ ok: r.ok, url: r.url, message: r.message ?? undefined })),
-          takeOrphan: usePhantom ? () => takeOrphanSignedTx() : undefined,
+          takeOrphan: usePhantom ? () => takeOrphanSignedTx(150_000) : undefined,
+          sendRaw: async (raw) => {
+            await conn.sendRawTransaction(raw, { maxRetries: 3, skipPreflight: true });
+          },
+          sigStatus: async (sig) => {
+            const st = (await conn.getSignatureStatuses([sig], { searchTransactionHistory: true })).value[0];
+            if (!st || !st.confirmationStatus || st.confirmationStatus === "processed") return null;
+            return st.err ? "failed" : "confirmed";
+          },
+          blockhashValid: async (blockhash) => (await conn.isBlockhashValid(blockhash, { commitment: "confirmed" })).value,
           onStep: (s) => {
             setState(s);
           },

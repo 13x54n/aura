@@ -32,7 +32,6 @@ export function DepositSheet({
   const chainLocked = mySeat != null && escrow.seats[mySeat]?.state === "ready";
   const view = depositView(state, escrow.stake, chainLocked);
   const busy = view.spinner;
-  const sig = state && "sig" in state ? state.sig : null;
   const url = state?.step === "locked" ? state.url : null;
 
   useEffect(() => {
@@ -68,8 +67,8 @@ export function DepositSheet({
           {view.primary ? <PrimaryButton icon="wallet" label={view.primary.label} onPress={start} /> : null}
           {view.leave ? <GhostButton label="Leave table" onPress={onLeave} /> : null}
 
-          {url || sig ? (
-            <Pressable onPress={() => url && Linking.openURL(url)} style={styles.link} accessibilityRole="link">
+          {url ? (
+            <Pressable onPress={() => Linking.openURL(url)} style={styles.link} accessibilityRole="link">
               <Icon name="open-in-new" size={14} color={aura.purpleBright} />
               <Text style={styles.linkText}>View transaction</Text>
             </Pressable>

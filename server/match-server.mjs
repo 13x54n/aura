@@ -2,6 +2,7 @@
  * Aura Ludo Authoritative Match Server
  * Lightweight WebSocket server implementing classic-v1 Ludo rules.
  */
+import { confirmDepositRequest } from "./escrowConfirm.mjs";
 import { createHash } from "crypto";
 import { createServer } from "http";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -61,7 +62,8 @@ const sha256 = (...parts) => {
   return h.digest();
 };
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Replayable logs for settled staked matches: GET /matches/<code>/log
+// Replayable logs for settled staked matches: GET /matches/<code>/log. Persisted next to
+// history.json (MATCH_LOGS_FILE) so result_hash stays verifiable after a restart.
 const matchLogs = new Map();
 function escrowInfo() {
   return escrow
@@ -119,6 +121,24 @@ try {
     }
   }
 } catch {}
+const MATCH_LOGS_FILE = process.env.MATCH_LOGS_FILE || join(dirname(HISTORY_FILE), "matchlogs.json");
+try {
+  if (existsSync(MATCH_LOGS_FILE)) {
+    for (const [k, v] of Object.entries(JSON.parse(readFileSync(MATCH_LOGS_FILE, "utf8")))) matchLogs.set(k, v);
+  }
+} catch (err) {
+  console.error("[matchlogs] couldn't read", MATCH_LOGS_FILE, err.message);
+}
+function saveMatchLogs() {
+  try {
+    while (matchLogs.size > 500) matchLogs.delete(matchLogs.keys().next().value);
+    mkdirSync(dirname(MATCH_LOGS_FILE), { recursive: true });
+    writeFileSync(MATCH_LOGS_FILE, JSON.stringify(Object.fromEntries(matchLogs)));
+  } catch (err) {
+    console.error("[matchlogs] couldn't write", MATCH_LOGS_FILE, err.message);
+  }
+}
+
 function saveForfeits() {
   try {
     mkdirSync(dirname(FORFEITS_FILE), { recursive: true });
@@ -612,6 +632,11 @@ class LudoRoom {
     try {
       const st = await escrow.fetchRoom(e.room);
       if (!st || e.phase !== "depositing") return;
+      const problem = escrow.roomProblem(st, { stake: e.stakeBase, seats: this.seatOrder.length });
+      if (problem) {
+        escrowAlert(`room ${this.roomCode} account doesn't match: ${problem}`, { room: e.room.toBase58() });
+        return;
+      }
       let changed = false;
       let all = true;
       this.seatOrder.forEach((s, i) => {
@@ -708,35 +733,32 @@ class LudoRoom {
     const e = this.esc;
     const seat = ws.seat;
     const p = this.players.get(seat);
-    if (!p || p.ws !== ws || !e.room) return;
-    const chainSeat = this.seatOrder.indexOf(seat);
-    if (e.seatState[seat] !== "ready") {
+    const reply = (m) => this.send(ws, {
+      type: "escrow.deposit.confirmed", roomCode: this.roomCode, ...m,
+      url: m.sig ? escrowMod.explorerTx(m.sig, escrow.cluster) : null,
+    });
+    if (!p || p.ws !== ws) return reply({ ok: false, error: "not_seated", message: "You're not seated at this table." });
+    if (e.room && e.seatState[seat] !== "ready" && e.phase === "depositing" && !ws._escrowConfirming) {
       e.seatState[seat] = "depositing";
       this.broadcastState();
     }
-    let ok = false;
-    for (let i = 0; i < 12 && !ok && !this.destroyed; i++) {
-      try {
-        ok = (await escrow.confirmDeposit({ room: e.room, chainSeat, wallet: p.wallet })).ok;
-      } catch {}
-      if (!ok) await sleep(1000);
-    }
-    const s = typeof sig === "string" && /^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(sig) ? sig : null;
-    if (ok) {
-      if (s) e.depositSig[seat] = s;
-      if (e.phase === "depositing" && e.seatState[seat] !== "ready") {
-        e.seatState[seat] = "ready"; // from the room-account read above
-        this.broadcastState();
-      }
-      this.escrowPoll(); // locks + starts once every seat is funded
-    } else if (e.seatState[seat] !== "ready" && e.phase === "depositing") {
-      e.seatState[seat] = "waiting";
-      this.broadcastState();
-    }
-    this.send(ws, {
-      type: "escrow.deposit.confirmed", roomCode: this.roomCode, ok, sig: s,
-      url: s ? escrowMod.explorerTx(s, escrow.cluster) : null,
-      message: ok ? null : "Your deposit isn't on the table account yet.",
+    await confirmDepositRequest({
+      ws, room: e.room, chainSeat: this.seatOrder.indexOf(seat), wallet: p.wallet,
+      stake: e.stakeBase, seats: this.seatOrder.length, sig, escrow, reply,
+      onReady: (verifiedSig) => {
+        if (verifiedSig) e.depositSig[seat] = verifiedSig; // only after on-chain verification
+        if (e.phase === "depositing" && e.seatState[seat] !== "ready") {
+          e.seatState[seat] = "ready"; // from the room-account read
+          this.broadcastState();
+        }
+        this.escrowPoll(); // locks + starts once every seat is funded
+      },
+      onNotReady: () => {
+        if (e.seatState[seat] !== "ready" && e.phase === "depositing") {
+          e.seatState[seat] = "waiting";
+          this.broadcastState();
+        }
+      },
     });
   }
 
@@ -752,6 +774,7 @@ class LudoRoom {
       const r = await escrow.submitAndConfirmDeposit({
         signedTx: String(signedTx || ""), expectMessage: e.built[seat],
         room: e.room, chainSeat: this.seatOrder.indexOf(seat), wallet: p.wallet,
+        stake: e.stakeBase, seats: this.seatOrder.length,
       });
       e.depositSig[seat] = r.sig;
       // Ready comes only from the room account read (confirm-deposit / poll), never the sig.
@@ -856,7 +879,7 @@ class LudoRoom {
       dice: "roll n = 1 + (first byte < 252 of sha256(seed ‖ slotHash ‖ `n:k`)) mod 6", log: this.moveLog, standings,
       resultHash: base.resultHash, settleSig: first?.sig || null,
     });
-    if (matchLogs.size > 500) matchLogs.delete(matchLogs.keys().next().value);
+    saveMatchLogs();
     this.recordHistory(winner, standings, payout);
     this.broadcast({ type: "match.completed", winner, reason, standings, stake: this.stake, payout });
     e.phase = first ? "settled" : first === null ? "settle_failed" : "settling";
@@ -868,7 +891,10 @@ class LudoRoom {
       if (late) {
         const lp = { ...base, sig: late.sig, url: late.url };
         const log = matchLogs.get(this.roomCode);
-        if (log) log.settleSig = late.sig;
+        if (log) {
+          log.settleSig = late.sig;
+          saveMatchLogs();
+        }
         for (const h of history) if (h.code === this.roomCode && h.id.startsWith(`${this.roomCode}-${this.createdAt}-`)) { h.payoutSig = late.sig; h.payoutUrl = late.url; }
         saveHistory();
         this.broadcast({ type: "escrow.settled", roomCode: this.roomCode, payout: lp });
@@ -924,10 +950,14 @@ class LudoRoom {
 
   /** Friendly: Math.random. Staked: derived from the committed seed + roll number (replayable). */
   rollDie() {
-    if (!this.esc || !this.esc.seed) return 1 + Math.floor(Math.random() * 6);
+    if (!this.esc) return 1 + Math.floor(Math.random() * 6);
+    // Staked: the dice MUST mix the committed seed with the lock-time slot hash. No fallback.
+    if (!this.esc.seed || !this.esc.slotHash || this.esc.slotHash.length !== 32) {
+      throw new Error(`staked room ${this.roomCode}: missing seed or lock slot hash`);
+    }
     const n = this.rollCount++;
     for (let k = 0; ; k++) {
-      const h = sha256(this.esc.seed, this.esc.slotHash || Buffer.alloc(32), `${n}:${k}`);
+      const h = sha256(this.esc.seed, this.esc.slotHash, `${n}:${k}`);
       for (const b of h) if (b < 252) return 1 + (b % 6);
     }
   }
@@ -938,7 +968,16 @@ class LudoRoom {
     }
     const token = this.turnSeq;
 
-    const value = this.rollDie();
+    let value;
+    try {
+      value = this.rollDie();
+    } catch (err) {
+      // Never roll staked dice without the slot hash: stop the match and refund everyone.
+      escrowAlert(err.message, { room: this.esc?.room?.toBase58?.() });
+      this.clearTurnTimer();
+      this.escrowRefund("server_error");
+      return false;
+    }
     this.die = value;
     if (this.esc) this.moveLog.push({ t: "roll", seat, v: value });
     this.sixStreak = value === 6 ? this.sixStreak + 1 : 0;

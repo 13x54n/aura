@@ -2,10 +2,11 @@
 /**
  * npm run dev — one command for local Aura development.
  *  1. Installs server deps on first run (server/node_modules/ws).
- *  2. Starts the match server (port 3001, listens on 0.0.0.0).
- *  3. Starts Expo (`expo start -c`) with EXPO_PUBLIC_MATCH_SERVER_URL set to
- *     this Mac's Wi-Fi address, so a phone on the same network finds the server.
- * Ctrl+C stops both. Override with MATCH_HOST=1.2.3.4 or PORT=4000.
+ *  2. Starts the match server on PORT (default 3001, listens on 0.0.0.0).
+ *  3. Starts Expo (`expo start -c`) with EXPO_PUBLIC_MATCH_SERVER_URL from, in order:
+ *     the shell env, mobile/.env (e.g. a wss:// tunnel), or ws://<this Mac's LAN IP>:PORT.
+ *     The printed health link follows that URL's host.
+ * Ctrl+C stops both. Override with MATCH_HOST=1.2.3.4, PORT=4000 or EXPO_PUBLIC_MATCH_SERVER_URL.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -51,8 +52,9 @@ function envFileMatchUrl() {
 const fromEnvFile = envFileMatchUrl();
 const matchUrl = process.env.EXPO_PUBLIC_MATCH_SERVER_URL || fromEnvFile || `ws://${ip}:${PORT}`;
 const source = process.env.EXPO_PUBLIC_MATCH_SERVER_URL ? "shell env" : fromEnvFile ? "mobile/.env" : "LAN";
-const health = matchUrl.startsWith("wss://")
-  ? `${matchUrl.replace(/^wss:/, "https:").replace(/\/$/, "")}/health`
+// Health link on the same host the phone will use (wss→https, ws→http).
+const health = /^wss?:\/\//.test(matchUrl)
+  ? `${matchUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:").replace(/\/$/, "")}/health`
   : `http://${ip}:${PORT}/health`;
 console.log(`[dev] Match server  → ${matchUrl}  (from ${source}; health: ${health})`);
 if (fromEnvFile && process.env.EXPO_PUBLIC_MATCH_SERVER_URL && fromEnvFile !== process.env.EXPO_PUBLIC_MATCH_SERVER_URL)

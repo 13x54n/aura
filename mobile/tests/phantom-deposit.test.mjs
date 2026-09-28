@@ -9,7 +9,9 @@ import bs58 from "bs58";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { encryptPayload, decryptPayload, sharedSecretFor, phantomErrorFrom, PhantomError } from "../src/escrow/phantomCrypto.ts";
 import { buildDepositTx, verifySignedDeposit, isBlockhashError, DEPOSIT_DISC, COMPUTE_BUDGET_ID } from "../src/escrow/depositTx.ts";
-import { runDeposit } from "../src/escrow/depositFlow.ts";
+import { runDeposit, awaitLandingOrExpiry } from "../src/escrow/depositFlow.ts";
+import { createReturnWatcher } from "../src/escrow/appReturn.ts";
+import { clientRpcProblem } from "../src/escrow/rpcGuard.ts";
 import { depositView, COPY } from "../src/escrow/depositCopy.ts";
 
 let pass = 0, fail = 0;
@@ -226,11 +228,98 @@ await t("flow: server's room-account read doesn't show the seat → not locked",
   assert.equal(r.step, "error");
 });
 
-await t("flow: signed tx returned after an Expo Go reload is submitted without re-prompting", async () => {
+// ── (1) Orphan after an Expo Go reload: poll status + blockhash validity, never lastValidBlockHeight ──
+function orphanDeps(h, { statuses, valid }) {
+  const calls = { status: 0, valid: 0, sendRaw: 0 };
+  return {
+    calls,
+    deps: {
+      ...h.deps,
+      sendRaw: async () => { calls.sendRaw++; throw new Error("already processed"); }, // errors ignored
+      sigStatus: async () => statuses[Math.min(calls.status++, statuses.length - 1)],
+      blockhashValid: async () => valid[Math.min(calls.valid++, valid.length - 1)],
+      sleep: async () => {},
+    },
+  };
+}
+const signedOrphan = () => { const o = buildDepositTx({ ...P, ...bh() }); o.partialSign(player); return o; };
+
+await t("orphan: lands a few polls later → confirm, no second Phantom prompt (no double deposit)", async () => {
   const h = harness();
-  const orphan = buildDepositTx({ ...P, ...bh() }); orphan.partialSign(player);
-  const r = await runDeposit(P, { ...h.deps, takeOrphan: () => orphan });
+  const o = orphanDeps(h, { statuses: [null, null, null, "confirmed"], valid: [true] });
+  const orphan = signedOrphan();
+  const r = await runDeposit(P, { ...o.deps, takeOrphan: () => orphan });
+  assert.equal(r.step, "locked"); assert.equal(h.log.prompts, 0); assert.equal(h.log.sent, 0, "sendAndConfirm (lastValidBlockHeight path) not used");
+  assert.equal(r.sig, bs58.encode(orphan.signature));
+  assert.equal(o.calls.sendRaw, 1);
+});
+
+await t("orphan: blockhash still valid, sig not found yet → keeps polling, does NOT re-prompt", async () => {
+  const h = harness();
+  const o = orphanDeps(h, { statuses: [null], valid: [true] });
+  const r = await runDeposit(P, { ...o.deps, takeOrphan: () => signedOrphan() });
+  assert.equal(h.log.prompts, 0, "no re-prompt while the first deposit can still land");
+  assert.equal(r.step, "error"); // gave up waiting after maxPolls → "try again in a minute"
+  assert.ok(o.calls.status >= 100);
+});
+
+await t("orphan: re-prompt only once the blockhash is invalid AND the sig was never found", async () => {
+  const h = harness();
+  const o = orphanDeps(h, { statuses: [null], valid: [true, true, false] });
+  const r = await runDeposit(P, { ...o.deps, takeOrphan: () => signedOrphan() });
+  assert.equal(r.step, "locked"); assert.equal(h.log.prompts, 1);
+  assert.equal(o.calls.valid, 3);
+});
+
+await t("orphan: lands in the last slot (status found after blockhash went invalid) → no re-prompt", async () => {
+  const h = harness();
+  const o = orphanDeps(h, { statuses: [null, "confirmed"], valid: [false] });
+  const r = await runDeposit(P, { ...o.deps, takeOrphan: () => signedOrphan() });
   assert.equal(r.step, "locked"); assert.equal(h.log.prompts, 0);
+});
+
+await t("awaitLandingOrExpiry: failed on-chain → 'failed'; unsure validity (RPC error) keeps waiting", async () => {
+  assert.equal(await awaitLandingOrExpiry("s", "b", { sigStatus: async () => "failed", blockhashValid: async () => true, sleep: async () => {} }), "failed");
+  let n = 0;
+  const r = await awaitLandingOrExpiry("s", "b", { sigStatus: async () => (++n > 4 ? "confirmed" : null), blockhashValid: async () => { throw new Error("rpc down"); }, sleep: async () => {} });
+  assert.equal(r, "landed");
+});
+
+// ── (2) Return watcher: only after a real background ──
+function fakeTimers() {
+  const q = [];
+  return { q, set: (fn, ms) => { const t = { fn, ms, dead: false }; q.push(t); return t; }, clear: (t) => { if (t) t.dead = true; }, fire: () => q.filter((t) => !t.dead).forEach((t) => { t.dead = true; t.fn(); }) };
+}
+await t("return watcher: inactive → active (shade, dialogs) never fires", () => {
+  const tm = fakeTimers(); let fired = 0;
+  const w = createReturnWatcher(() => fired++, 2500, tm);
+  w.onChange("inactive"); w.onChange("active"); w.onChange("inactive"); w.onChange("active");
+  tm.fire(); assert.equal(fired, 0);
+});
+await t("return watcher: active → background → active fires once after the grace", () => {
+  const tm = fakeTimers(); let fired = 0;
+  const w = createReturnWatcher(() => fired++, 2500, tm);
+  w.onChange("inactive"); w.onChange("background"); w.onChange("active");
+  assert.equal(tm.q.filter((t) => !t.dead)[0].ms, 2500);
+  tm.fire(); assert.equal(fired, 1);
+  w.onChange("inactive"); w.onChange("active"); tm.fire(); assert.equal(fired, 1, "not re-armed without another background");
+});
+await t("return watcher: redirect arrives (stop) or app leaves again during the grace → no fire", () => {
+  const tm = fakeTimers(); let fired = 0;
+  const w = createReturnWatcher(() => fired++, 2500, tm);
+  w.onChange("background"); w.onChange("active"); w.stop(); tm.fire();
+  w.onChange("background"); w.onChange("active"); w.onChange("background"); tm.fire();
+  assert.equal(fired, 0);
+});
+
+// ── (3) clientRpc guard ──
+await t("clientRpc guard: devnet + localhost/LAN allowed; mainnet and others refused", () => {
+  for (const ok of ["http://127.0.0.1:8899", "http://localhost:8899", "http://192.168.1.20:8899", "http://10.0.0.5:8899", "http://172.20.1.2:8899", "http://macbook.local:8899", "https://devnet.helius-rpc.com/?api-key=x", "https://api.devnet.solana.com"]) {
+    assert.equal(clientRpcProblem(ok), null, ok);
+  }
+  for (const bad of ["https://api.mainnet-beta.solana.com", "https://API.MAINNET-BETA.SOLANA.COM/", "https://mainnet.helius-rpc.com/?api-key=x", "https://rpc.example.com/?cluster=mainnet", "https://rpc.ankr.com/solana", "ws://127.0.0.1:8900", "devnet", "", null, "http://8.8.8.8:8899", "http://172.32.0.1:8899"]) {
+    assert.ok(clientRpcProblem(bad), String(bad));
+  }
 });
 
 // ── Sheet copy (design) ──

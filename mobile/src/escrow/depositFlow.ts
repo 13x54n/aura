@@ -10,6 +10,7 @@
  * Rejected in wallet / returned without approving → "cancelled" ("Not approved", retry).
  */
 import type { Transaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import { buildDepositTx, isBlockhashError, verifySignedDeposit, type DepositParams } from "./depositTx";
 
 export type DepositStep =
@@ -34,7 +35,39 @@ export type DepositDeps = {
   onStep: (s: DepositStep) => void;
   /** A signed deposit Phantom returned after an Expo Go reload (submit it instead of re-prompting). */
   takeOrphan?: () => Transaction | null;
+  /** Orphan path: fire-and-forget submit (errors ignored — landing is decided by polling). */
+  sendRaw?: (raw: Uint8Array) => Promise<void>;
+  /** "confirmed" (landed ok), "failed" (landed with an error), null (not found yet). */
+  sigStatus?: (sig: string) => Promise<"confirmed" | "failed" | null>;
+  blockhashValid?: (blockhash: string) => Promise<boolean>;
+  sleep?: (ms: number) => Promise<void>;
 };
+
+/**
+ * Wait until `sig` lands, or until its blockhash is no longer valid AND the sig was never
+ * seen — only then is re-prompting safe (no double deposit). Never uses lastValidBlockHeight.
+ */
+export async function awaitLandingOrExpiry(
+  sig: string,
+  blockhash: string,
+  d: Required<Pick<DepositDeps, "sigStatus" | "blockhashValid">> & { sleep?: (ms: number) => Promise<void> },
+  { pollMs = 1500, maxPolls = 120 } = {}
+): Promise<"landed" | "failed" | "expired" | "unknown"> {
+  const sleep = d.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  for (let i = 0; i < maxPolls; i++) {
+    const st = await d.sigStatus(sig).catch(() => null);
+    if (st === "confirmed") return "landed";
+    if (st === "failed") return "failed";
+    const valid = await d.blockhashValid(blockhash).catch(() => true); // unsure → keep waiting
+    if (!valid) {
+      // One last look: it may have landed in the final slots.
+      const last = await d.sigStatus(sig).catch(() => null);
+      return last === "confirmed" ? "landed" : last === "failed" ? "failed" : "expired";
+    }
+    await sleep(pollMs);
+  }
+  return "unknown";
+}
 
 const kindOf = (e: any): string | undefined => e?.kind;
 
@@ -52,19 +85,26 @@ export async function runDeposit(p: DepositParams, d: DepositDeps): Promise<Depo
     let blockhashRetried = false;
     let sessionRetried = false;
     const orphan = d.takeOrphan?.() ?? null;
-    if (orphan && !verifySignedDeposit(orphan, p)) {
+    if (orphan && !verifySignedDeposit(orphan, p) && d.sigStatus && d.blockhashValid && orphan.signature) {
+      // Signed before an Expo Go reload. Its lastValidBlockHeight is unknown, so poll the
+      // signature + blockhash validity; re-prompt only once the blockhash is dead and the sig
+      // never landed (otherwise a second prompt could double-deposit).
       d.onStep({ step: "sending" });
-      try {
-        const sig = await d.sendAndConfirm(orphan.serialize(), {
-          blockhash: orphan.recentBlockhash as string,
-          lastValidBlockHeight: orphan.lastValidBlockHeight ?? 0,
-        });
+      const sig = bs58.encode(orphan.signature);
+      await (d.sendRaw ?? (async () => {}))(orphan.serialize()).catch(() => {});
+      const r = await awaitLandingOrExpiry(sig, orphan.recentBlockhash as string, {
+        sigStatus: d.sigStatus,
+        blockhashValid: d.blockhashValid,
+        sleep: d.sleep,
+      });
+      if (r === "landed") {
         d.onStep({ step: "confirming", sig });
         const c = await d.confirmOnServer(sig);
         if (c.ok) return done({ step: "locked", sig, url: c.url ?? null });
-      } catch {
-        // stale: fall through to a fresh prompt
+        return done({ step: "error", message: c.message || "The deposit landed but the table doesn't show it yet." });
       }
+      if (r === "unknown") return done({ step: "error", message: "Still checking your earlier approval. Try again in a minute." });
+      // "failed" or "expired": nothing moved; a fresh prompt is safe.
     }
     for (;;) {
       d.onStep({ step: "preparing" });

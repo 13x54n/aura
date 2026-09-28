@@ -40,6 +40,7 @@ function startServer(port, extra = {}) {
     cwd: new URL("../../server/", import.meta.url).pathname,
     env: {
       ...process.env, PORT: String(port), HISTORY_FILE: `/tmp/aura-hist-e2e-${port}.json`, FORFEITS_FILE: `/tmp/aura-forfeits-e2e-${port}.json`,
+      MATCH_LOGS_FILE: `/tmp/aura-matchlogs-e2e-${port}.json`,
       TURN_MS: "400", GRACE_MS: "800", ESCROW_LIVE: "1", SOLANA_RPC: RPC, ESCROW_MINT: MINT,
       ESCROW_AUTHORITY_KEYPAIR: K + "escrow-authority.json", ESCROW_DEPOSIT_SECS: "30", ESCROW_REFUND_AFTER_SECS: "300",
       ESCROW_POLL_MS: "700", ...extra,
@@ -203,6 +204,15 @@ ok(health.escrowLive === true, "server reports escrow live on localnet");
   const tx = await conn.getTransaction(done.payout.sig, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
   const ev = E.parseEvents(tx.meta.logMessages).find((e) => e.name === "Settled");
   ok(ev && ev.resultHash === done.payout.resultHash && ev.diceSeed === log.seed && ev.slotHash === log.slotHash, "win: Settled event = published result hash, seed and slot hash");
+  // Restart: a fresh server process reading the same matchlogs file still serves the log.
+  {
+    const rp = PORT + 2;
+    const fresh = startServer(rp, { MATCH_LOGS_FILE: `/tmp/aura-matchlogs-e2e-${PORT}.json`, ESCROW_LIVE: "" });
+    await waitServer(rp);
+    const again = await (await fetch(`http://127.0.0.1:${rp}/matches/E2EWIN/log`)).json();
+    ok(again.resultHash === ev.resultHash && again.seed === log.seed && again.slotHash === log.slotHash, "win: after a restart the persisted match log still verifies against the Settled event");
+    fresh.kill();
+  }
   A.ws.close(); B.ws.close();
 }
 

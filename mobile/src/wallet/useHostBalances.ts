@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { useConnection } from "../utils/ConnectionProvider";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -46,6 +47,7 @@ type Snapshot = { usdc: number | null; sol: number | null; skr: number | null };
  * On any failure the last good balances stay on screen.
  */
 const FRESH_MS = 20_000;
+const AUTO_REFRESH_MS = 60_000;
 const cache = new Map<string, { snap: Snapshot; at: number }>();
 const inflight = new Map<string, Promise<Snapshot | null>>();
 let cooldownUntil = 0;
@@ -192,6 +194,25 @@ export function useHostBalances(): HostBalances {
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, []);
+
+  // Quietly refetch while a card is mounted (every 60s) and when the app returns
+  // to the foreground, so "Updated Xm ago" only lingers if the RPC is failing.
+  // Honors the shared 429 cooldown and in-flight de-dupe.
+  useEffect(() => {
+    if (!key) return;
+    const poll = () => {
+      if (Date.now() < cooldownUntil || inflight.has(key)) return;
+      const hit = cache.get(key);
+      if (hit && Date.now() - hit.at < FRESH_MS) return;
+      setTick((n) => n + 1);
+    };
+    const t = setInterval(poll, AUTO_REFRESH_MS);
+    const sub = AppState.addEventListener("change", (st) => st === "active" && poll());
+    return () => {
+      clearInterval(t);
+      sub.remove();
+    };
+  }, [key]);
 
   return {
     error,

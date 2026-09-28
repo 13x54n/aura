@@ -33,7 +33,7 @@ export function toWalletAdapterNetwork(
 export const defaultClusters: Readonly<Cluster[]> = [
   {
     name: "devnet",
-    endpoint: clusterApiUrl("devnet"),
+    endpoint: process.env.EXPO_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("devnet"),
     network: ClusterNetwork.Devnet,
   },
   {

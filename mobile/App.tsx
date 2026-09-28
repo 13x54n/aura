@@ -15,7 +15,10 @@ import { attachPhantomLinkListener } from "./src/utils/phantomDeeplink";
 import { AuraPaperTheme } from "./src/theme/paperTheme";
 import { aura } from "./src/theme/tokens";
 
-const queryClient = new QueryClient();
+// Devnet RPC is rate-limited: no focus refetch, short cache, one quiet retry.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 } },
+});
 
 export default function App() {
   useEffect(() => attachPhantomLinkListener(), []);
@@ -41,7 +44,7 @@ export default function App() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <ClusterProvider>
-          <ConnectionProvider config={{ commitment: "processed" }}>
+          <ConnectionProvider config={CONNECTION_CONFIG}>
             <View style={[styles.shell, { backgroundColor: aura.bg }]}>
               <PaperProvider theme={theme}>
                 <AppNavigator />
@@ -53,6 +56,9 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+/** Stable object: a new one per render rebuilt the Connection and refetched balances (429s). */
+const CONNECTION_CONFIG = { commitment: "processed" as const, disableRetryOnRateLimit: true };
 
 const styles = StyleSheet.create({
   shell: { flex: 1 },

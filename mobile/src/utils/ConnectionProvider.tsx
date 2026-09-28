@@ -19,9 +19,14 @@ export const ConnectionProvider: FC<ConnectionProviderProps> = ({
 }) => {
   const { selectedCluster } = useCluster();
 
+  // One shared Connection per endpoint + commitment. Keyed on primitives so a
+  // re-render (or an inline config object) never creates a new one.
+  const commitment = config.commitment;
+  const quiet = config.disableRetryOnRateLimit ?? true;
   const connection = useMemo(
-    () => new Connection(selectedCluster.endpoint, config),
-    [selectedCluster, config]
+    () => new Connection(selectedCluster.endpoint, { ...config, disableRetryOnRateLimit: quiet }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCluster.endpoint, commitment, quiet]
   );
 
   return (

@@ -27,7 +27,7 @@ Hard boundary: WebView never receives primary access/refresh tokens, keychain ac
 
 - Catalog (reads `games/*/manifest.json` + icons/covers)  
 - Navigation / tabs / Play handoff (shell → glass load → full-bleed WebView)  
-- Wallet connect (Phantom on Expo Go; Seed Vault on Seeker client)  
+- Wallet connect: **Phantom deep link in Expo Go (the default build)**. Seed Vault / MWA come later, through an optional dev client  
 - Escrow stake **before** mount; payout after **server-attested** result  
 - Policy, kill switch (later), telemetry consent  
 

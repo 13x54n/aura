@@ -39,8 +39,10 @@ Press `Ctrl+C` once to stop both the server and Expo.
 
 - **Node.js 20 or newer.** The Mac currently has v25.
 - **Git** and this repo checked out at `~/aura`. Always run from **this** checkout (see Troubleshooting).
-- **Expo Go** on your phone, for UI testing and Free Play.
-- For the **real wallet** path: an Android / Seeker device with a custom dev client (`npm run android`, which runs `expo run:android`) and Mobile Wallet Adapter (MWA) / Seed Vault. Expo Go can't do MWA.
+- **Expo Go** on your Android phone (Seeker or any other). **This is the default build** for everything, including rooms, the wallet and stakes.
+- **Phantom** on the same phone, set to **Devnet**. It's the wallet in Expo Go, through a deep link.
+- **Rule:** nothing may break Expo Go, so no custom native modules and only packages that work in Expo Go (SDK 57).
+- **Future, optional:** a custom dev client (`npm run android`, which runs `expo run:android`) for Mobile Wallet Adapter (MWA) / Seed Vault. It isn't needed for any current gate.
 - **Optional:** an Android Emulator (Android Studio).
 
 ## 3. Install
@@ -114,7 +116,7 @@ The escrow side (`server/escrow.mjs` and `escrow/scripts/devnet-setup.mjs`) read
 |---|---|---|
 | Phone (Expo Go) | Scan the QR code, same Wi-Fi | Auto (the Mac's network address), or the env var |
 | Android Emulator | Press `a` | `10.0.2.2:3001` |
-| Seeker / real wallet | `npm run android` (dev client) | The env var is recommended |
+| Future dev client (MWA / Seed Vault) | `npm run android`, optional and not needed today | The env var is recommended |
 
 ## 6. Test a 2p / 3p / 4p room on one Mac
 

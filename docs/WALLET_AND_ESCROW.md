@@ -2,17 +2,17 @@
 
 ## Wallet
 
-**Seeker path (product):** Expo **custom development build** + Mobile Wallet Adapter → Seed Vault (`expo run:android`). Expo Go is UI/smoke only (Phantom). Scaffold reference: Solana Mobile `create-solana-dapp` / RN Expo docs.
+**Default build (locked 2026-09-28): Expo Go.** The wallet is **real Phantom through a deep link**, for connect, deposit signing and the whole gate 3 flow. MWA / Seed Vault need native code, so they wait for an optional future dev client (`expo run:android`). They aren't a gate 3 requirement.
 
 
 | Context | Behavior |
 |---------|----------|
-| Seeker custom client | **Seed Vault / MWA** preferred — auto when present |
-| Expo Go / Mac | **Real Phantom** connect (universal / deep link) |
+| Expo Go (default, Android) | **Real Phantom** connect and signing (deep link) |
+| Future dev client (optional) | Seed Vault / MWA, used automatically when present |
 | Expo Go limit | Native MWA (`SolanaMobileWalletAdapter`) **cannot load** — Seed Vault needs Seeker custom/EAS client |
 | WebView | **No** Connect UI — call host capability only |
 
-Product kill: Phantom-only as the forever path. Seed Vault remains the Seeker default.
+Phantom is the v1 wallet. Seed Vault is the Seeker upgrade once a dev client exists.
 
 ## Escrow (skill, not casino)
 
@@ -62,7 +62,7 @@ The server pays rent for `Room` and the vault, and gets it back when they close.
 
 1. **`init_config`** is run once by the admin. It must check the program's **upgrade authority** so nobody can front-run initialization, which was a Zealynx finding on a similar vault.
 2. **`init_room(room_id, stake, seats, dice_commit, deposit_deadline)`** is signed by `settle_authority`. It creates `Room` and the vault with status `Open`.
-3. **`deposit(seat)`** is signed by the player through MWA / Seed Vault, or Phantom on Expo Go. It moves `stake` USDC from the player's ATA into the vault with `transfer_checked`. It rejects a seat that's already filled, the same wallet taking two seats, and any deposit after the deadline. When every seat has deposited, status becomes `Locked` and `settle_deadline = now + 2h`.
+3. **`deposit(seat)`** is signed by the player with Phantom in Expo Go (MWA / Seed Vault later). It moves `stake` USDC from the player's ATA into the vault with `transfer_checked`. It rejects a seat that's already filled, the same wallet taking two seats, and any deposit after the deadline. When every seat has deposited, status becomes `Locked` and `settle_deadline = now + 2h`.
 4. **`settle(winner_seat, result_hash, dice_seed)`** is signed by `settle_authority`, only while status is `Locked`. It checks that `sha256(dice_seed) == dice_commit`. It pays `pot − fee` to the **winner's ATA**, which must belong to a seated depositor, and `fee` to `treasury`. It emits `Settled{room_id, winner, result_hash}` and closes the vault and `Room`.
 5. **`refund`** returns each deposit to its own depositor. There are three ways to trigger it:
    - The server signs a cancel while status is `Open`. This covers a table that doesn't fill or a match that never starts.

@@ -5,16 +5,16 @@ Seeker-native **game publisher shell** + first title: **staked Ludo** (skill + e
 ## Product lock
 - Long-run: thin store of *our* games on Seeker (not a dApp Store clone)
 - CLOCK IN demo: Ludo — create/join/random rooms, Solana escrow, winner payout
-- Wallets: **Seed Vault first**; Phantom via MWA OK for Mac testing only
+- Wallets: **Phantom through a deep link in Expo Go** (the default build, locked 2026-09-28). Seed Vault / MWA come later, with an optional dev client
 - Frame as **skill + escrow**, not casino
 
 ## Stack
-- React Native + Expo (custom dev client / EAS — not Expo Go)
-- Mobile Wallet Adapter (MWA)
+- React Native + Expo SDK 57, **Expo Go first**: no custom native modules, and only Expo Go–compatible packages
+- Mobile Wallet Adapter (MWA) / Seed Vault: future, needs a dev client
 - Path: `/Users/lex-work/aura`
 
 ## CLOCK IN milestones (through Oct 8, 2026)
-1. Expo + MWA — Seed Vault connect on Seeker
+1. Expo Go + Phantom connect (Seed Vault / MWA later, with a dev client)
 2. Store shell — home, Ludo tile, coming soon
 3. Ludo rooms — create / join / random
 4. Solana skill-escrow — stake in, winner out

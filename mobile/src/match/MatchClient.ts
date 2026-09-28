@@ -232,8 +232,13 @@ class MatchClient {
         };
 
         sock.onerror = (err) => {
-          console.warn("[MatchClient] WebSocket error:", err);
-          this.emit("error", { error: "ws_error", details: err });
+          const msg = (err as { message?: string })?.message;
+          console.warn(
+            `[MatchClient] Can't reach match server at ${sock.url || "unknown url"}` +
+              (msg ? ` (${msg})` : "") +
+              " — is it running, and is the phone on the same Wi-Fi?"
+          );
+          this.emit("error", { error: "ws_error", details: msg ?? "connection failed" });
           resolve(false);
         };
 

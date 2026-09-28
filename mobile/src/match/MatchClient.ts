@@ -60,11 +60,83 @@ export type HistoryRow = {
   kind: "private" | "quick";
   players: number;
   stake: number;
-  result: "won" | "lost";
+  result: "won" | "lost" | "refunded";
   place: number | null;
   delta: number;
   winnerName: string | null;
   endedAt: number;
+  /** Staked tables only (explorer links for the on-chain legs). */
+  depositSig?: string | null;
+  payoutSig?: string | null;
+  payoutUrl?: string | null;
+  payout?: number | null;
+  refundSig?: string | null;
+  refundUrl?: string | null;
+  reason?: string | null;
+};
+
+/** Server escrow capabilities (server.info). live=false → paid chips stay locked. */
+export type EscrowInfo = {
+  live: boolean;
+  stakes: number[];
+  feeBps?: number;
+  mint?: string;
+  cluster?: string;
+  depositSecs?: number;
+  refundAfterSecs?: number;
+};
+
+export type EscrowSeatState = "waiting" | "signing" | "depositing" | "ready";
+export type EscrowSnapshot = {
+  phase: "filling" | "initializing" | "depositing" | "locked" | "settling" | "settled" | "settle_failed" | "refunding" | "refunded" | "refund_failed" | string;
+  room: string | null;
+  vault: string | null;
+  mint: string | null;
+  cluster: string | null;
+  stake: number;
+  feeBps: number;
+  pot: number;
+  fee: number;
+  payout: number;
+  depositDeadline: number | null;
+  depositMsLeft: number | null;
+  initUrl: string | null;
+  seats: Record<number, { chainSeat: number; wallet: string | null; state: EscrowSeatState; sig: string | null }>;
+  error: string | null;
+};
+
+export type Payout = {
+  amount: number;
+  fee: number;
+  pot: number;
+  sig: string | null;
+  url: string | null;
+  resultHash: string | null;
+  logUrl?: string | null;
+  pending?: boolean;
+};
+
+export type RefundNotice = {
+  roomCode: string;
+  reason: string;
+  stake: number;
+  sig: string | null;
+  url: string | null;
+  refunded: string[];
+  error: string | null;
+  at: number;
+};
+
+/** Human copy for refund reasons ("… refunded · table didn't fill"). */
+export const REFUND_REASON_TEXT: Record<string, string> = {
+  deposit_timeout: "table didn't fill",
+  player_left: "a player left before the start",
+  cancelled: "table cancelled",
+  no_winner: "match ended without a winner",
+  abandoned: "table abandoned",
+  server_error: "match couldn't start",
+  time_limit: "match hit the time limit",
+  wrong_wallet: "wallet mismatch",
 };
 
 export type Standing = { seat: number; name: string; place: number; forfeited: boolean };
@@ -82,6 +154,8 @@ export type MatchState = {
   pieces: number[][];
   winner: number | null;
   players: Record<number, PlayerInfo>;
+  /** Staked tables only. */
+  escrow?: EscrowSnapshot;
 };
 
 type Listener = (data: any) => void;
@@ -101,7 +175,12 @@ class MatchClient {
   public guestName = "Guest " + Math.floor(1000 + Math.random() * 9000);
   private identityReady: Promise<void>;
   /** Last match.completed (real standings for the Result screen). */
-  public lastCompleted: { roomCode: string | null; winner: number | null; standings: Standing[]; stake: number } | null = null;
+  public lastCompleted: { roomCode: string | null; winner: number | null; standings: Standing[]; stake: number; reason?: string; payout?: Payout | null } | null = null;
+  /** Last escrow refund that included us (Result/Hub notice + toast). */
+  public lastRefund: RefundNotice | null = null;
+  /** Connected wallet (base58) sent with create/join/random; required for staked tables. */
+  public wallet: string | null = null;
+  public escrowInfo: EscrowInfo = { live: false, stakes: [] };
   public mySeat: number | null = null;
   public currentState: MatchState | null = null;
   public isConnected = false;
@@ -312,6 +391,19 @@ class MatchClient {
         }
         break;
 
+      case "escrow.settled":
+        if (this.lastCompleted && msg.payout) this.lastCompleted.payout = msg.payout;
+        break;
+
+      case "escrow.refunded":
+        this.lastRefund = { ...msg, refunded: msg.refunded ?? [], at: Date.now() };
+        this.saveRoom(null);
+        break;
+
+      case "server.info":
+        if (msg.escrow) this.escrowInfo = msg.escrow;
+        break;
+
       case "pong":
         return; // heartbeat only
       case "error":
@@ -344,6 +436,8 @@ class MatchClient {
           winner: msg.winner ?? null,
           standings: Array.isArray(msg.standings) ? msg.standings : [],
           stake: Number(msg.stake ?? 0),
+          reason: msg.reason,
+          payout: msg.payout ?? null,
         };
         this.saveRoom(null);
         if (this.currentState) {
@@ -385,6 +479,48 @@ class MatchClient {
     return r === true;
   }
 
+  /** Escrow capabilities; paid chips unlock only when the server says escrow is live. */
+  async getServerInfo(): Promise<EscrowInfo> {
+    if (!(await this.connect())) return this.escrowInfo;
+    await this.request({ type: "server.info" }, "server.info", (m) => m.escrow, 3000);
+    return this.escrowInfo;
+  }
+
+  setWallet(wallet: string | null) {
+    this.wallet = wallet;
+  }
+
+  /** Ask the server for this seat's deposit tx (base64, unsigned, our wallet pays fees). */
+  async buildDeposit(): Promise<{ tx: string } | { error: string; message?: string }> {
+    const r = await this.escrowRequest({ type: "escrow.deposit.build" }, "escrow.deposit.tx", 15000);
+    return r;
+  }
+
+  /** Relay the wallet-signed deposit; resolves once the server read the room account. */
+  async submitDeposit(signedTx: string): Promise<{ sig: string; url: string; confirmed: boolean } | { error: string; message?: string }> {
+    return this.escrowRequest({ type: "escrow.deposit.submit", tx: signedTx }, "escrow.deposit.sent", 60000);
+  }
+
+  private escrowRequest(msg: object, replyType: string, ms: number): Promise<any> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v: any) => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        unsub();
+        resolve(v);
+      };
+      const unsub = this.on("*", (m: any) => {
+        if (m?.type === replyType) finish(m);
+        else if (m?.type === "error") finish({ error: m.error, message: m.message });
+      });
+      const t = setTimeout(() => finish({ error: "timeout", message: "The match server didn't answer." }), ms);
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return finish({ error: "offline", message: "Not connected to the match server." });
+      this.send(msg);
+    });
+  }
+
   /** Real table card for Join-by-code. */
   async peekRoom(roomCode: string): Promise<RoomInfo | { error: string } | null> {
     if (!(await this.connect())) return null;
@@ -406,6 +542,7 @@ class MatchClient {
       stake,
       playerId: this.playerId,
       playerName,
+      wallet: this.wallet ?? undefined,
     });
   }
 
@@ -415,6 +552,7 @@ class MatchClient {
       roomCode: roomCode.trim().toUpperCase(),
       playerId: this.playerId,
       playerName,
+      wallet: this.wallet ?? undefined,
     });
   }
 
@@ -433,6 +571,7 @@ class MatchClient {
       stake,
       playerId: this.playerId,
       playerName,
+      wallet: this.wallet ?? undefined,
     });
   }
 

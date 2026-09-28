@@ -1,13 +1,13 @@
 /** Shared glass + purple building blocks for the Ludo wireframe screens. */
 import React, { useEffect, useRef } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, View, ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View, ViewStyle } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { GameHeader } from "../../components/top-bar/GameHeader";
 import { GlassPanel } from "../../components/store/GlassPanel";
 import { aura } from "../../theme/tokens";
-import { BOARD_SEAT_COLORS, ESCROW_LIVE, PAID_STAKE_CHIPS } from "./ludoShared";
+import { BOARD_SEAT_COLORS, PAID_STAKE_CHIPS, useEscrowStatus } from "./ludoShared";
 import type { PlayerInfo } from "../../match/MatchClient";
 
 export function LudoScreen({
@@ -153,16 +153,22 @@ export function Segmented<T extends string | number>({
 }
 
 /**
- * Stake picker. Until escrow ships only the 0 USDC friendly is selectable;
- * paid chips show but stay disabled ("Unlocks with escrow").
+ * Stake picker. Paid chips (1/3/5/10 USDC) unlock only when the server reports
+ * escrow live and a wallet is connected; otherwise only the friendly is selectable.
  */
 export function StakeChips({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { live, walletReady } = useEscrowStatus();
+  const paidOpen = live && walletReady;
   const options = [0, ...PAID_STAKE_CHIPS];
+  // A paid chip that got locked (server restarted without escrow, wallet disconnected) falls back.
+  React.useEffect(() => {
+    if (value > 0 && !paidOpen) onChange(0);
+  }, [value, paidOpen, onChange]);
   return (
     <View style={{ gap: 8 }}>
       <View style={s.row}>
         {options.map((o) => {
-          const locked = o > 0 && !ESCROW_LIVE;
+          const locked = o > 0 && !paidOpen;
           const on = o === value;
           return (
             <Pressable
@@ -180,7 +186,13 @@ export function StakeChips({ value, onChange }: { value: number; onChange: (v: n
           );
         })}
       </View>
-      {!ESCROW_LIVE ? <Muted style={{ fontSize: 12 }}>Paid stakes unlock with escrow.</Muted> : null}
+      {!live ? (
+        <Muted style={{ fontSize: 12 }}>Paid stakes unlock with escrow.</Muted>
+      ) : !walletReady ? (
+        <Muted style={{ fontSize: 12 }}>Connect a wallet to play for USDC.</Muted>
+      ) : value > 0 ? (
+        <Muted style={{ fontSize: 12 }}>Your stake is locked in an on-chain vault until the match ends.</Muted>
+      ) : null}
     </View>
   );
 }
@@ -203,12 +215,15 @@ export function SeatGrid({
   players,
   mySeat,
   onShareCode,
+  escrowSeats,
 }: {
   seats: number[];
   players: Record<number, PlayerInfo>;
   mySeat: number | null;
   /** Empty seats offer this so the host's next step is obvious. */
   onShareCode?: () => void;
+  /** Staked tables: per-seat deposit state from the server's chain reads. */
+  escrowSeats?: Record<number, { state: "waiting" | "signing" | "depositing" | "ready" }>;
 }) {
   return (
     <View style={s.grid}>
@@ -220,13 +235,28 @@ export function SeatGrid({
           <Glass key={seatIdx} style={s.seatCell}>
             {p ? (
               <>
-                <View style={[s.avatar, { borderColor: color }]}>
+                <View style={[s.avatar, { borderColor: escrowSeats?.[seatIdx]?.state === "ready" ? "#34D399" : color }]}>
                   <Text style={s.avatarText}>{you ? "You" : p.name.charAt(0).toUpperCase()}</Text>
                 </View>
                 <Text style={s.seatName} numberOfLines={1}>{p.name}</Text>
-                <Text style={[s.seatState, p.connected !== false && { color: "#34D399" }]}>
-                  {p.connected === false ? "Reconnecting…" : you ? "You · seated" : "Seated"}
-                </Text>
+                {escrowSeats ? (
+                  (() => {
+                    const st = escrowSeats[seatIdx]?.state ?? "waiting";
+                    if (st === "ready") return <Text style={[s.seatState, { color: "#34D399" }]}>Locked ✓</Text>;
+                    if (st === "signing" || st === "depositing")
+                      return (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <ActivityIndicator size="small" color={aura.purpleBright} />
+                          <Text style={s.seatState}>Depositing…</Text>
+                        </View>
+                      );
+                    return <Text style={s.seatState}>{p.connected === false ? "Reconnecting…" : "Waiting to deposit"}</Text>;
+                  })()
+                ) : (
+                  <Text style={[s.seatState, p.connected !== false && { color: "#34D399" }]}>
+                    {p.connected === false ? "Reconnecting…" : you ? "You · seated" : "Seated"}
+                  </Text>
+                )}
               </>
             ) : (
               <>

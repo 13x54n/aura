@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  Animated, Image, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
+  Animated, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
@@ -118,7 +118,13 @@ export function WalletScreen() {
                   <Text style={styles.day}>{g.day}</Text>
                   <Glass style={{ paddingVertical: 4 }}>
                     {g.rows.map((m, i) => (
-                      <View key={m.id} style={[styles.row, i > 0 && styles.divider]}>
+                      <Pressable
+                        key={m.id}
+                        disabled={!(m.refundUrl || m.payoutUrl)}
+                        onPress={() => Linking.openURL((m.refundUrl || m.payoutUrl) as string).catch(() => {})}
+                        accessibilityHint={m.refundUrl || m.payoutUrl ? "Opens the transaction in the explorer" : undefined}
+                        style={[styles.row, i > 0 && styles.divider]}
+                      >
                         {ICON_BY_GAME[m.game] ? (
                           <Image source={ICON_BY_GAME[m.game]} style={styles.gameIcon} />
                         ) : (
@@ -126,7 +132,7 @@ export function WalletScreen() {
                         )}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.title}>
-                            {m.result === "won" ? "Won" : "Lost"} · {m.players}p ·{" "}
+                            {m.result === "won" ? "Won" : m.result === "refunded" ? "Refunded" : "Lost"} · {m.players}p ·{" "}
                             {m.stake > 0 ? `${m.stake} USDC stake` : "Friendly · no stake"}
                           </Text>
                           <Muted style={{ fontSize: 12 }}>
@@ -134,7 +140,9 @@ export function WalletScreen() {
                             {whenLabel(m.endedAt).includes(" · ") ? ` · ${whenLabel(m.endedAt).split(" · ")[1]}` : ""}
                           </Muted>
                         </View>
-                        {m.stake > 0 ? (
+                        {m.result === "refunded" ? (
+                          <Muted style={{ fontSize: 12 }}>{m.stake} USDC back</Muted>
+                        ) : m.stake > 0 ? (
                           <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
                             {m.delta >= 0 ? "+" : "−"}
                             {Math.abs(m.delta).toFixed(2)}
@@ -142,7 +150,7 @@ export function WalletScreen() {
                         ) : (
                           <Muted style={{ fontSize: 12 }}>{m.place ? `#${m.place}` : "—"}</Muted>
                         )}
-                      </View>
+                      </Pressable>
                     ))}
                   </Glass>
                 </View>

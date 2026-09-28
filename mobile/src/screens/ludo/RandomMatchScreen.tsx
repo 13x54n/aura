@@ -39,6 +39,11 @@ export function RandomMatchScreen() {
         clearPatience();
         roomRef.current = msg.roomCode;
         setPhase("matched");
+        if (stake > 0) {
+          // Staked quick match: everyone locks their stake in the lobby before the first roll.
+          handedOff.current = true;
+          navigation.replace("LudoLobby", { mode: "join", roomCode: msg.roomCode, players, stake });
+        }
       }
       if (msg.type === "match.started" && roomRef.current) {
         handedOff.current = true;

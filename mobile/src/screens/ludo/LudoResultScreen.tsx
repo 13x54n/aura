@@ -1,12 +1,12 @@
-import React, { useCallback } from "react";
-import { BackHandler, Share, StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { BackHandler, Linking, Pressable, Share, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { Big, GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SummaryRow } from "./ludoUi";
 import { BOARD_SEAT_COLORS, payoutFor } from "./ludoShared";
-import { matchClient } from "../../match/MatchClient";
+import { matchClient, Payout } from "../../match/MatchClient";
 
 export type LudoResultParams = {
   mode?: "create" | "join" | "random";
@@ -23,7 +23,18 @@ export function LudoResultScreen() {
   const p = (useRoute<any>().params ?? {}) as LudoResultParams;
   const stake = p.stake ?? 0;
   const players = p.players ?? 4;
-  const { pot, fee, payout } = payoutFor(stake, players);
+  const est = payoutFor(stake, players);
+  const done0 = matchClient.lastCompleted;
+  const forThisTable = !!done0 && (!p.roomCode || done0.roomCode === p.roomCode);
+  // Real on-chain payout from the server's settle (late settles arrive as escrow.settled).
+  const [chain, setChain] = useState<Payout | null>(forThisTable ? done0?.payout ?? null : null);
+  useEffect(
+    () => matchClient.on("escrow.settled", (m: any) => (!p.roomCode || m.roomCode === p.roomCode) && m.payout && setChain(m.payout)),
+    [p.roomCode]
+  );
+  const pot = chain?.pot ?? est.pot;
+  const fee = chain?.fee ?? est.fee;
+  const payout = chain?.amount ?? est.payout;
   // Android back / Close → Ludo hub, never back into Create/Join.
   const toHub = useCallback(() => {
     navigation.navigate("LudoHub");
@@ -84,13 +95,22 @@ export function LudoResultScreen() {
     >
       <Glass style={styles.hero}>
         <Icon name={p.won ? "trophy" : "dice-multiple"} size={48} color={p.won ? "#FACC15" : aura.purpleBright} />
-        <Big>{p.won ? "You won" : `${p.winnerName ?? "Opponent"} won`}</Big>
         {stake > 0 ? (
-          <Text style={[styles.amount, { color: p.won ? "#34D399" : "#F87171" }]}>
-            {p.won ? `+${payout}` : `-${stake}`} USDC
-          </Text>
+          p.won ? (
+            <Big>You won {payout} USDC</Big>
+          ) : (
+            <>
+              <Big>Better luck next time</Big>
+              <Muted>
+                {p.winnerName ?? "Opponent"} won · you staked {stake} USDC
+              </Muted>
+            </>
+          )
         ) : (
-          <Muted>Friendly · no stake</Muted>
+          <>
+            <Big>{p.won ? "You won" : `${p.winnerName ?? "Opponent"} won`}</Big>
+            <Muted>Friendly · no stake</Muted>
+          </>
         )}
       </Glass>
 
@@ -100,7 +120,17 @@ export function LudoResultScreen() {
           <SummaryRow k="Pot" v={`${pot} USDC`} />
           <SummaryRow k="House fee (5%)" v={`${fee} USDC`} />
           <SummaryRow k="Paid to winner" v={`${payout} USDC`} strong />
-          <Muted style={{ fontSize: 11, marginTop: 6 }}>Released by host escrow from the attested result.</Muted>
+          {chain?.url ? (
+            <Pressable onPress={() => Linking.openURL(chain.url as string)} style={styles.link} accessibilityRole="link">
+              <Icon name="open-in-new" size={14} color={aura.purpleBright} />
+              <Text style={styles.linkText}>View on explorer</Text>
+            </Pressable>
+          ) : (
+            <Muted style={{ fontSize: 12, marginTop: 6 }}>Payout is confirming on-chain…</Muted>
+          )}
+          {chain?.resultHash ? (
+            <Muted style={{ fontSize: 10, marginTop: 6 }}>Proof {chain.resultHash.slice(0, 24)}…</Muted>
+          ) : null}
         </Glass>
       ) : null}
 
@@ -134,4 +164,6 @@ const styles = StyleSheet.create({
   rank: { color: aura.textDim, width: 16, fontWeight: "800" },
   dot: { width: 10, height: 10, borderRadius: 5 },
   name: { color: aura.text, fontWeight: "700" },
+  link: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  linkText: { color: aura.purpleBright, fontWeight: "700" },
 });

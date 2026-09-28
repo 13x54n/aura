@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Share, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, Share, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
@@ -7,7 +7,8 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SeatGrid, SummaryRow } from "./ludoUi";
 import { modeFor, payoutFor, usePlayerName } from "./ludoShared";
-import { matchClient, MatchState } from "../../match/MatchClient";
+import { matchClient, MatchState, REFUND_REASON_TEXT, RefundNotice } from "../../match/MatchClient";
+import { DepositSheet } from "./DepositSheet";
 
 export type LudoLobbyParams = {
   mode: "create" | "join";
@@ -16,7 +17,7 @@ export type LudoLobbyParams = {
   stake: number;
 };
 
-type Phase = "connecting" | "seated" | "unreachable" | "not_found" | "full" | "exists" | "lost" | "forfeited";
+type Phase = "connecting" | "seated" | "unreachable" | "not_found" | "full" | "exists" | "lost" | "forfeited" | "refunded" | "staked_error";
 
 /**
  * Real pre-game lobby. Seats come only from the server's room.state; the
@@ -32,6 +33,10 @@ export function LudoLobbyScreen() {
   const [copied, setCopied] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const startedRef = useRef(false);
+  const [refund, setRefund] = useState<RefundNotice | null>(null);
+  const [stakeError, setStakeError] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     let live = true;
@@ -54,8 +59,15 @@ export function LudoLobbyScreen() {
           players: msg.state?.seats?.length ?? players,
           stake: String(stake),
         });
+      } else if (msg.type === "escrow.refunded" && msg.roomCode === roomCode) {
+        setRefund({ ...msg, refunded: msg.refunded ?? [], at: Date.now() });
+        setSheetOpen(false);
+        setPhase("refunded");
       } else if (msg.type === "error") {
-        if (msg.error === "room_not_found") setPhase("not_found");
+        if (["wallet_required", "bad_stake", "escrow_unavailable", "wallet_in_use"].includes(msg.error)) {
+          setStakeError(msg.message || "This table can't take stakes right now.");
+          setPhase("staked_error");
+        } else if (msg.error === "room_not_found") setPhase("not_found");
         else if (msg.error === "room_full") setPhase("full");
         else if (msg.error === "room_exists") setPhase("exists");
         else if (msg.error === "forfeited") setPhase("forfeited");
@@ -96,13 +108,46 @@ export function LudoLobbyScreen() {
     [roomCode]
   );
 
+  const esc = stake > 0 ? room?.escrow : undefined;
+  const mine = esc && mySeat != null ? esc.seats[mySeat]?.state : undefined;
+  // Deposit countdown (host sees when unfunded seats time out and everyone is refunded).
+  useEffect(() => {
+    if (esc?.phase !== "depositing") return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [esc?.phase]);
+  const secsLeft = esc?.depositDeadline ? Math.max(0, Math.round((esc.depositDeadline - now) / 1000)) : null;
+  const unfunded = esc ? Object.values(esc.seats).filter((x) => x.state !== "ready").length : 0;
+
   const seats = room?.seats ?? [];
   const seated = room ? Object.keys(room.players ?? {}).length : 0;
   const total = room?.maxPlayers ?? players;
 
+  if (phase === "refunded" && refund) {
+    const why = REFUND_REASON_TEXT[refund.reason] ?? "table closed";
+    const mineBack = !!matchClient.wallet && refund.refunded.includes(matchClient.wallet);
+    return (
+      <LudoScreen title="Lobby" toHub footer={<PrimaryButton label="Back to hub" onPress={() => navigation.navigate("LudoHub")} />}>
+        <Glass style={{ gap: 8 }}>
+          <Text style={styles.title}>{mineBack ? `${refund.stake} USDC refunded` : "Table closed"}</Text>
+          <Muted>
+            {mineBack ? `Your stake is back in your wallet · ${why}.` : `The match didn't start · ${why}. Nothing was taken from you.`}
+          </Muted>
+          {refund.error ? <Muted style={{ fontSize: 12 }}>{refund.error}</Muted> : null}
+          {refund.url ? (
+            <Pressable onPress={() => Linking.openURL(refund.url as string)} style={styles.copy} accessibilityRole="link">
+              <Icon name="open-in-new" size={16} color={aura.purpleBright} />
+              <Text style={styles.copyText}>View refund on explorer</Text>
+            </Pressable>
+          ) : null}
+        </Glass>
+      </LudoScreen>
+    );
+  }
+
   if (phase !== "seated" && phase !== "connecting") {
     const title =
-      phase === "not_found" ? "Table not found" : phase === "full" ? "Table is full" : phase === "exists" ? "Table code in use" : phase === "forfeited" ? "You forfeited this match" : phase === "lost" ? "Connection lost" : "Can't reach match server";
+      phase === "not_found" ? "Table not found" : phase === "full" ? "Table is full" : phase === "exists" ? "Table code in use" : phase === "forfeited" ? "You forfeited this match" : phase === "staked_error" ? "Can't join this staked table" : phase === "lost" ? "Connection lost" : "Can't reach match server";
     const body =
       phase === "not_found"
         ? `No open table uses ${roomCode}. The host may have left.`
@@ -110,6 +155,8 @@ export function LudoLobbyScreen() {
           ? "Every seat is taken, or the match already started."
           : phase === "exists"
             ? "Another table already uses this code. Go back and create a new one."
+            : phase === "staked_error"
+              ? stakeError ?? "This table can't take stakes right now."
             : phase === "forfeited"
               ? "Your seat at this table is gone. Start a new match from the hub."
             : phase === "lost"
@@ -141,12 +188,26 @@ export function LudoLobbyScreen() {
       toHub
       footer={
         <>
-          <PrimaryButton
-            icon="account-clock"
-            label={phase === "connecting" ? "Connecting…" : `Waiting for players · ${seated}/${total}`}
-            disabled
-            onPress={() => {}}
-          />
+          {esc && esc.phase === "depositing" && mine !== "ready" ? (
+            <PrimaryButton icon="lock" label={`Lock ${stake} USDC`} onPress={() => setSheetOpen(true)} />
+          ) : (
+            <PrimaryButton
+              icon={mine === "ready" ? "check-circle" : "account-clock"}
+              label={
+                phase === "connecting"
+                  ? "Connecting…"
+                  : esc?.phase === "initializing"
+                    ? "Opening the table vault…"
+                    : esc?.phase === "locked"
+                      ? "All stakes locked · starting…"
+                      : mine === "ready"
+                        ? `Locked ✓ · waiting for ${unfunded} more`
+                        : `Waiting for players · ${seated}/${total}`
+              }
+              disabled
+              onPress={() => {}}
+            />
+          )}
           {phase !== "connecting" ? (
             <Muted style={{ textAlign: "center", fontSize: 12 }}>
               Real players only, no bots. Share the code so a second phone can join, then moves sync live.
@@ -182,6 +243,7 @@ export function LudoLobbyScreen() {
           seats={seats}
           players={room.players ?? {}}
           mySeat={mySeat}
+          escrowSeats={esc && esc.phase !== "filling" ? esc.seats : undefined}
           onShareCode={() => Share.share({ message: `Join my Ludo table on Aura with code ${roomCode}` }).catch(() => {})}
         />
       )}
@@ -190,13 +252,26 @@ export function LudoLobbyScreen() {
         {stake > 0 ? (
           <>
             <SummaryRow k="Stake per player" v={`${stake} USDC`} />
-            <SummaryRow k="Winner takes" v={`${payoutFor(stake, total).payout} USDC`} strong />
+            <SummaryRow k="Pot" v={`${esc?.pot ?? payoutFor(stake, total).pot} USDC`} />
+            <SummaryRow k="Fee (5%)" v={`${esc?.fee ?? payoutFor(stake, total).fee} USDC`} />
+            <SummaryRow k="Winner takes" v={`${esc?.payout ?? payoutFor(stake, total).payout} USDC`} strong />
           </>
         ) : (
           <SummaryRow k="Stake" v="Friendly · no stake" strong />
         )}
       </Glass>
-      <Muted style={{ fontSize: 12, textAlign: "center" }}>The match starts on its own once every seat is filled.</Muted>
+      {esc?.phase === "depositing" && secsLeft != null ? (
+        <Muted style={{ fontSize: 12, textAlign: "center" }}>
+          {unfunded > 0
+            ? `${unfunded} seat${unfunded === 1 ? "" : "s"} still to lock · table closes in ${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, "0")} and every stake is refunded`
+            : "Every stake is locked."}
+        </Muted>
+      ) : (
+        <Muted style={{ fontSize: 12, textAlign: "center" }}>
+          {stake > 0 ? "Once every seat is filled, each player locks their stake, then the match starts." : "The match starts on its own once every seat is filled."}
+        </Muted>
+      )}
+      {esc ? <DepositSheet visible={sheetOpen} escrow={esc} onClose={() => setSheetOpen(false)} /> : null}
     </LudoScreen>
   );
 }

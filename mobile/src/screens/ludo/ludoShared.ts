@@ -2,12 +2,29 @@
  * Shared Ludo room helpers. No mock data: players, tables and history always
  * come from the match server; balance always comes from the host wallet.
  */
+import { useEffect, useState } from "react";
 import { useAuthorization } from "../../utils/useAuthorization";
-import { matchClient } from "../../match/MatchClient";
+import { EscrowInfo, matchClient } from "../../match/MatchClient";
 
-/** Paid stakes stay locked until host escrow ships; every table is a 0 USDC friendly. */
-export const ESCROW_LIVE = false;
-export const PAID_STAKE_CHIPS = [1, 5, 10, 25] as const;
+/** Paid stakes the escrow program accepts (USDC, 6 decimals). */
+export const PAID_STAKE_CHIPS = [1, 3, 5, 10] as const;
+
+/**
+ * Paid chips unlock only when the match server reports escrow live (server.info)
+ * AND a wallet is connected. Otherwise every table is a 0 USDC friendly.
+ */
+export function useEscrowStatus(): { live: boolean; walletReady: boolean; info: EscrowInfo } {
+  const { selectedAccount } = useAuthorization();
+  const [info, setInfo] = useState<EscrowInfo>(matchClient.escrowInfo);
+  useEffect(() => {
+    let on = true;
+    matchClient.getServerInfo().then((i) => on && setInfo({ ...i })).catch(() => {});
+    return () => {
+      on = false;
+    };
+  }, []);
+  return { live: !!info.live, walletReady: !!selectedAccount, info };
+}
 
 /** Board colours by server seat index (matches games/ludo COLORS). */
 export const BOARD_SEAT_COLORS: Record<number, string> = {
@@ -29,10 +46,13 @@ export const shortAddress = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 /** The name other players see: short wallet address, or this install's guest name. */
 export function usePlayerName(): string {
   const { selectedAccount } = useAuthorization();
+  const wallet = selectedAccount ? selectedAccount.publicKey.toBase58() : null;
+  // Staked seats are bound to this wallet on-chain; the server needs it on create/join/random.
+  useEffect(() => matchClient.setWallet(wallet), [wallet]);
   return selectedAccount ? shortAddress(selectedAccount.publicKey.toBase58()) : matchClient.guestName;
 }
 
-/** Payout = pot minus 5% house fee (only shown once paid stakes unlock). */
+/** Payout = pot minus 5% house fee (display only; the program computes the real split). */
 export function payoutFor(stake: number, players: number) {
   const pot = stake * players;
   const fee = +(pot * 0.05).toFixed(2);

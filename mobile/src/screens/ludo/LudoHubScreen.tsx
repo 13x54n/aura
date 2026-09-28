@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { ActionTile, Glass, Label, LudoScreen, Muted, PrimaryButton } from "./ludoUi";
 import { HostWalletCard } from "../../components/wallet/HostWalletCard";
-import { matchClient } from "../../match/MatchClient";
+import { matchClient, REFUND_REASON_TEXT, RefundNotice } from "../../match/MatchClient";
 import { whenLabel } from "./ludoShared";
 import { useMatchHistory } from "../../match/useMatchHistory";
 
@@ -59,6 +59,15 @@ export function LudoHubScreen() {
   const recent = history.rows.filter((r) => r.game === "Ludo").slice(0, 8);
   const rejoin = useLiveSavedRoom();
   const server = useServerReachable();
+  // Neutral refund notice ("1 USDC refunded · table didn't fill") for the last 15 min.
+  const [refund, setRefund] = useState<RefundNotice | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const r = matchClient.lastRefund;
+      const mine = !!r && !!matchClient.wallet && r.refunded.includes(matchClient.wallet);
+      setRefund(r && mine && Date.now() - r.at < 15 * 60_000 ? r : null);
+    }, [])
+  );
 
   return (
     <LudoScreen>
@@ -81,6 +90,30 @@ export function LudoHubScreen() {
               : "Checking match server…"}
         </Text>
       </Pressable>
+
+      {refund ? (
+        <Glass style={{ gap: 6 }}>
+          <Text style={styles.serverText}>
+            {refund.stake} USDC refunded · {REFUND_REASON_TEXT[refund.reason] ?? "table closed"}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            {refund.url ? (
+              <Pressable onPress={() => Linking.openURL(refund.url as string)} hitSlop={8}>
+                <Text style={styles.link}>View transaction</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                matchClient.lastRefund = null;
+                setRefund(null);
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.link}>Dismiss</Text>
+            </Pressable>
+          </View>
+        </Glass>
+      ) : null}
 
       {rejoin ? (
         <ActionTile
@@ -124,7 +157,9 @@ export function LudoHubScreen() {
           {recent.map((m) => (
             <Pressable key={m.id} onPress={() => navigation.navigate("HomeStack", { screen: "Wallet" })}>
               <Glass style={styles.recent}>
-                {m.stake > 0 ? (
+                {m.result === "refunded" ? (
+                  <Text style={[styles.delta, { color: aura.textMuted }]}>Refunded</Text>
+                ) : m.stake > 0 ? (
                   <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
                     {m.delta >= 0 ? "+" : ""}
                     {m.delta.toFixed(2)}

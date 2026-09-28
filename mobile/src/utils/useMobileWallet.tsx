@@ -98,6 +98,27 @@ export function useMobileWallet() {
     [authorizeSession]
   );
 
+  /**
+   * Sign (don't send) a server-built transaction, e.g. the escrow deposit. The match
+   * server relays it and confirms by reading the room account.
+   */
+  const signTransaction = useCallback(
+    async (transaction: Transaction): Promise<Transaction> => {
+      if (isExpoGo()) {
+        throw new Error("Staked tables need the Aura app with a mobile wallet (Seed Vault / MWA), not Expo Go.");
+      }
+      const { transact } = await import(
+        "@solana-mobile/mobile-wallet-adapter-protocol-web3js"
+      );
+      return await transact(async (wallet: any) => {
+        await authorizeSession(wallet);
+        const signed = await wallet.signTransactions({ transactions: [transaction] });
+        return signed[0] as Transaction;
+      });
+    },
+    [authorizeSession]
+  );
+
   const signMessage = useCallback(
     async (message: Uint8Array): Promise<Uint8Array> => {
       if (isExpoGo()) {
@@ -126,9 +147,10 @@ export function useMobileWallet() {
       signIn,
       disconnect,
       signAndSendTransaction,
+      signTransaction,
       signMessage,
       isExpoGo: isExpoGo(),
     }),
-    [connect, signIn, disconnect, signAndSendTransaction, signMessage]
+    [connect, signIn, disconnect, signAndSendTransaction, signTransaction, signMessage]
   );
 }

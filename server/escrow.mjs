@@ -23,7 +23,13 @@ export const CIRCLE_DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
 export const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 export const ATA_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 export const UPGRADEABLE_LOADER_ID = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
-export const FEE_BPS = 500;
+export const FEE_BPS = 500; // on-chain cap
+export const SLOT_HASHES_ID = new PublicKey("SysvarS1otHashes111111111111111111111111111");
+/** Only these tables exist (6-decimal USDC base units), mirrored in the program. */
+export const STAKES_UI = [1, 3, 5, 10];
+export const STAKES_BASE = STAKES_UI.map((x) => BigInt(x) * 1_000_000n);
+/** Refund reason codes (u8, recorded in the Refunded event). */
+export const REASON = { none: 0, cancelled: 1, player_left: 2, deposit_timeout: 3, no_winner: 4, abandoned: 5, server_error: 6, time_limit: 7, wrong_wallet: 8 };
 export const ROOM_OPEN = 0;
 export const ROOM_LOCKED = 1;
 
@@ -46,16 +52,36 @@ const pk = (x) => (x instanceof PublicKey ? x : new PublicKey(x));
 const w = (pubkey, isSigner = false) => ({ pubkey: pk(pubkey), isSigner, isWritable: true });
 const r = (pubkey, isSigner = false) => ({ pubkey: pk(pubkey), isSigner, isWritable: false });
 
-/** Public devnet RPC rate-limits the whole IP (it blanked Lex's app balances). Never default to it. */
-export const PUBLIC_DEVNET_RPC = /^https?:\/\/api\.devnet\.solana\.com\/?$/i;
+/**
+ * Public RPCs rate-limit the whole IP (it blanked Lex's app balances) and mainnet is off-limits.
+ * Parse SOLANA_RPC as a URL; refuse public devnet/mainnet hosts (any case / query) and the
+ * CLI shorthands. Localnet (127.0.0.1 / localhost) and dedicated devnet RPCs are fine.
+ */
+const BLOCKED_SHORTHANDS = new Set(["d", "m", "devnet", "mainnet", "mainnet-beta", "t", "testnet"]);
+const BLOCKED_HOSTS = new Set(["api.devnet.solana.com", "api.mainnet-beta.solana.com", "api.mainnet.solana.com", "api.testnet.solana.com"]);
+export function rpcProblem(raw) {
+  const rpc = String(raw ?? "").trim();
+  if (!rpc) return "SOLANA_RPC is not set";
+  if (BLOCKED_SHORTHANDS.has(rpc.toLowerCase())) return `SOLANA_RPC shorthand "${rpc}" is a public cluster`;
+  let u;
+  try {
+    u = new URL(rpc);
+  } catch {
+    return "SOLANA_RPC is not a URL";
+  }
+  if (!/^(https?|wss?):$/.test(u.protocol)) return "SOLANA_RPC must be http(s)";
+  const host = u.hostname.toLowerCase().replace(/\.$/, "");
+  if (BLOCKED_HOSTS.has(host)) return `SOLANA_RPC is the public endpoint ${host}`;
+  if (host.includes("mainnet")) return "SOLANA_RPC points at mainnet";
+  return null;
+}
 export function requireRpc(env = process.env) {
-  const rpc = (env.SOLANA_RPC || "").trim();
-  if (!rpc || PUBLIC_DEVNET_RPC.test(rpc) || /mainnet/i.test(rpc)) {
-    const why = !rpc ? "SOLANA_RPC is not set" : /mainnet/i.test(rpc) ? "SOLANA_RPC points at mainnet" : "SOLANA_RPC is the public devnet endpoint";
-    console.error(`\n!!!! aura escrow: ${why}. Set SOLANA_RPC to a dedicated DEVNET RPC (e.g. Helius). Refusing to hit api.devnet.solana.com. !!!!\n`);
+  const why = rpcProblem(env.SOLANA_RPC);
+  if (why) {
+    console.error(`\n!!!! aura escrow: ${why}. Set SOLANA_RPC to a dedicated DEVNET RPC (e.g. Helius) or localnet. Refusing. !!!!\n`);
     return null;
   }
-  return rpc;
+  return String(env.SOLANA_RPC).trim();
 }
 
 export const explorerTx = (sig, cluster = "devnet") => `https://explorer.solana.com/tx/${sig}?cluster=${cluster}`;
@@ -89,10 +115,10 @@ export function initConfigIx({ programId, admin, mint, treasury, settleAuthority
   });
 }
 
-export function updateConfigIx({ programId, admin, mint, settleAuthority, paused }) {
+export function updateConfigIx({ programId, admin, mint, treasury, settleAuthority, paused }) {
   return new TransactionInstruction({
     programId: pk(programId),
-    keys: [r(admin, true), w(configPda(programId, mint))],
+    keys: [r(admin, true), w(configPda(programId, mint)), r(treasury)],
     data: Buffer.concat([disc("update_config"), pk(settleAuthority).toBuffer(), u8(paused ? 1 : 0)]),
   });
 }
@@ -120,7 +146,7 @@ export function depositIx({ programId, player, mint, room, seat, playerToken }) 
     programId: pk(programId),
     keys: [
       r(player, true), r(configPda(programId, mint)), r(mint), w(room),
-      w(playerToken ?? ata(player, mint)), w(ata(room, mint)), r(TOKEN_PROGRAM_ID),
+      w(playerToken ?? ata(player, mint)), w(ata(room, mint)), r(TOKEN_PROGRAM_ID), r(SLOT_HASHES_ID),
     ],
     data: Buffer.concat([disc("deposit"), u8(seat)]),
   });
@@ -137,15 +163,24 @@ export function settleIx({ programId, authority, mint, room, treasury, payer, wi
   });
 }
 
+/** Referee marks the first roll (after this a referee refund needs a reason code). */
+export function startMatchIx({ programId, authority, mint, room }) {
+  return new TransactionInstruction({
+    programId: pk(programId),
+    keys: [r(authority, true), r(configPda(programId, mint)), w(room)],
+    data: disc("start_match"),
+  });
+}
+
 /** `recipients` = one token account per deposited seat, in seat order. */
-export function refundIx({ programId, caller, mint, room, treasury, payer, recipients }) {
+export function refundIx({ programId, caller, mint, room, treasury, payer, recipients, reason = 0 }) {
   return new TransactionInstruction({
     programId: pk(programId),
     keys: [
       r(caller, true), r(configPda(programId, mint)), r(mint), w(room), w(ata(room, mint)),
       w(treasury), w(payer), r(TOKEN_PROGRAM_ID), ...recipients.map((x) => w(x)),
     ],
-    data: disc("refund"),
+    data: Buffer.concat([disc("refund"), u8(reason)]),
   });
 }
 
@@ -165,7 +200,10 @@ export function decodeRoom(data) {
   const depositDeadline = Number(b.readBigInt64LE(o)); o += 8;
   const settleDeadline = Number(b.readBigInt64LE(o)); o += 8;
   const refundAfterSecs = Number(b.readBigInt64LE(o)); o += 8;
-  return { config, payer, roomId, stake, seats, deposited, status, bump, players, diceCommit, depositDeadline, settleDeadline, refundAfterSecs };
+  const lockSlotHash = b.subarray(o, o + 32); o += 32;
+  const lockedAt = Number(b.readBigInt64LE(o)); o += 8;
+  const started = b[o] === 1;
+  return { config, payer, roomId, stake, seats, deposited, status, bump, players, diceCommit, depositDeadline, settleDeadline, refundAfterSecs, lockSlotHash, lockedAt, started };
 }
 
 export function decodeConfig(data) {
@@ -179,7 +217,7 @@ export function decodeConfig(data) {
 }
 
 /** Anchor events from "Program data:" log lines. */
-const EVENTS = ["Deposited", "RoomLocked", "Settled", "Refunded"].map((n) => [n, sha256(`event:${n}`).subarray(0, 8)]);
+const EVENTS = ["Deposited", "RoomLocked", "MatchStarted", "Settled", "Refunded"].map((n) => [n, sha256(`event:${n}`).subarray(0, 8)]);
 export function parseEvents(logs = []) {
   const out = [];
   for (const l of logs) {
@@ -197,8 +235,17 @@ export function parseEvents(logs = []) {
       ev.pot = b.readBigUInt64LE(o); o += 8;
       ev.fee = b.readBigUInt64LE(o); o += 8;
       ev.payout = b.readBigUInt64LE(o); o += 8;
+      ev.swept = b.readBigUInt64LE(o); o += 8;
       ev.resultHash = b.subarray(o, o + 32).toString("hex"); o += 32;
-      ev.diceSeed = b.subarray(o, o + 32).toString("hex");
+      ev.diceSeed = b.subarray(o, o + 32).toString("hex"); o += 32;
+      ev.slotHash = b.subarray(o, o + 32).toString("hex");
+    } else if (hit[0] === "Refunded") {
+      let o = 8 + 16 + 32;
+      const n = b.readUInt32LE(o); o += 4 + 32 * n;
+      ev.recipients = n;
+      ev.timeout = b[o++] === 1;
+      ev.reason = b[o++];
+      ev.started = b[o] === 1;
     }
     out.push(ev);
   }
@@ -210,6 +257,19 @@ export function payoutFor(stakeBase, seats, feeBps = FEE_BPS) {
   const pot = BigInt(stakeBase) * BigInt(seats);
   const fee = (pot * BigInt(feeBps)) / 10_000n;
   return { pot, fee, payout: pot - fee };
+}
+
+class ProgramError extends Error {}
+function bs58sig(tx) {
+  return bs58encode(tx.signature);
+}
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function bs58encode(buf) {
+  let n = BigInt("0x" + (Buffer.from(buf).toString("hex") || "0"));
+  let out = "";
+  while (n > 0n) { out = B58[Number(n % 58n)] + out; n /= 58n; }
+  for (const b of buf) { if (b === 0) out = "1" + out; else break; }
+  return out;
 }
 
 export function loadKeypair(path) {
@@ -275,33 +335,62 @@ export class EscrowService {
     return Number(base) / 10 ** this.decimals;
   }
 
-  async send(ixs, label) {
-    const tx = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }), ...ixs);
-    let lastErr;
-    for (let attempt = 0; attempt < 3; attempt++) {
+  /** Did `sig` land? true = confirmed ok, Error = landed with a program error, null = unknown. */
+  async sigLanded(sig, waitMs = 12000) {
+    const until = Date.now() + waitMs;
+    while (Date.now() < until) {
       try {
+        const { value } = await this.conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
+        const st = value?.[0];
+        if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
+          return st.err ? new Error(`failed: ${JSON.stringify(st.err)}`) : true;
+        }
+      } catch {}
+      await new Promise((res) => setTimeout(res, 1000));
+    }
+    return null;
+  }
+
+  /**
+   * Sign + send + confirm. After an unclear failure (timeout, dropped connection) it first
+   * checks whether the earlier signature landed, so a settle that paid out is never
+   * re-sent or reported as failed. Program errors are never retried.
+   */
+  async send(ixs, label) {
+    let lastErr;
+    let lastSig = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (lastSig) {
+        const landed = await this.sigLanded(lastSig);
+        if (landed === true) return lastSig;
+        if (landed instanceof Error) throw new Error(`${label} ${landed.message}`);
+      }
+      try {
+        const tx = new Transaction().add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }), ...ixs);
         const { blockhash, lastValidBlockHeight } = await this.conn.getLatestBlockhash("confirmed");
         tx.recentBlockhash = blockhash;
         tx.feePayer = this.authority.publicKey;
-        tx.signatures = [];
         tx.sign(this.authority);
-        const sig = await this.conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+        const sig = bs58sig(tx);
+        lastSig = sig;
+        await this.conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
         const res = await this.conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
-        if (res.value.err) throw new Error(`${label} failed: ${JSON.stringify(res.value.err)}`);
+        if (res.value.err) throw new ProgramError(`${label} failed: ${JSON.stringify(res.value.err)}`);
         return sig;
       } catch (e) {
         lastErr = e;
-        // A program error won't fix itself; only retry transport / blockhash trouble.
-        if (/custom program error|failed: \{/.test(String(e?.message))) break;
+        if (e instanceof ProgramError || /custom program error|Simulation failed|failed: \{/.test(String(e?.message))) throw e;
         await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
       }
     }
+    if (lastSig && (await this.sigLanded(lastSig)) === true) return lastSig;
     throw lastErr;
   }
 
   /** Server pays rent for Room + vault (returned when they close). */
   /** `players[i]` = wallet bound to chain seat i (only it can fund that seat). */
   async initRoom({ seats, stakeUi, players }) {
+    if (!STAKES_UI.includes(Number(stakeUi)) || this.decimals !== 6) throw new Error(`stake must be ${STAKES_UI.join("/")} USDC`);
     const roomId = randomBytes(16);
     const seed = randomBytes(32);
     const commit = diceCommit(seed);
@@ -324,6 +413,19 @@ export class EscrowService {
     return info ? decodeRoom(info.data) : null;
   }
 
+  /** First roll: after this, a referee refund of the locked room needs a reason code. */
+  async startMatch(room) {
+    return this.send([startMatchIx({ programId: this.programId, authority: this.authority.publicKey, mint: this.mint, room })], "start_match");
+  }
+
+  /** Confirm-deposit: read the room account; true only if `chainSeat` is funded by `wallet`. */
+  async confirmDeposit({ room, chainSeat, wallet }) {
+    const st = await this.fetchRoom(room);
+    if (!st) return { ok: false, st: null };
+    const ok = (st.deposited & (1 << chainSeat)) !== 0 && st.players[chainSeat].toBase58() === String(wallet);
+    return { ok, st };
+  }
+
   async settle({ room, winnerSeat, resultHash, seed }) {
     const st = await this.fetchRoom(room);
     if (!st) throw new Error("settle: room account missing");
@@ -339,11 +441,11 @@ export class EscrowService {
       "settle"
     );
     const { pot, fee, payout } = payoutFor(st.stake, st.seats, this.feeBps);
-    return { sig, url: explorerTx(sig), winner: winner.toBase58(), pot, fee, payout };
+    return { sig, url: explorerTx(sig, this.cluster), winner: winner.toBase58(), pot, fee, payout };
   }
 
   /** Refund every deposit to its own depositor's ATA (created if the player closed it). */
-  async refund({ room }) {
+  async refund({ room, reason = REASON.cancelled }) {
     const st = await this.fetchRoom(room);
     if (!st) return null; // already closed (settled or refunded)
     const owners = [];
@@ -353,12 +455,49 @@ export class EscrowService {
         ...owners.map((o) => createAtaIdempotentIx(this.authority.publicKey, o, this.mint)),
         refundIx({
           programId: this.programId, caller: this.authority.publicKey, mint: this.mint, room,
-          treasury: this.treasury, payer: st.payer, recipients: owners.map((o) => ata(o, this.mint)),
+          treasury: this.treasury, payer: st.payer, recipients: owners.map((o) => ata(o, this.mint)), reason,
         }),
       ],
       "refund"
     );
-    return { sig, url: explorerTx(sig), refunded: owners.map((o) => o.toBase58()), stake: st.stake };
+    return { sig, url: explorerTx(sig, this.cluster), refunded: owners.map((o) => o.toBase58()), stake: st.stake };
+  }
+
+  /**
+   * Unsigned deposit tx for the player's wallet to sign (player = fee payer; the server
+   * never signs it). Returns base64 tx + base64 message so a later submit can be matched.
+   */
+  async buildDepositTx({ wallet, room, chainSeat }) {
+    const { blockhash } = await this.conn.getLatestBlockhash("confirmed");
+    const tx = new Transaction({ feePayer: pk(wallet), recentBlockhash: blockhash }).add(
+      depositIx({ programId: this.programId, player: wallet, mint: this.mint, room, seat: chainSeat })
+    );
+    return {
+      tx: tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString("base64"),
+      message: tx.serializeMessage().toString("base64"),
+    };
+  }
+
+  /** Relay a wallet-signed deposit, only if it is byte-for-byte the tx we built. */
+  async submitDeposit({ signedTx, expectMessage }) {
+    const tx = Transaction.from(Buffer.from(signedTx, "base64"));
+    if (tx.serializeMessage().toString("base64") !== expectMessage) throw new Error("tx does not match the deposit we built");
+    if (!tx.verifySignatures()) throw new Error("missing or bad wallet signature");
+    const sig = await this.conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+    const res = await this.conn.confirmTransaction(sig, "confirmed");
+    if (res.value.err) throw new Error(`deposit failed: ${JSON.stringify(res.value.err)}`);
+    return { sig, url: explorerTx(sig, this.cluster) };
+  }
+
+  /** submitDeposit + confirm-deposit read of the room account. */
+  async submitAndConfirmDeposit({ signedTx, expectMessage, room, chainSeat, wallet }) {
+    const r = await this.submitDeposit({ signedTx, expectMessage });
+    const c = await this.confirmDeposit({ room, chainSeat, wallet });
+    return { ...r, confirmed: c.ok, locked: c.st?.status === ROOM_LOCKED };
+  }
+
+  get cluster() {
+    return /127\.0\.0\.1|localhost/.test(this.rpc) ? "custom&customUrl=" + encodeURIComponent(this.rpc) : "devnet";
   }
 
   /** Signatures touching this room PDA (deposit sigs for history, read from chain). */
@@ -371,3 +510,4 @@ export class EscrowService {
     }
   }
 }
+export { PublicKey as PublicKeyCtor } from "@solana/web3.js";

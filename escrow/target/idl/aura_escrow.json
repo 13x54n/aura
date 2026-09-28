@@ -159,6 +159,10 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "slot_hashes",
+          "address": "SysvarS1otHashes111111111111111111111111111"
         }
       ],
       "args": [
@@ -599,7 +603,12 @@
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "reason",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "settle",
@@ -791,6 +800,57 @@
       ]
     },
     {
+      "name": "start_match",
+      "docs": [
+        "Referee marks the first roll. After this, a referee refund needs a reason code."
+      ],
+      "discriminator": [
+        100,
+        246,
+        223,
+        181,
+        176,
+        101,
+        255,
+        19
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "relations": [
+            "room"
+          ]
+        },
+        {
+          "name": "room",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  111,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "room.room_id",
+                "account": "Room"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "update_config",
       "docs": [
         "Admin: rotate the settle key / pause new rooms + deposits (refunds always work)."
@@ -816,6 +876,12 @@
         {
           "name": "config",
           "writable": true
+        },
+        {
+          "name": "treasury",
+          "relations": [
+            "config"
+          ]
         }
       ],
       "args": [
@@ -870,6 +936,19 @@
         35,
         100,
         57
+      ]
+    },
+    {
+      "name": "MatchStarted",
+      "discriminator": [
+        69,
+        179,
+        169,
+        249,
+        67,
+        123,
+        163,
+        173
       ]
     },
     {
@@ -936,7 +1015,7 @@
     {
       "code": 6004,
       "name": "BadStake",
-      "msg": "Stake must be > 0"
+      "msg": "Stake must be 1, 3, 5 or 10 USDC (6 decimals)"
     },
     {
       "code": 6005,
@@ -1017,6 +1096,26 @@
       "code": 6020,
       "name": "NotYourSeat",
       "msg": "This seat is bound to another wallet"
+    },
+    {
+      "code": 6021,
+      "name": "NoSlotHash",
+      "msg": "SlotHashes sysvar is empty"
+    },
+    {
+      "code": 6022,
+      "name": "NotStarted",
+      "msg": "Match hasn't started"
+    },
+    {
+      "code": 6023,
+      "name": "RefundReasonRequired",
+      "msg": "Refunding a started match needs a reason code"
+    },
+    {
+      "code": 6024,
+      "name": "VaultShort",
+      "msg": "Vault holds less than stake x seats"
     }
   ],
   "types": [
@@ -1077,6 +1176,27 @@
       }
     },
     {
+      "name": "MatchStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "room",
+            "type": "pubkey"
+          },
+          {
+            "name": "slot_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Refunded",
       "type": {
         "kind": "struct",
@@ -1102,6 +1222,14 @@
           },
           {
             "name": "timeout",
+            "type": "bool"
+          },
+          {
+            "name": "reason",
+            "type": "u8"
+          },
+          {
+            "name": "started",
             "type": "bool"
           }
         ]
@@ -1178,6 +1306,23 @@
           {
             "name": "refund_after_secs",
             "type": "i64"
+          },
+          {
+            "name": "lock_slot_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "locked_at",
+            "type": "i64"
+          },
+          {
+            "name": "started",
+            "type": "bool"
           }
         ]
       }
@@ -1194,6 +1339,15 @@
           {
             "name": "settle_deadline",
             "type": "i64"
+          },
+          {
+            "name": "slot_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -1237,6 +1391,10 @@
             "type": "u64"
           },
           {
+            "name": "swept",
+            "type": "u64"
+          },
+          {
             "name": "result_hash",
             "type": {
               "array": [
@@ -1247,6 +1405,15 @@
           },
           {
             "name": "dice_seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "slot_hash",
             "type": {
               "array": [
                 "u8",

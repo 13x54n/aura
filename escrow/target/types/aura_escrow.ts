@@ -165,6 +165,10 @@ export type AuraEscrow = {
         {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "slotHashes",
+          "address": "SysvarS1otHashes111111111111111111111111111"
         }
       ],
       "args": [
@@ -605,7 +609,12 @@ export type AuraEscrow = {
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "reason",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "settle",
@@ -797,6 +806,57 @@ export type AuraEscrow = {
       ]
     },
     {
+      "name": "startMatch",
+      "docs": [
+        "Referee marks the first roll. After this, a referee refund needs a reason code."
+      ],
+      "discriminator": [
+        100,
+        246,
+        223,
+        181,
+        176,
+        101,
+        255,
+        19
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "relations": [
+            "room"
+          ]
+        },
+        {
+          "name": "room",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  111,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "room.room_id",
+                "account": "room"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "updateConfig",
       "docs": [
         "Admin: rotate the settle key / pause new rooms + deposits (refunds always work)."
@@ -822,6 +882,12 @@ export type AuraEscrow = {
         {
           "name": "config",
           "writable": true
+        },
+        {
+          "name": "treasury",
+          "relations": [
+            "config"
+          ]
         }
       ],
       "args": [
@@ -876,6 +942,19 @@ export type AuraEscrow = {
         35,
         100,
         57
+      ]
+    },
+    {
+      "name": "matchStarted",
+      "discriminator": [
+        69,
+        179,
+        169,
+        249,
+        67,
+        123,
+        163,
+        173
       ]
     },
     {
@@ -942,7 +1021,7 @@ export type AuraEscrow = {
     {
       "code": 6004,
       "name": "badStake",
-      "msg": "Stake must be > 0"
+      "msg": "Stake must be 1, 3, 5 or 10 USDC (6 decimals)"
     },
     {
       "code": 6005,
@@ -1023,6 +1102,26 @@ export type AuraEscrow = {
       "code": 6020,
       "name": "notYourSeat",
       "msg": "This seat is bound to another wallet"
+    },
+    {
+      "code": 6021,
+      "name": "noSlotHash",
+      "msg": "SlotHashes sysvar is empty"
+    },
+    {
+      "code": 6022,
+      "name": "notStarted",
+      "msg": "Match hasn't started"
+    },
+    {
+      "code": 6023,
+      "name": "refundReasonRequired",
+      "msg": "Refunding a started match needs a reason code"
+    },
+    {
+      "code": 6024,
+      "name": "vaultShort",
+      "msg": "Vault holds less than stake x seats"
     }
   ],
   "types": [
@@ -1083,6 +1182,27 @@ export type AuraEscrow = {
       }
     },
     {
+      "name": "matchStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "room",
+            "type": "pubkey"
+          },
+          {
+            "name": "slotHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "refunded",
       "type": {
         "kind": "struct",
@@ -1108,6 +1228,14 @@ export type AuraEscrow = {
           },
           {
             "name": "timeout",
+            "type": "bool"
+          },
+          {
+            "name": "reason",
+            "type": "u8"
+          },
+          {
+            "name": "started",
             "type": "bool"
           }
         ]
@@ -1184,6 +1312,23 @@ export type AuraEscrow = {
           {
             "name": "refundAfterSecs",
             "type": "i64"
+          },
+          {
+            "name": "lockSlotHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lockedAt",
+            "type": "i64"
+          },
+          {
+            "name": "started",
+            "type": "bool"
           }
         ]
       }
@@ -1200,6 +1345,15 @@ export type AuraEscrow = {
           {
             "name": "settleDeadline",
             "type": "i64"
+          },
+          {
+            "name": "slotHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -1243,6 +1397,10 @@ export type AuraEscrow = {
             "type": "u64"
           },
           {
+            "name": "swept",
+            "type": "u64"
+          },
+          {
             "name": "resultHash",
             "type": {
               "array": [
@@ -1253,6 +1411,15 @@ export type AuraEscrow = {
           },
           {
             "name": "diceSeed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "slotHash",
             "type": {
               "array": [
                 "u8",

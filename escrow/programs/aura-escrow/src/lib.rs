@@ -9,7 +9,14 @@ use anchor_spl::token::{self, CloseAccount, Mint, Token, TokenAccount, TransferC
 declare_id!("Df1YjMHGeeXVvayPHX7Vb5svqUkV3dbdfKU9D4UZ4m2");
 
 pub const MAX_SEATS: usize = 4;
-pub const MAX_FEE_BPS: u16 = 1_000;
+/// Fee is capped at 5% on-chain.
+pub const MAX_FEE_BPS: u16 = 500;
+/// Only 1 / 3 / 5 / 10 USDC tables (6-decimal mint).
+pub const USDC_DECIMALS: u8 = 6;
+pub const STAKES: [u64; 4] = [1_000_000, 3_000_000, 5_000_000, 10_000_000];
+pub const SLOT_HASHES_ID: Pubkey = pubkey!("SysvarS1otHashes111111111111111111111111111");
+/// Refund reason codes (recorded in `Refunded`). A referee refund of a started match needs one.
+pub const REASON_NONE: u8 = 0;
 /// Timeout refund window after lock: configurable per room, 60s..=2h.
 pub const MIN_REFUND_AFTER: i64 = 60;
 pub const MAX_REFUND_AFTER: i64 = 2 * 60 * 60;
@@ -26,6 +33,7 @@ pub mod aura_escrow {
     /// One config per mint. Only the program's upgrade authority can create it (no front-run).
     pub fn init_config(ctx: Context<InitConfig>, settle_authority: Pubkey, fee_bps: u16) -> Result<()> {
         require!(fee_bps <= MAX_FEE_BPS, EscrowError::BadFee);
+        require!(ctx.accounts.mint.decimals == USDC_DECIMALS, EscrowError::BadStake);
         // The referee key must never be the fee wallet (it never holds USDC).
         require_keys_neq!(ctx.accounts.treasury.owner, settle_authority, EscrowError::BadTreasury);
         ctx.accounts.config.set_inner(Config {
@@ -42,6 +50,8 @@ pub mod aura_escrow {
 
     /// Admin: rotate the settle key / pause new rooms + deposits (refunds always work).
     pub fn update_config(ctx: Context<UpdateConfig>, settle_authority: Pubkey, paused: bool) -> Result<()> {
+        // Same key separation as init_config: the referee never owns the fee account.
+        require_keys_neq!(ctx.accounts.treasury.owner, settle_authority, EscrowError::BadTreasury);
         let c = &mut ctx.accounts.config;
         c.settle_authority = settle_authority;
         c.paused = paused;
@@ -59,7 +69,7 @@ pub mod aura_escrow {
         players: [Pubkey; MAX_SEATS],
     ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
-        require!(stake > 0, EscrowError::BadStake);
+        require!(STAKES.contains(&stake), EscrowError::BadStake);
         require!((2..=MAX_SEATS as u8).contains(&seats), EscrowError::BadSeats);
         stake.checked_mul(seats as u64).ok_or(EscrowError::Overflow)?;
         let lo = now.checked_add(MIN_DEPOSIT_WINDOW).ok_or(EscrowError::Overflow)?;
@@ -94,6 +104,9 @@ pub mod aura_escrow {
             deposit_deadline,
             settle_deadline: 0,
             refund_after_secs,
+            lock_slot_hash: [0u8; 32],
+            locked_at: 0,
+            started: false,
         });
         Ok(())
     }
@@ -131,10 +144,29 @@ pub mod aura_escrow {
         room.deposited |= 1u8 << seat;
         emit!(Deposited { room: key, seat, player });
         if room.deposited.count_ones() == room.seats as u32 {
+            // Dice entropy the server can't know at commit time: latest slot hash at lock.
+            let data = ctx.accounts.slot_hashes.try_borrow_data()?;
+            require!(data.len() >= 48, EscrowError::NoSlotHash);
+            let n = u64::from_le_bytes(data[0..8].try_into().unwrap());
+            require!(n > 0, EscrowError::NoSlotHash);
+            room.lock_slot_hash.copy_from_slice(&data[16..48]);
             room.status = LOCKED;
+            room.locked_at = now;
             room.settle_deadline = now.checked_add(room.refund_after_secs).ok_or(EscrowError::Overflow)?;
-            emit!(RoomLocked { room: key, settle_deadline: room.settle_deadline });
+            emit!(RoomLocked { room: key, settle_deadline: room.settle_deadline, slot_hash: room.lock_slot_hash });
         }
+        Ok(())
+    }
+
+    /// Referee marks the first roll. After this, a referee refund needs a reason code.
+    pub fn start_match(ctx: Context<StartMatch>) -> Result<()> {
+        let now = Clock::get()?.unix_timestamp;
+        let key = ctx.accounts.room.key();
+        let room = &mut ctx.accounts.room;
+        require!(room.status == LOCKED && !room.started, EscrowError::BadStatus);
+        require!(now <= room.settle_deadline, EscrowError::SettleExpired);
+        room.started = true;
+        emit!(MatchStarted { room: key, slot_hash: room.lock_slot_hash });
         Ok(())
     }
 
@@ -143,6 +175,7 @@ pub mod aura_escrow {
         let now = Clock::get()?.unix_timestamp;
         let room = &ctx.accounts.room;
         require!(room.status == LOCKED, EscrowError::BadStatus);
+        require!(room.started, EscrowError::NotStarted);
         require!(now <= room.settle_deadline, EscrowError::SettleExpired);
         require!(winner_seat < room.seats, EscrowError::BadSeat);
         require!(room.deposited & (1u8 << winner_seat) != 0, EscrowError::BadSeat);
@@ -150,7 +183,10 @@ pub mod aura_escrow {
         require_keys_eq!(ctx.accounts.winner_token.owner, winner, EscrowError::BadRecipient);
         require!(hash(&dice_seed).to_bytes() == room.dice_commit, EscrowError::BadSeed);
 
-        let pot = ctx.accounts.vault.amount;
+        // Pay from stake × seats; anything else in the vault is swept to the treasury.
+        let pot = room.stake.checked_mul(room.seats as u64).ok_or(EscrowError::Overflow)?;
+        let held = ctx.accounts.vault.amount;
+        require!(held >= pot, EscrowError::VaultShort);
         let fee = u64::try_from(
             (pot as u128)
                 .checked_mul(ctx.accounts.config.fee_bps as u128)
@@ -159,6 +195,7 @@ pub mod aura_escrow {
         )
         .map_err(|_| EscrowError::Overflow)?;
         let payout = pot.checked_sub(fee).ok_or(EscrowError::Overflow)?;
+        let to_treasury = held.checked_sub(payout).ok_or(EscrowError::Overflow)?; // fee + stray
 
         let room_id = room.room_id;
         let bump = [room.bump];
@@ -171,7 +208,7 @@ pub mod aura_escrow {
             a.room.to_account_info(),
         );
         pay(&tp, &vault, &mint, &a.winner_token.to_account_info(), &auth, seeds, payout, a.mint.decimals)?;
-        pay(&tp, &vault, &mint, &a.treasury.to_account_info(), &auth, seeds, fee, a.mint.decimals)?;
+        pay(&tp, &vault, &mint, &a.treasury.to_account_info(), &auth, seeds, to_treasury, a.mint.decimals)?;
         close_vault(&tp, &vault, &a.payer.to_account_info(), &auth, seeds)?;
         emit!(Settled {
             room_id,
@@ -181,24 +218,30 @@ pub mod aura_escrow {
             pot,
             fee,
             payout,
+            swept: to_treasury - fee,
             result_hash,
             dice_seed,
+            slot_hash: a.room.lock_slot_hash,
         });
         Ok(()) // `close = payer` closes Room on exit
     }
 
     /// Return each deposit to its own depositor. Remaining accounts = one token account
     /// per deposited seat, in seat order; each is checked against `players[]`.
-    pub fn refund<'info>(ctx: Context<'_, '_, 'info, 'info, Refund<'info>>) -> Result<()> {
+    pub fn refund<'info>(ctx: Context<'_, '_, 'info, 'info, Refund<'info>>, reason: u8) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let room = &ctx.accounts.room;
         let is_ref = ctx.accounts.caller.key() == ctx.accounts.config.settle_authority;
-        let allowed = match room.status {
-            OPEN => is_ref || now > room.deposit_deadline,
-            LOCKED => is_ref || now > room.settle_deadline,
+        let timed_out = match room.status {
+            OPEN => now > room.deposit_deadline,
+            LOCKED => now > room.settle_deadline,
             _ => false,
         };
-        require!(allowed, EscrowError::RefundNotAllowed);
+        require!(is_ref || timed_out, EscrowError::RefundNotAllowed);
+        // Referee calling off a match that already started must say why (kept in the event).
+        if is_ref && !timed_out && room.status == LOCKED && room.started {
+            require!(reason != REASON_NONE, EscrowError::RefundReasonRequired);
+        }
 
         let n = room.deposited.count_ones() as usize;
         require!(ctx.remaining_accounts.len() == n, EscrowError::BadRecipient);
@@ -234,7 +277,7 @@ pub mod aura_escrow {
         v.reload()?;
         pay(&tp, &vault, &mint, &a.treasury.to_account_info(), &auth, seeds, v.amount, a.mint.decimals)?;
         close_vault(&tp, &vault, &a.payer.to_account_info(), &auth, seeds)?;
-        emit!(Refunded { room_id, room: a.room.key(), recipients: seen, timeout: !is_ref });
+        emit!(Refunded { room_id, room: a.room.key(), recipients: seen, timeout: timed_out, reason, started: room.started });
         Ok(())
     }
 }
@@ -286,8 +329,18 @@ pub struct InitConfig<'info> {
 #[derive(Accounts)]
 pub struct UpdateConfig<'info> {
     pub admin: Signer<'info>,
-    #[account(mut, has_one = admin @ EscrowError::Unauthorized)]
+    #[account(mut, has_one = admin @ EscrowError::Unauthorized, has_one = treasury)]
     pub config: Account<'info, Config>,
+    pub treasury: Account<'info, TokenAccount>,
+}
+
+#[derive(Accounts)]
+pub struct StartMatch<'info> {
+    pub authority: Signer<'info>,
+    #[account(constraint = config.settle_authority == authority.key() @ EscrowError::Unauthorized)]
+    pub config: Account<'info, Config>,
+    #[account(mut, has_one = config, seeds = [b"room", room.room_id.as_ref()], bump = room.bump)]
+    pub room: Account<'info, Room>,
 }
 
 #[derive(Accounts)]
@@ -324,6 +377,9 @@ pub struct Deposit<'info> {
     #[account(mut, associated_token::mint = mint, associated_token::authority = room)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+    /// CHECK: address-pinned SlotHashes sysvar (read raw: newest entry = bytes 16..48).
+    #[account(address = SLOT_HASHES_ID)]
+    pub slot_hashes: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
@@ -396,6 +452,9 @@ pub struct Room {
     pub deposit_deadline: i64,
     pub settle_deadline: i64,
     pub refund_after_secs: i64,
+    pub lock_slot_hash: [u8; 32],
+    pub locked_at: i64,
+    pub started: bool,
 }
 
 #[event]
@@ -409,6 +468,13 @@ pub struct Deposited {
 pub struct RoomLocked {
     pub room: Pubkey,
     pub settle_deadline: i64,
+    pub slot_hash: [u8; 32],
+}
+
+#[event]
+pub struct MatchStarted {
+    pub room: Pubkey,
+    pub slot_hash: [u8; 32],
 }
 
 #[event]
@@ -420,8 +486,10 @@ pub struct Settled {
     pub pot: u64,
     pub fee: u64,
     pub payout: u64,
+    pub swept: u64,
     pub result_hash: [u8; 32],
     pub dice_seed: [u8; 32],
+    pub slot_hash: [u8; 32],
 }
 
 #[event]
@@ -430,6 +498,8 @@ pub struct Refunded {
     pub room: Pubkey,
     pub recipients: Vec<Pubkey>,
     pub timeout: bool,
+    pub reason: u8,
+    pub started: bool,
 }
 
 #[error_code]
@@ -442,7 +512,7 @@ pub enum EscrowError {
     BadFee,
     #[msg("Treasury must not belong to the settle authority")]
     BadTreasury,
-    #[msg("Stake must be > 0")]
+    #[msg("Stake must be 1, 3, 5 or 10 USDC (6 decimals)")]
     BadStake,
     #[msg("Seats must be 2..=4")]
     BadSeats,
@@ -476,4 +546,12 @@ pub enum EscrowError {
     SeatUnassigned,
     #[msg("This seat is bound to another wallet")]
     NotYourSeat,
+    #[msg("SlotHashes sysvar is empty")]
+    NoSlotHash,
+    #[msg("Match hasn't started")]
+    NotStarted,
+    #[msg("Refunding a started match needs a reason code")]
+    RefundReasonRequired,
+    #[msg("Vault holds less than stake x seats")]
+    VaultShort,
 }

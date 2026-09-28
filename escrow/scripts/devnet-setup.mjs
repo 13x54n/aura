@@ -1,4 +1,5 @@
 // One-time devnet setup for aura_escrow (idempotent). Keys stay in ~/.config/aura (never in git).
+// Also used for localnet: SOLANA_RPC=http://127.0.0.1:8899 (see localnet-up.sh).
 // Requires SOLANA_RPC = a dedicated devnet RPC (never the public api.devnet.solana.com).
 //   SOLANA_RPC=https://devnet.helius-rpc.com/?api-key=... node escrow/scripts/devnet-setup.mjs
 //   node escrow/scripts/devnet-setup.mjs --test-mint  # also create/config a 6-dp test mint (aUSD)
@@ -18,6 +19,10 @@ const PROGRAM_ID = new PublicKey(process.env.ESCROW_PROGRAM_ID || E.DEFAULT_PROG
 const send = (ixs, signers) => sendAndConfirmTransaction(conn, new Transaction().add(...ixs), signers, { commitment: "confirmed" });
 
 async function ensureConfig(mint) {
+  if (!(await conn.getAccountInfo(mint))) {
+    console.log(`mint ${mint.toBase58()} not on this cluster — skipping its config`);
+    return;
+  }
   const treasury = E.ata(feeWallet, mint);
   const cfg = E.configPda(PROGRAM_ID, mint);
   if (await conn.getAccountInfo(cfg)) {
@@ -53,4 +58,21 @@ if (process.argv.includes("--test-mint")) {
     console.log(`test mint ${mintKp.publicKey.toBase58()} created sig ${sig}`);
   } else console.log(`test mint ${mintKp.publicKey.toBase58()} exists`);
   await ensureConfig(mintKp.publicKey);
+  // --fund a,b,c : mint 100 test USDC to each wallet's ATA (test mint only).
+  const fi = process.argv.indexOf("--fund");
+  if (fi > 0 && process.argv[fi + 1]) {
+    for (const w of process.argv[fi + 1].split(",")) {
+      const owner = new PublicKey(w);
+      const data = Buffer.alloc(9); data[0] = 7; data.writeBigUInt64LE(100_000_000n, 1);
+      const sig = await send([
+        E.createAtaIdempotentIx(admin.publicKey, owner, mintKp.publicKey),
+        new TransactionInstruction({ programId: E.TOKEN_PROGRAM_ID, data, keys: [
+          { pubkey: mintKp.publicKey, isSigner: false, isWritable: true },
+          { pubkey: E.ata(owner, mintKp.publicKey), isSigner: false, isWritable: true },
+          { pubkey: mintAuth.publicKey, isSigner: true, isWritable: false }] }),
+      ], [admin, mintAuth]);
+      console.log(`  funded ${w} with 100 test USDC (${sig.slice(0, 12)}…)`);
+    }
+  }
+  console.log(`ESCROW_MINT=${mintKp.publicKey.toBase58()}`);
 }

@@ -36,6 +36,7 @@ export function HostWalletCard({
   const b = balances ?? own;
   const { connect } = useMobileWallet();
   const [copied, setCopied] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const copy = async () => {
     if (!b.address) return;
@@ -59,7 +60,22 @@ export function HostWalletCard({
             <Muted style={{ textAlign: "center", marginBottom: 14 }}>
               See your USDC, fund stakes and track winnings across every game.
             </Muted>
-            <PrimaryButton label="Connect wallet" icon="link-variant" onPress={() => connect().catch(() => {})} />
+            <PrimaryButton
+              label="Connect wallet"
+              icon="link-variant"
+              onPress={() =>
+                connect()
+                  .then(() => setConnectError(null))
+                  .catch((e: any) => {
+                    const msg = String(e?.message ?? e);
+                    console.warn("[wallet connect]", msg);
+                    setConnectError(/cancel|declin|reject/i.test(msg) ? "Connection cancelled in the wallet." : msg.slice(0, 140));
+                  })
+              }
+            />
+            {connectError ? (
+              <Muted style={{ textAlign: "center", fontSize: 12, marginTop: 10 }}>Couldn't connect: {connectError}</Muted>
+            ) : null}
           </Glass>
         ) : (
             <Glass>

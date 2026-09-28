@@ -64,7 +64,10 @@ const is429 = (e: any) => /429|Too Many Requests/i.test(String(e?.message ?? e))
 const lastError = new Map<string, string | null>();
 const describe = (e: any) => {
   const msg = String(e?.message ?? e);
-  if (is429(e)) return "Network busy (devnet RPC rate limit)";
+  if (is429(e))
+    return __DEV__
+      ? "Network busy (public devnet rate limit). Set EXPO_PUBLIC_SOLANA_RPC_URL in mobile/.env to a dedicated RPC"
+      : "Network busy (devnet RPC rate limit)";
   if (/Network request failed|fetch failed|ENOTFOUND|timed out/i.test(msg)) return "Can't reach the Solana RPC";
   return msg.slice(0, 120);
 };

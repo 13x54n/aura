@@ -89,20 +89,36 @@ export function ActionTile({
   title,
   sub,
   onPress,
+  offline = false,
 }: {
   icon: string;
   title: string;
   sub: string;
   onPress: () => void;
+  /** Dim the tile and show a small "Offline" tag (still tappable; the screen explains). */
+  offline?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [pressed && s.pressed]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: offline }}
+      accessibilityHint={offline ? "Online play unavailable" : undefined}
+      onPress={onPress}
+      style={({ pressed }) => [pressed && s.pressed, offline && { opacity: 0.45 }]}
+    >
       <Glass style={s.tile}>
         <View style={s.tileIcon}>
           <Icon name={icon as any} size={22} color={aura.purpleBright} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.tileTitle}>{title}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={s.tileTitle}>{title}</Text>
+            {offline ? (
+              <View style={s.offlineTag}>
+                <Text style={s.offlineTagText}>Offline</Text>
+              </View>
+            ) : null}
+          </View>
           <Muted>{sub}</Muted>
         </View>
         <Icon name="chevron-right" size={22} color={aura.textDim} />
@@ -256,6 +272,8 @@ export function PulseRing({ label }: { label: string }) {
 }
 
 export const s = StyleSheet.create({
+  offlineTag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.10)" },
+  offlineTagText: { color: aura.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
   root: { flex: 1, backgroundColor: aura.bg },
   scroll: { padding: 16, gap: 14, paddingBottom: 32 },
   footer: { padding: 16, paddingBottom: 28, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: aura.glassBorder, backgroundColor: aura.bg },

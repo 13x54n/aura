@@ -75,7 +75,9 @@ export function LudoHubScreen() {
           {server.state === "ok"
             ? "Connected to match server"
             : server.state === "down"
-              ? `Can't reach match server (${server.url.replace("ws://", "")}). Run npm run match-server in mobile/ on the Mac, same Wi-Fi. Tap to retry.`
+              ? __DEV__
+                ? `Can't reach match server (${server.url.replace("ws://", "")}). Run npm run match-server in mobile/ on the Mac, same Wi-Fi. Tap to retry.`
+                : "Online play unavailable · Tap to retry"
               : "Checking match server…"}
         </Text>
       </Pressable>
@@ -97,9 +99,9 @@ export function LudoHubScreen() {
         sub="Practice vs bots · no stake"
         onPress={() => navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo" })}
       />
-      <ActionTile icon="plus-box" title="Create private" sub="Pick players, share a code with friends" onPress={() => navigation.navigate("LudoCreateRoom")} />
-      <ActionTile icon="key-variant" title="Join with code" sub="Enter a 6-character table code" onPress={() => navigation.navigate("LudoJoinRoom")} />
-      <ActionTile icon="lightning-bolt" title="Quick match" sub="Get paired with real players" onPress={() => navigation.navigate("LudoRandomMatch")} />
+      <ActionTile icon="plus-box" title="Create private" offline={server.state === "down"} sub="Pick players, share a code with friends" onPress={() => navigation.navigate("LudoCreateRoom")} />
+      <ActionTile icon="key-variant" title="Join with code" offline={server.state === "down"} sub="Enter a 6-character table code" onPress={() => navigation.navigate("LudoJoinRoom")} />
+      <ActionTile icon="lightning-bolt" title="Quick match" offline={server.state === "down"} sub="Get paired with real players" onPress={() => navigation.navigate("LudoRandomMatch")} />
 
       <View style={styles.recentHead}>
         <Label>Recent matches</Label>

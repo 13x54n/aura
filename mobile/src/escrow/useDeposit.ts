@@ -3,7 +3,7 @@
  * exists); MWA signTransactions as the optional dev-build path. The app submits the signed
  * bytes to the RPC itself, then asks the match server to confirm by reading the room account.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Connection, Transaction } from "@solana/web3.js";
 import { useConnection } from "../utils/ConnectionProvider";
 import { isExpoGo } from "../utils/isExpoGo";
@@ -12,7 +12,7 @@ import { cancelPhantomSign, connectPhantomDeeplink, loadPhantomSession, phantomS
 import { useAuthorization } from "../utils/useAuthorization";
 import { EscrowSnapshot, matchClient } from "../match/MatchClient";
 import { DepositStep, runDeposit } from "./depositFlow";
-import { clientRpcProblem } from "./rpcGuard";
+import { trackClientRpc, vetClientRpc } from "./rpcGuard";
 
 export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | null) {
   const { connection } = useConnection();
@@ -21,13 +21,18 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
   const [state, setState] = useState<DepositStep | null>(null);
   const running = useRef(false);
 
-  const conn = useMemo(() => {
-    const rpc = matchClient.escrowInfo.clientRpc;
-    // Only devnet or localhost/LAN; a mainnet (or unknown) override is ignored.
-    if (rpc && !clientRpcProblem(rpc)) return new Connection(rpc, "confirmed");
-    if (rpc) console.warn(`[escrow] ignoring clientRpc ${rpc}: ${clientRpcProblem(rpc)}`);
+  // server.info may arrive after mount: follow it.
+  const [clientRpc, setClientRpc] = useState<string | null>(matchClient.escrowInfo.clientRpc ?? null);
+  useEffect(() => trackClientRpc(matchClient, setClientRpc), []);
+
+  /** Deposit RPC: a vetted clientRpc (allowlist + devnet genesis for remote hosts), else the app RPC. */
+  const pickConnection = useCallback(async (): Promise<Connection> => {
+    if (!clientRpc) return connection;
+    const v = await vetClientRpc(clientRpc, (url) => new Connection(url, "confirmed").getGenesisHash());
+    if (v.url) return new Connection(v.url, "confirmed");
+    console.warn(`[escrow] ignoring clientRpc ${clientRpc}: ${v.reason}`);
     return connection;
-  }, [connection]);
+  }, [clientRpc, connection]);
 
   const start = useCallback(async () => {
     if (running.current || !escrow?.room || !escrow.mint || !escrow.programId || mySeat == null) return;
@@ -35,6 +40,7 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
     const player = seat?.wallet ?? matchClient.wallet;
     if (!seat || !player) return setState({ step: "error", message: "Connect the wallet you joined with." });
     running.current = true;
+    const conn = await pickConnection();
     const usePhantom = isExpoGo() || !!(await loadPhantomSession());
     matchClient.depositSigning(true);
     try {
@@ -84,7 +90,7 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
     } finally {
       running.current = false;
     }
-  }, [escrow, mySeat, conn, mwaSign, setMockAuthorization]);
+  }, [escrow, mySeat, pickConnection, mwaSign, setMockAuthorization]);
 
   return { state, start, walletName: isExpoGo() ? "Phantom" : "wallet", reset: () => setState(null) };
 }

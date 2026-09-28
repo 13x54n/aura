@@ -264,6 +264,20 @@ function bs58sig(tx) {
   return bs58encode(tx.signature);
 }
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function bs58decode(str) {
+  let n = 0n;
+  for (const ch of String(str)) {
+    const v = B58.indexOf(ch);
+    if (v < 0) throw new Error("bad base58");
+    n = n * 58n + BigInt(v);
+  }
+  let hex = n.toString(16);
+  if (hex.length % 2) hex = "0" + hex;
+  const body = n === 0n ? Buffer.alloc(0) : Buffer.from(hex, "hex");
+  let zeros = 0;
+  for (const ch of String(str)) { if (ch === "1") zeros++; else break; }
+  return Buffer.concat([Buffer.alloc(zeros), body]);
+}
 function bs58encode(buf) {
   let n = BigInt("0x" + (Buffer.from(buf).toString("hex") || "0"));
   let out = "";
@@ -342,25 +356,41 @@ export class EscrowService {
   }
 
   /**
-   * Check every signature we tried: returns the sig of any attempt that landed OK (an earlier
-   * attempt counts as success), an Error if attempts landed only with program errors, else null.
+   * Check every attempt we sent (`{ sig, blockhash }` or a bare sig string):
+   *   - the sig of any attempt that landed OK (an earlier attempt counts as success);
+   *   - an Error only when attempts landed with errors AND no other attempt can still land
+   *     (each unseen attempt's blockhash is no longer valid);
+   *   - null = nothing decided yet (pending) when `waitMs` runs out.
    */
-  async anyLanded(sigs, waitMs = 12000) {
-    if (!sigs.length) return null;
+  async anyLanded(attempts, waitMs = 12000) {
+    const list = attempts.map((a) => (typeof a === "string" ? { sig: a, blockhash: null } : a));
+    if (!list.length) return null;
     const until = Date.now() + waitMs;
     for (;;) {
       let failed = null;
+      const unseen = [];
       try {
-        const { value } = await this.conn.getSignatureStatuses(sigs, { searchTransactionHistory: true });
-        for (let i = 0; i < sigs.length; i++) {
+        const { value } = await this.conn.getSignatureStatuses(list.map((a) => a.sig), { searchTransactionHistory: true });
+        for (let i = 0; i < list.length; i++) {
           const st = value?.[i];
           if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) {
-            if (!st.err) return sigs[i];
+            if (!st.err) return list[i].sig;
             failed = new Error(`failed: ${JSON.stringify(st.err)}`);
+          } else unseen.push(list[i]);
+        }
+        if (failed) {
+          if (!unseen.length) return failed;
+          // Another attempt could still land while its blockhash is valid: keep polling.
+          let anyAlive = false;
+          for (const a of unseen) {
+            if (!a.blockhash) { anyAlive = true; break; }
+            try {
+              if ((await this.conn.isBlockhashValid(a.blockhash, { commitment: "confirmed" })).value) { anyAlive = true; break; }
+            } catch { anyAlive = true; break; } // unsure → don't declare failure
           }
+          if (!anyAlive) return failed;
         }
       } catch {}
-      if (failed) return failed;
       if (Date.now() >= until) return null;
       await new Promise((res) => setTimeout(res, 1000));
     }
@@ -373,7 +403,7 @@ export class EscrowService {
    */
   async send(ixs, label) {
     let lastErr;
-    const tried = []; // every signature we sent; any of them landing = success
+    const tried = []; // every attempt we sent ({ sig, blockhash }); any of them landing = success
     for (let attempt = 0; attempt < 3; attempt++) {
       if (tried.length) {
         const landed = await this.anyLanded(tried);
@@ -387,7 +417,7 @@ export class EscrowService {
         tx.feePayer = this.authority.publicKey;
         tx.sign(this.authority);
         const sig = bs58sig(tx);
-        tried.push(sig);
+        tried.push({ sig, blockhash });
         await this.conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
         const res = await this.conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
         if (res.value.err) throw new ProgramError(`${label} failed: ${JSON.stringify(res.value.err)}`);
@@ -532,9 +562,25 @@ export class EscrowService {
   async verifyDepositSig(sig, { room, wallet }) {
     const tx = await this.conn.getTransaction(sig, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
     if (!tx || tx.meta?.err) return false;
-    const keys = tx.transaction.message.staticAccountKeys ?? tx.transaction.message.accountKeys;
-    const k = keys.map((x) => x.toBase58());
-    return k[0] === String(wallet) && k.includes(pk(room).toBase58());
+    const msg = tx.transaction.message;
+    const keys = (msg.staticAccountKeys ?? msg.accountKeys).map((x) => (typeof x === "string" ? x : (x.pubkey ?? x).toBase58()));
+    if (keys[0] !== String(wallet)) return false;
+    const roomB58 = pk(room).toBase58();
+    const program = this.programId.toBase58();
+    const want = disc("deposit");
+    // Our program's deposit ix (program id + discriminator), signed by the wallet, on this room.
+    // Account order = depositIx: [player, config, mint, room, playerToken, vault, token, slotHashes].
+    const ixs = msg.compiledInstructions
+      ? msg.compiledInstructions.map((i) => ({ program: keys[i.programIdIndex], accts: i.accountKeyIndexes, data: Buffer.from(i.data) }))
+      : (msg.instructions || []).map((i) => ({ program: keys[i.programIdIndex], accts: i.accounts, data: Buffer.from(bs58decode(i.data)) }));
+    return ixs.some(
+      (i) =>
+        i.program === program &&
+        i.data.length === 9 &&
+        i.data.subarray(0, 8).equals(want) &&
+        keys[i.accts[0]] === String(wallet) &&
+        keys[i.accts[3]] === roomB58
+    );
   }
 
   /** submitDeposit + confirm-deposit read of the room account. */

@@ -11,7 +11,7 @@ import { encryptPayload, decryptPayload, sharedSecretFor, phantomErrorFrom, Phan
 import { buildDepositTx, verifySignedDeposit, isBlockhashError, DEPOSIT_DISC, COMPUTE_BUDGET_ID } from "../src/escrow/depositTx.ts";
 import { runDeposit, awaitLandingOrExpiry } from "../src/escrow/depositFlow.ts";
 import { createReturnWatcher } from "../src/escrow/appReturn.ts";
-import { clientRpcProblem } from "../src/escrow/rpcGuard.ts";
+import { clientRpcProblem, vetClientRpc, trackClientRpc, DEVNET_GENESIS } from "../src/escrow/rpcGuard.ts";
 import { depositView, COPY } from "../src/escrow/depositCopy.ts";
 
 let pass = 0, fail = 0;
@@ -313,13 +313,56 @@ await t("return watcher: redirect arrives (stop) or app leaves again during the 
 });
 
 // ── (3) clientRpc guard ──
-await t("clientRpc guard: devnet + localhost/LAN allowed; mainnet and others refused", () => {
-  for (const ok of ["http://127.0.0.1:8899", "http://localhost:8899", "http://192.168.1.20:8899", "http://10.0.0.5:8899", "http://172.20.1.2:8899", "http://macbook.local:8899", "https://devnet.helius-rpc.com/?api-key=x", "https://api.devnet.solana.com"]) {
-    assert.equal(clientRpcProblem(ok), null, ok);
-  }
-  for (const bad of ["https://api.mainnet-beta.solana.com", "https://API.MAINNET-BETA.SOLANA.COM/", "https://mainnet.helius-rpc.com/?api-key=x", "https://rpc.example.com/?cluster=mainnet", "https://rpc.ankr.com/solana", "ws://127.0.0.1:8900", "devnet", "", null, "http://8.8.8.8:8899", "http://172.32.0.1:8899"]) {
-    assert.ok(clientRpcProblem(bad), String(bad));
-  }
+await t("clientRpc guard: exact allowlist + local/LAN accepted", () => {
+  for (const ok of [
+    "https://api.devnet.solana.com", "https://API.DEVNET.SOLANA.COM/",
+    "https://devnet.helius-rpc.com/?api-key=x", "https://eu.devnet.helius-rpc.com/?api-key=x",
+    "https://my-node.solana-devnet.quiknode.pro/abc123/",
+    "http://127.0.0.1:8899", "http://localhost:8899", "http://[::1]:8899",
+    "http://192.168.1.20:8899", "http://10.0.0.5:8899", "http://172.16.0.1:8899", "http://172.31.255.254:8899",
+  ]) assert.equal(clientRpcProblem(ok), null, ok);
+});
+
+await t("clientRpc guard: substring/lookalike hosts, mainnet and others rejected", () => {
+  for (const bad of [
+    "https://devnet.attacker.example", "https://evil-devnet.helius-rpc.com.attacker", "https://devnet.helius-rpc.com.attacker/",
+    "https://evildevnet.helius-rpc.com", "https://xdevnet.helius-rpc.com", "https://solana-devnet.quiknode.pro", "https://x.solana-devnet.quiknode.pro.evil.com",
+    "https://api.devnet.solana.com.evil.io", "https://api-devnet.solana.com", "https://my-devnet-rpc.example.com",
+    "https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com/?api-key=x", "https://devnet.helius-rpc.com/?cluster=mainnet",
+    "https://user:pw@api.devnet.solana.com", "ws://127.0.0.1:8900", "ftp://api.devnet.solana.com", "devnet", "", null,
+    "http://8.8.8.8:8899", "http://172.32.0.1:8899", "http://192.169.0.1:8899", "http://macbook.local:8899", "http://999.1.1.1:8899",
+  ]) assert.ok(clientRpcProblem(bad), String(bad));
+});
+
+await t("vetClientRpc: remote host must report the devnet genesis; mismatch / RPC error → fallback", async () => {
+  let asked = 0;
+  const g = (hash) => async () => { asked++; return hash; };
+  assert.equal((await vetClientRpc("https://api.devnet.solana.com", g(DEVNET_GENESIS))).url, "https://api.devnet.solana.com");
+  const mm = await vetClientRpc("https://devnet.helius-rpc.com/?api-key=x", g("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"));
+  assert.equal(mm.url, null); assert.match(mm.reason, /not devnet/);
+  const err = await vetClientRpc("https://api.devnet.solana.com", async () => { throw new Error("timeout"); });
+  assert.equal(err.url, null);
+  asked = 0;
+  assert.equal((await vetClientRpc("https://devnet.attacker.example", g(DEVNET_GENESIS))).url, null);
+  assert.equal(asked, 0, "not on the allowlist → never even asked");
+});
+
+await t("vetClientRpc: local/LAN hosts skip the genesis check (localnet has its own genesis)", async () => {
+  let asked = 0;
+  const r = await vetClientRpc("http://192.168.1.20:8899", async () => { asked++; return "localnet-genesis"; });
+  assert.equal(r.url, "http://192.168.1.20:8899"); assert.equal(asked, 0);
+});
+
+await t("trackClientRpc: picks up a server.info that arrives after mount", () => {
+  const listeners = {};
+  const src = { escrowInfo: { clientRpc: null }, on: (ev, cb) => { (listeners[ev] ??= []).push(cb); return () => (listeners[ev] = listeners[ev].filter((x) => x !== cb)); } };
+  const seen = [];
+  const off = trackClientRpc(src, (v) => seen.push(v));
+  assert.deepEqual(seen, [null]);
+  listeners["server.info"].forEach((cb) => cb({ type: "server.info", escrow: { live: true, clientRpc: "http://192.168.1.20:8899" } }));
+  assert.equal(seen.at(-1), "http://192.168.1.20:8899");
+  off();
+  assert.equal(listeners["server.info"].length, 0, "unsubscribes on unmount");
 });
 
 // ── Sheet copy (design) ──

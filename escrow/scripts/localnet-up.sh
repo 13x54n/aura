@@ -3,27 +3,32 @@
 # ~/.config/aura/escrow-authority.json), a 6-dp test mint, config + fee-wallet ATA, and the
 # test players funded with SOL + 100 test USDC. No devnet/mainnet calls.
 #   escrow/scripts/localnet-up.sh        # start (resets the ledger)
-#   escrow/scripts/localnet-up.sh stop   # stop the validator this script started (pid in /tmp/aura-validator.pid)
+#   escrow/scripts/localnet-up.sh stop   # stop the validator this script started for $AURA_LEDGER (per-ledger pidfile)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RPC=http://127.0.0.1:8899
 LEDGER=${AURA_LEDGER:-/tmp/aura-ledger}
 K=~/.config/aura
-PIDFILE=${AURA_VALIDATOR_PIDFILE:-/tmp/aura-validator.pid}
+# Pidfile keyed by the ledger path (not inside it: --reset wipes the ledger dir at startup),
+# so another agent's `stop` with a different AURA_LEDGER can never kill this validator.
+LEDGER_ABS=$(mkdir -p "$(dirname "$LEDGER")" && cd "$(dirname "$LEDGER")" && pwd)/$(basename "$LEDGER")
+PIDFILE=${AURA_VALIDATOR_PIDFILE:-/tmp/aura-validator-$(printf %s "$LEDGER_ABS" | shasum | cut -c1-12).pid}
 # stop: kill only the validator this script started (recorded pid), never whatever holds :8899.
 if [[ "${1:-}" == "stop" ]]; then
   if [[ -f "$PIDFILE" ]]; then
     VPID=$(cat "$PIDFILE")
-    if kill -0 "$VPID" 2>/dev/null && ps -p "$VPID" -o command= | grep -q solana-test-validator; then
+    # Only if that pid is still a solana-test-validator on THIS ledger.
+    if kill -0 "$VPID" 2>/dev/null && ps -p "$VPID" -o command= | grep -q solana-test-validator \
+       && ps -p "$VPID" -o command= | grep -qF -- "--ledger $LEDGER"; then
       kill "$VPID"
       for i in $(seq 1 20); do kill -0 "$VPID" 2>/dev/null || break; sleep 0.5; done
       echo "validator $VPID stopped"
     else
-      echo "recorded validator $VPID is not running"
+      echo "recorded validator $VPID is not running on $LEDGER (left alone)"
     fi
     rm -f "$PIDFILE"
   else
-    echo "no validator started by this script ($PIDFILE missing)"
+    echo "no validator started by this script for $LEDGER ($PIDFILE missing)"
   fi
   exit 0
 fi

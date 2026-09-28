@@ -166,20 +166,78 @@ await t("confirm: sig stored only if verified on-chain", async () => {
   assert.equal(junk.st.verifies, 0); assert.equal(junk.st.ready, null);
 });
 
-await t("verifyDepositSig: landed ok + fee payer = wallet + touches room; else false", async () => {
-  const s = svc();
+// verifyDepositSig against real compiled deposit messages
+const { Transaction: W3Tx } = require("@solana/web3.js");
+const bs58 = (() => { const m = require("bs58"); return m.default ?? m; })();
+const vfx = () => {
   const roomPk = Keypair.generate().publicKey;
-  const mk = (keys, err = null) => ({ meta: { err }, transaction: { message: { staticAccountKeys: keys } } });
-  s.conn = { getTransaction: async () => mk([wallet, roomPk]) };
-  assert.equal(await s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }), true);
-  s.conn = { getTransaction: async () => mk([Keypair.generate().publicKey, roomPk]) };
-  assert.equal(await s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }), false);
-  s.conn = { getTransaction: async () => mk([wallet, Keypair.generate().publicKey]) };
-  assert.equal(await s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }), false);
-  s.conn = { getTransaction: async () => mk([wallet, roomPk], { InstructionError: [0, "x"] }) };
-  assert.equal(await s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }), false);
-  s.conn = { getTransaction: async () => null };
-  assert.equal(await s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }), false);
+  const s = svc();
+  const mk = ({ programId = E.DEFAULT_PROGRAM_ID, payer = wallet, player = wallet, depRoom = roomPk, data, extra = [], err = null, legacyJson = false } = {}) => {
+    const dep = E.depositIx({ programId, player, mint, room: depRoom, seat: 0 });
+    if (data) dep.data = data;
+    const tx = new W3Tx({ feePayer: payer, recentBlockhash: Keypair.generate().publicKey.toBase58() }).add(...extra, dep);
+    const message = tx.compileMessage();
+    if (legacyJson) {
+      return { meta: { err }, transaction: { message: {
+        accountKeys: message.accountKeys.map((k) => k.toBase58()),
+        instructions: message.instructions.map((i) => ({ programIdIndex: i.programIdIndex, accounts: i.accounts, data: i.data })),
+      } } };
+    }
+    return { meta: { err }, transaction: { message } };
+  };
+  const check = async (fx) => { s.conn = { getTransaction: async () => fx }; return s.verifyDepositSig(SIG, { room: roomPk, wallet: wallet.toBase58() }); };
+  return { roomPk, mk, check };
+};
+
+await t("verifyDepositSig: our program's deposit ix (program id + discriminator) on this room, paid by the wallet → true", async () => {
+  const v = vfx();
+  assert.equal(await v.check(v.mk()), true);
+  assert.equal(await v.check(v.mk({ legacyJson: true })), true, "legacy JSON message form (base58 ix data)");
+});
+await t("verifyDepositSig: rejects other program, wrong discriminator, other room, other payer, failed tx, missing tx", async () => {
+  const v = vfx();
+  assert.equal(await v.check(v.mk({ programId: Keypair.generate().publicKey })), false, "other program");
+  const badData = Buffer.from(E.depositIx({ programId: E.DEFAULT_PROGRAM_ID, player: wallet, mint, room: v.roomPk, seat: 0 }).data); badData[0] ^= 1;
+  assert.equal(await v.check(v.mk({ data: badData })), false, "wrong discriminator");
+  // deposit into ANOTHER room, while our room only appears as a random extra account
+  const decoy = new TransactionInstruction({ programId: Keypair.generate().publicKey, keys: [{ pubkey: v.roomPk, isSigner: false, isWritable: false }], data: Buffer.from([1]) });
+  assert.equal(await v.check(v.mk({ depRoom: Keypair.generate().publicKey, extra: [decoy] })), false, "room only touched by another ix");
+  const other = Keypair.generate().publicKey;
+  assert.equal(await v.check(v.mk({ payer: other, player: other })), false, "other payer/player");
+  assert.equal(await v.check(v.mk({ err: { InstructionError: [0, "x"] } })), false, "failed tx");
+  assert.equal(await v.check(null), false, "missing tx");
+});
+
+// anyLanded: a failed attempt isn't final while another attempt's blockhash is still valid
+const alSvc = ({ statuses, valid }) => {
+  const s = svc();
+  let polls = 0, vcalls = 0;
+  s.conn = {
+    getSignatureStatuses: async (sigs) => { const row = statuses[Math.min(polls++, statuses.length - 1)]; return { value: sigs.map((_, i) => row[i] ?? null) }; },
+    isBlockhashValid: async () => ({ value: valid[Math.min(vcalls++, valid.length - 1)] }),
+  };
+  return s;
+};
+const FAILED = { confirmationStatus: "confirmed", err: { InstructionError: [0, "x"] } };
+const OK = { confirmationStatus: "confirmed", err: null };
+const atts = [{ sig: "A", blockhash: "bhA" }, { sig: "B", blockhash: "bhB" }];
+
+await t("anyLanded: A failed, B still has a valid blockhash → keeps polling, then B lands → success", async () => {
+  const s = alSvc({ statuses: [[FAILED, null], [FAILED, null], [FAILED, OK]], valid: [true] });
+  assert.equal(await s.anyLanded(atts, 10000), "B");
+});
+await t("anyLanded: A failed and B's blockhash is dead (never seen) → failure", async () => {
+  const s = alSvc({ statuses: [[FAILED, null]], valid: [false] });
+  const r = await s.anyLanded(atts, 10000);
+  assert.ok(r instanceof Error);
+});
+await t("anyLanded: A failed, B still valid when the wait runs out → pending (null), not failure", async () => {
+  const s = alSvc({ statuses: [[FAILED, null]], valid: [true] });
+  assert.equal(await s.anyLanded(atts, 0), null);
+});
+await t("anyLanded: all attempts failed → failure right away", async () => {
+  const s = alSvc({ statuses: [[FAILED, FAILED]], valid: [true] });
+  assert.ok((await s.anyLanded(atts, 10000)) instanceof Error);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -113,7 +113,7 @@ You need one client per seat.
 What to expect:
 - **Seats:** a 3p room uses Red, Green and Blue (seats `[3,2,0]`). The 4th corner shows as an empty, dimmed seat.
 - **Idle turns:** if nobody taps, the server's turn clock plays the turn after 20 seconds.
-- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Tap Retry within that window to take your seat back. That works even after an app reload, because your `playerId` is saved on the device (`aura.match.playerId`). The server plays your turn if it comes up while you're away. If the window has already run out, your seat is gone.
+- **Drops:** if a player drops, their seat is held for 30 seconds ("Reconnecting… 0:30"). If they don't come back, they forfeit. Tap Retry within that window to take your seat back. That works even after an app reload, because your `playerId` is saved on the device (`aura.match.playerId`). The server plays your turn if it comes up while you're away. If the window has already run out, your seat is gone and you'll see "You forfeited this match". Both ends check the connection every 10 seconds, so a silent Wi-Fi drop (15 seconds with no reply) starts the grace period right away. If your saved table is still playing, the Ludo hub shows a **Rejoin** tile.
 
 ## 7. Rebuild the Ludo bundle
 
@@ -137,6 +137,9 @@ Move speed can be tuned with `HOP_MS` (200) and `LAND_MS` (160) at the top of `g
 
 **"Table not found" / "Table is full"**
 The code is wrong or the table has ended, or every seat is taken. Go back to the hub and create a new table.
+
+**"You forfeited this match"**
+Your seat's 30-second grace period ran out, so that seat left the match. Start or join a new table.
 
 **"Table code in use"**
 You tried to create a table with a code a live table already has. Create again to get a fresh code. If you were already seated there, use Retry, which rejoins instead of creating.

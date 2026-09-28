@@ -11,6 +11,11 @@ import { Big, Glass, Label, Muted, PrimaryButton } from "../../screens/ludo/ludo
 /** Withdraw from escrow ships with staked rooms; until then it's dimmed and explains. */
 const STAKED_ROOMS_LIVE = false;
 
+const agoLabel = (at: number) => {
+  const m = Math.floor((Date.now() - at) / 60_000);
+  return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+};
+
 const num = (v: number | null, dp: number, loading: boolean) =>
   loading && v == null ? "…" : v == null ? "—" : v.toFixed(dp);
 
@@ -63,6 +68,9 @@ export function HostWalletCard({
                 <Big>{num(b.usdc, 2, b.loading)}</Big>
                 <Text style={styles.unit}>USDC</Text>
               </View>
+              {b.stale && b.updatedAt ? (
+                <Muted style={styles.updated}>Updated {agoLabel(b.updatedAt)}</Muted>
+              ) : null}
               <View style={styles.chips}>
                 <View style={styles.chip}>
                   <Text style={styles.chipK}>SOL</Text>
@@ -152,4 +160,5 @@ const styles = StyleSheet.create({
   },
   glassBtnText: { color: aura.text, fontWeight: "800" },
   dimmed: { opacity: 0.45 },
+  updated: { fontSize: 12, marginTop: -2, marginBottom: 8 },
 });

@@ -27,6 +27,10 @@ export type HostBalances = {
   loading: boolean;
   connected: boolean;
   address: string | null;
+  /** When the shown balances were fetched (ms epoch), null if never. */
+  updatedAt: number | null;
+  /** True when showing a cached value that is older than the freshness window. */
+  stale: boolean;
   refresh: () => void;
 };
 
@@ -85,6 +89,8 @@ export function useHostBalances(): HostBalances {
   const owner = selectedAccount?.publicKey;
   const key = owner?.toBase58() ?? null;
   const [snap, setSnap] = useState<Snapshot | null>(key ? cache.get(key)?.snap ?? null : null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(key ? cache.get(key)?.at ?? null : null);
+  const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((n) => n + 1), []);
@@ -96,13 +102,23 @@ export function useHostBalances(): HostBalances {
       return;
     }
     const hit = cache.get(key);
-    if (hit) setSnap(hit.snap);
+    if (hit) {
+      setSnap(hit.snap);
+      setUpdatedAt(hit.at);
+    }
     const forced = tick > 0;
     const fresh = hit && Date.now() - hit.at < FRESH_MS;
     if ((fresh && !forced) || Date.now() < cooldownUntil) return;
     setLoading(true);
     fetchBalances(connection, owner)
-      .then((s) => alive && s && setSnap(s))
+      .then((s) => {
+        if (!alive) return;
+        if (s) {
+          setSnap(s);
+          setUpdatedAt(cache.get(key)?.at ?? Date.now());
+        }
+        setNow(Date.now());
+      })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -111,7 +127,15 @@ export function useHostBalances(): HostBalances {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tick]);
 
+  // Re-evaluate "Updated Xm ago" every 30s while a cached value is showing (no RPC).
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   return {
+    updatedAt,
+    stale: !!updatedAt && !!snap && now - updatedAt > FRESH_MS,
     usdc: snap?.usdc ?? null, sol: snap?.sol ?? null, skr: snap?.skr ?? null,
     skrConfigured: !!SKR_MINT, loading,
     connected: !!owner, address: key, refresh,

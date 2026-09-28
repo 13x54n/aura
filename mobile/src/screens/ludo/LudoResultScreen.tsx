@@ -5,7 +5,8 @@ import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { Big, GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SummaryRow } from "./ludoUi";
-import { payoutFor, SEAT_COLORS } from "./ludoMock";
+import { BOARD_SEAT_COLORS, payoutFor } from "./ludoShared";
+import { matchClient } from "../../match/MatchClient";
 
 export type LudoResultParams = {
   mode?: "create" | "join" | "random";
@@ -14,7 +15,6 @@ export type LudoResultParams = {
   roomCode?: string;
   stake?: number;
   players?: number;
-  standings?: string[];
 };
 
 /** Winner / payout (wireframe 7): result · receipt · standings · Share / Play again. */
@@ -48,7 +48,10 @@ export function LudoResultScreen() {
     navigation.reset({ index: hubIdx + 1, routes: [...st.routes.slice(0, hubIdx + 1), { name: target }] });
   };
 
-  const standings = p.standings ?? (p.won ? ["You", "Maya", "Kofi", "Iris"] : [p.winnerName ?? "Maya", "You", "Kofi", "Iris"]).slice(0, players);
+  // Real standings from the server's match.completed for this table only.
+  const done = matchClient.lastCompleted;
+  const standings = done && (!p.roomCode || done.roomCode === p.roomCode) ? done.standings : [];
+  const mySeat = matchClient.mySeat;
 
   return (
     <LudoScreen
@@ -77,13 +80,13 @@ export function LudoResultScreen() {
     >
       <Glass style={styles.hero}>
         <Icon name={p.won ? "trophy" : "dice-multiple"} size={48} color={p.won ? "#FACC15" : aura.purpleBright} />
-        <Big>{p.won ? "You win!" : `${p.winnerName ?? "Opponent"} wins`}</Big>
+        <Big>{p.won ? "You won" : `${p.winnerName ?? "Opponent"} won`}</Big>
         {stake > 0 ? (
           <Text style={[styles.amount, { color: p.won ? "#34D399" : "#F87171" }]}>
             {p.won ? `+${payout}` : `-${stake}`} USDC
           </Text>
         ) : (
-          <Muted>Free Play · no stake</Muted>
+          <Muted>Friendly · no stake</Muted>
         )}
       </Glass>
 
@@ -97,17 +100,25 @@ export function LudoResultScreen() {
         </Glass>
       ) : null}
 
-      <Glass>
-        <Label>Standings</Label>
-        {standings.map((name, i) => (
-          <View key={name + i} style={styles.stand}>
-            <Text style={styles.rank}>{i + 1}</Text>
-            <View style={[styles.dot, { backgroundColor: SEAT_COLORS[i % 4] }]} />
-            <Text style={[styles.name, name === "You" && { color: aura.purpleBright }]}>{name}</Text>
-          </View>
-        ))}
-      </Glass>
-      <Muted style={{ fontSize: 11, textAlign: "center" }}>Standings are example data until rooms go live.</Muted>
+      {standings.length > 0 ? (
+        <Glass>
+          <Label>Standings</Label>
+          {standings.map((st) => {
+            const you = st.seat === mySeat;
+            return (
+              <View key={st.seat} style={styles.stand}>
+                <Text style={styles.rank}>{st.place}</Text>
+                <View style={[styles.dot, { backgroundColor: BOARD_SEAT_COLORS[st.seat] ?? aura.purple }]} />
+                <Text style={[styles.name, you && { color: aura.purpleBright }]}>
+                  {st.name}
+                  {you ? " (you)" : ""}
+                </Text>
+                {st.forfeited ? <Muted style={{ marginLeft: "auto", fontSize: 12 }}>Left</Muted> : null}
+              </View>
+            );
+          })}
+        </Glass>
+      ) : null}
     </LudoScreen>
   );
 }

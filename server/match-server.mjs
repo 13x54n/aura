@@ -3,6 +3,9 @@
  * Lightweight WebSocket server implementing classic-v1 Ludo rules.
  */
 import { createServer } from "http";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import WebSocket, { WebSocketServer } from "ws"; // ws 8 (server/package.json)
 
 const PORT = process.env.PORT || 3001;
@@ -22,15 +25,43 @@ const SEATS_3P = [3, 2, 0];
 // Server turn clock per turn (roll + move). Matches the board's 20s timer.
 const TURN_MS = Number(process.env.TURN_MS || 20000);
 
+// Real money can't move until host escrow ships: every table is a 0 USDC friendly.
+const ESCROW_LIVE = process.env.ESCROW_LIVE === "1";
+const HOUSE_FEE = 0.05;
+
+// ── Match history (real server-completed matches only) ───────────────────────
+const HISTORY_FILE = process.env.HISTORY_FILE ||
+  join(dirname(fileURLToPath(import.meta.url)), "data", "history.json");
+let history = [];
+try {
+  if (existsSync(HISTORY_FILE)) history = JSON.parse(readFileSync(HISTORY_FILE, "utf8"));
+} catch {
+  history = [];
+}
+function saveHistory() {
+  try {
+    mkdirSync(dirname(HISTORY_FILE), { recursive: true });
+    writeFileSync(HISTORY_FILE, JSON.stringify(history.slice(-5000)));
+  } catch (e) {
+    console.error("[Aura Match Server] could not save history:", e.message);
+  }
+}
+
 // Seat held this long for the same playerId after a drop (BM: 30s grace, all modes).
 const GRACE_MS = Number(process.env.GRACE_MS || 30000);
 // Delay before the clock auto-moves after an auto-roll (so boards see the die land).
 const AUTO_MOVE_MS = 900;
 
 class LudoRoom {
-  constructor(roomCode, mode = "2p", onDestroy = () => {}) {
+  constructor(roomCode, mode = "2p", onDestroy = () => {}, opts = {}) {
     this.roomCode = roomCode;
     this.mode = mode;
+    this.stake = ESCROW_LIVE ? Math.max(0, Number(opts.stake) || 0) : 0;
+    this.kind = opts.kind || "private"; // "private" | "quick"
+    this.hostName = opts.hostName || null;
+    this.createdAt = Date.now();
+    // Everyone who sat down when the match started (for standings + history).
+    this.roster = new Map();
     this.seatOrder = mode === "2p" ? SEATS_2P : mode === "3p" ? SEATS_3P : SEATS_4P;
     this.maxPlayers = this.seatOrder.length;
     this.onDestroy = onDestroy;
@@ -169,6 +200,7 @@ class LudoRoom {
     if (!p || this.status !== "playing") return;
     if (p.graceTimer) clearTimeout(p.graceTimer);
     this.players.delete(seat);
+    if (this.forfeitOrder) this.forfeitOrder.push(seat);
     this.broadcast({ type: "player.left", seat, forfeited: true, reason });
     const remaining = Array.from(this.players.keys());
     if (remaining.length <= 1) {
@@ -180,6 +212,21 @@ class LudoRoom {
     this.maybeDestroy();
   }
 
+  /** Winner first, then pieces home / distance, forfeited seats last (latest forfeit ranks higher). */
+  standings(winner) {
+    const progress = (s) => this.pieces[s].reduce((a, v) => a + Math.max(0, v + 1), 0);
+    const out = (this.forfeitOrder || []).slice();
+    const live = Array.from(this.roster.keys()).filter((s) => s !== winner && !out.includes(s));
+    live.sort((a, b) => progress(b) - progress(a));
+    const order = [...(winner != null ? [winner] : []), ...live, ...out.reverse()];
+    return order.map((s, i) => ({
+      seat: s,
+      name: this.roster.get(s)?.name || "Player",
+      place: i + 1,
+      forfeited: (this.forfeitOrder || []).includes(s),
+    }));
+  }
+
   complete(winner, reason) {
     this.winner = winner;
     this.status = "completed";
@@ -189,7 +236,48 @@ class LudoRoom {
       if (p.graceTimer) clearTimeout(p.graceTimer);
       p.graceTimer = null;
     }
-    this.broadcast({ type: "match.completed", winner, reason });
+    const standings = this.standings(winner);
+    this.recordHistory(winner, standings);
+    this.broadcast({ type: "match.completed", winner, reason, standings, stake: this.stake });
+  }
+
+  recordHistory(winner, standings) {
+    const n = this.roster.size;
+    const pot = this.stake * n;
+    const payout = +(pot - pot * HOUSE_FEE).toFixed(2);
+    const endedAt = Date.now();
+    const winnerName = this.roster.get(winner)?.name || null;
+    for (const [seat, r] of this.roster.entries()) {
+      const won = seat === winner;
+      history.push({
+        id: `${this.roomCode}-${this.createdAt}-${seat}`,
+        playerId: r.playerId,
+        game: "Ludo",
+        code: this.roomCode,
+        kind: this.kind,
+        players: n,
+        stake: this.stake,
+        result: won ? "won" : "lost",
+        place: standings.find((x) => x.seat === seat)?.place ?? null,
+        delta: this.stake > 0 ? (won ? +(payout - this.stake).toFixed(2) : -this.stake) : 0,
+        winnerName,
+        endedAt,
+      });
+    }
+    saveHistory();
+  }
+
+  /** Public table card for Join-by-code (no ids, no sockets). */
+  info() {
+    return {
+      roomCode: this.roomCode,
+      host: this.hostName,
+      mode: this.mode,
+      maxPlayers: this.maxPlayers,
+      seated: this.players.size,
+      stake: this.stake,
+      status: this.status,
+    };
   }
 
   /** No live socket left and nothing to wait for → free the code + timers. */
@@ -245,6 +333,10 @@ class LudoRoom {
 
   startGame() {
     this.status = "playing";
+    this.roster = new Map(
+      Array.from(this.players.entries()).map(([s, p]) => [s, { playerId: p.playerId, name: p.playerName }])
+    );
+    this.forfeitOrder = [];
     this.turnIndex = 0;
     this.currentSeat = this.seatOrder[0];
     this.die = null;
@@ -272,6 +364,8 @@ class LudoRoom {
       roomCode: this.roomCode,
       status: this.status,
       mode: this.mode,
+      stake: this.stake,
+      maxPlayers: this.maxPlayers,
       seats: this.seatOrder,
       currentSeat: this.currentSeat,
       die: this.die,
@@ -445,12 +539,26 @@ class LudoRoom {
 
 // Global rooms registry & matchmaking queue
 const rooms = new Map();
-const randomQueue = [];
+// Quick match: one queue per (player count, stake). Only real players, never bots.
+const queues = new Map(); // "2p:0" -> [{ ws, playerId, playerName }]
+const queueKey = (players, stake) => `${players}p:${stake}`;
+function queueSize() {
+  let n = 0;
+  for (const q of queues.values()) n += q.length;
+  return n;
+}
+function leaveQueues(ws) {
+  for (const [k, q] of queues.entries()) {
+    const i = q.findIndex((e) => e.ws === ws);
+    if (i !== -1) q.splice(i, 1);
+    if (q.length === 0) queues.delete(k);
+  }
+}
 
-function makeRoom(roomCode, mode) {
+function makeRoom(roomCode, mode, opts = {}) {
   const room = new LudoRoom(roomCode, mode, (r) => {
     if (rooms.get(r.roomCode) === r) rooms.delete(r.roomCode);
-  });
+  }, opts);
   rooms.set(roomCode, room);
   return room;
 }
@@ -473,7 +581,7 @@ const server = createServer((req, res) => {
       name: "aura-match-server",
       status: "healthy",
       roomsCount: rooms.size,
-      queuedRandom: randomQueue.length,
+      queuedRandom: queueSize(),
     })
   );
 });
@@ -490,8 +598,9 @@ function onMessage(ws, msg) {
         return sendErr(ws, "room_exists", `Room ${roomCode} already exists.`);
       }
       const mode = ["2p", "3p", "4p"].includes(msg.mode) ? msg.mode : "2p";
-      const room = makeRoom(roomCode, mode);
-      const seat = room.addPlayer(ws, msg.playerId || "anon-" + Math.random(), msg.playerName || "Player 1");
+      const hostName = msg.playerName || "Player 1";
+      const room = makeRoom(roomCode, mode, { stake: msg.stake, hostName, kind: "private" });
+      const seat = room.addPlayer(ws, msg.playerId || "anon-" + Math.random(), hostName);
       ws.send(JSON.stringify({ type: "room.created", roomCode, seat, mode, state: room.getSnapshot() }));
       break;
     }
@@ -514,22 +623,55 @@ function onMessage(ws, msg) {
       break;
     }
 
+    case "room.peek": {
+      const roomCode = String(msg.roomCode || "").toUpperCase().trim();
+      const room = rooms.get(roomCode);
+      if (!room) return sendErr(ws, "room_not_found", `Room ${roomCode} does not exist.`);
+      ws.send(JSON.stringify({ type: "room.info", info: room.info() }));
+      break;
+    }
+
     case "room.random": {
       if (ws.room) return sendErr(ws, "already_seated", "Leave your current table first.");
-      while (randomQueue.length > 0) {
-        const waiting = randomQueue.shift();
-        if (waiting.ws === ws || waiting.ws.readyState !== WebSocket.OPEN) continue;
-        const roomCode = freshCode("RND-");
-        const room = makeRoom(roomCode, "2p");
-        const seat1 = room.addPlayer(waiting.ws, waiting.playerId, waiting.playerName);
-        const seat2 = room.addPlayer(ws, msg.playerId || "anon-" + Math.random(), msg.playerName || "Player 2");
+      leaveQueues(ws);
+      const players = [2, 3, 4].includes(Number(msg.players)) ? Number(msg.players) : 2;
+      const stake = ESCROW_LIVE ? Math.max(0, Number(msg.stake) || 0) : 0;
+      const key = queueKey(players, stake);
+      const q = (queues.get(key) || []).filter((e) => e.ws.readyState === WebSocket.OPEN && e.ws !== ws);
+      q.push({ ws, playerId: msg.playerId || "anon-" + Math.random(), playerName: msg.playerName || "Player" });
+      queues.set(key, q);
+      if (q.length >= players) {
+        const group = q.splice(0, players);
+        if (q.length === 0) queues.delete(key);
+        const mode = `${players}p`;
+        const room = makeRoom(freshCode("RND-"), mode, { stake, kind: "quick", hostName: group[0].playerName });
+        const seats = group.map((e) => room.addPlayer(e.ws, e.playerId, e.playerName));
         const snap = room.getSnapshot();
-        waiting.ws.send(JSON.stringify({ type: "room.joined", roomCode, seat: seat1, mode: "2p", state: snap }));
-        ws.send(JSON.stringify({ type: "room.joined", roomCode, seat: seat2, mode: "2p", state: snap }));
+        group.forEach((e, i) => {
+          e.ws.send(JSON.stringify({ type: "room.joined", roomCode: room.roomCode, seat: seats[i], mode, state: snap }));
+        });
         return;
       }
-      randomQueue.push({ ws, playerId: msg.playerId || "anon-" + Math.random(), playerName: msg.playerName || "Player 1" });
-      ws.send(JSON.stringify({ type: "queue.waiting", message: "Looking for an opponent…" }));
+      for (const e of q) {
+        if (e.ws.readyState === WebSocket.OPEN) {
+          e.ws.send(JSON.stringify({ type: "queue.waiting", players, stake, waiting: q.length }));
+        }
+      }
+      break;
+    }
+
+    case "queue.leave": {
+      leaveQueues(ws);
+      ws.send(JSON.stringify({ type: "queue.left" }));
+      break;
+    }
+
+    case "history.get": {
+      const id = String(msg.playerId || "");
+      const rows = id
+        ? history.filter((h) => h.playerId === id).slice(-100).reverse().map(({ playerId, ...r }) => r)
+        : [];
+      ws.send(JSON.stringify({ type: "history", rows }));
       break;
     }
 
@@ -571,8 +713,7 @@ wss.on("connection", (ws) => {
   const onGone = () => {
     if (gone) return;
     gone = true;
-    const qIdx = randomQueue.findIndex((q) => q.ws === ws);
-    if (qIdx !== -1) randomQueue.splice(qIdx, 1);
+    leaveQueues(ws);
     if (ws.room) {
       const room = ws.room;
       ws.room = null;

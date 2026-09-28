@@ -1,18 +1,45 @@
-import React, { useMemo, useState } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, TextInput, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
 import { Glass, Label, LudoScreen, Muted, PrimaryButton, SummaryRow } from "./ludoUi";
-import { payoutFor } from "./ludoMock";
+import { payoutFor } from "./ludoShared";
+import { matchClient, RoomInfo } from "../../match/MatchClient";
 
-/** Join by code (wireframe 3): 6-char code → table card → reserve seat. */
+type Lookup =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "found"; info: RoomInfo }
+  | { state: "not_found" }
+  | { state: "offline" };
+
+/** Join by code: the table card is the server's real table for that code. */
 export function JoinRoomScreen() {
   const navigation = useNavigation<any>();
   const [code, setCode] = useState("");
-  const valid = code.length === 6;
-  // Mock table lookup until the rooms backend exists.
-  const table = useMemo(() => (valid ? { host: "Maya", players: 4, seated: 2, stake: 5 } : null), [valid]);
+  const [lookup, setLookup] = useState<Lookup>({ state: "idle" });
+
+  useEffect(() => {
+    if (code.length !== 6) {
+      setLookup({ state: "idle" });
+      return;
+    }
+    let live = true;
+    setLookup({ state: "loading" });
+    matchClient.peekRoom(code).then((r) => {
+      if (!live) return;
+      if (!r) setLookup({ state: "offline" });
+      else if ("error" in r) setLookup({ state: "not_found" });
+      else setLookup({ state: "found", info: r });
+    });
+    return () => {
+      live = false;
+    };
+  }, [code]);
+
+  const info = lookup.state === "found" ? lookup.info : null;
+  const joinable = !!info && info.status === "waiting" && info.seated < info.maxPlayers;
 
   return (
     <LudoScreen
@@ -21,15 +48,14 @@ export function JoinRoomScreen() {
       footer={
         <PrimaryButton
           icon="seat"
-          label="Join table · Reserve"
-          disabled={!table}
+          label="Join table"
+          disabled={!joinable}
           onPress={() =>
             navigation.navigate("LudoLobby", {
               mode: "join",
-              roomCode: code,
-              players: table!.players,
-              stake: table!.stake,
-              visibility: "Private",
+              roomCode: info!.roomCode,
+              players: info!.maxPlayers,
+              stake: info!.stake,
             })
           }
         />
@@ -49,18 +75,45 @@ export function JoinRoomScreen() {
         />
         <Muted>Ask the host for their 6-character code.</Muted>
       </Glass>
-      {table ? (
+
+      {lookup.state === "loading" ? <ActivityIndicator color={aura.purpleBright} /> : null}
+
+      {lookup.state === "not_found" ? (
         <Glass>
-          <View style={styles.head}>
-            <Text style={styles.title}>{table.host}'s table</Text>
-            <Text style={styles.badge}>{code}</Text>
-          </View>
-          <SummaryRow k="Seats" v={`${table.seated}/${table.players} filled`} />
-          <SummaryRow k="Stake per player" v={`${table.stake} USDC`} />
-          <SummaryRow k="Winner takes" v={`${payoutFor(table.stake, table.players).payout} USDC`} strong />
+          <Text style={styles.title}>Table not found</Text>
+          <Muted>No open table uses {code}. Check the code with the host.</Muted>
         </Glass>
       ) : null}
-      {table ? <Muted style={{ fontSize: 11, textAlign: "center" }}>Example table until rooms go live.</Muted> : null}
+
+      {lookup.state === "offline" ? (
+        <Glass>
+          <Text style={styles.title}>Can't reach match server</Text>
+          <Muted>Check you're on the same network as the server, then edit the code to retry.</Muted>
+        </Glass>
+      ) : null}
+
+      {info ? (
+        <Glass>
+          <View style={styles.head}>
+            <Text style={styles.title}>{info.host ? `${info.host}'s table` : "Table"}</Text>
+            <Text style={styles.badge}>{info.roomCode}</Text>
+          </View>
+          <SummaryRow k="Seats" v={`${info.seated}/${info.maxPlayers} filled`} />
+          {info.stake > 0 ? (
+            <>
+              <SummaryRow k="Stake per player" v={`${info.stake} USDC`} />
+              <SummaryRow k="Winner takes" v={`${payoutFor(info.stake, info.maxPlayers).payout} USDC`} strong />
+            </>
+          ) : (
+            <SummaryRow k="Stake" v="Friendly · no stake" strong />
+          )}
+          {info.status !== "waiting" ? (
+            <Muted style={{ marginTop: 6 }}>This match already started.</Muted>
+          ) : info.seated >= info.maxPlayers ? (
+            <Muted style={{ marginTop: 6 }}>Every seat is taken.</Muted>
+          ) : null}
+        </Glass>
+      ) : null}
     </LudoScreen>
   );
 }

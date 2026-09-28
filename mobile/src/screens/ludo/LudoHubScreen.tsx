@@ -3,9 +3,10 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
-import { ActionTile, Glass, Label, LudoScreen, Muted } from "./ludoUi";
+import { ActionTile, Glass, Label, LudoScreen, Muted, PrimaryButton } from "./ludoUi";
 import { BalanceCard } from "./BalanceCard";
-import { MOCK_LEDGER } from "./ludoMock";
+import { whenLabel } from "./ludoShared";
+import { useMatchHistory } from "../../match/useMatchHistory";
 
 /**
  * Ludo home (wireframe 1). One glass screen — no second tab bar inside Ludo:
@@ -13,6 +14,8 @@ import { MOCK_LEDGER } from "./ludoMock";
  */
 export function LudoHubScreen() {
   const navigation = useNavigation<any>();
+  const history = useMatchHistory();
+  const recent = history.rows.filter((r) => r.game === "Ludo").slice(0, 8);
 
   return (
     <LudoScreen>
@@ -24,9 +27,9 @@ export function LudoHubScreen() {
         sub="Practice vs bots · no stake"
         onPress={() => navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo" })}
       />
-      <ActionTile icon="plus-box" title="Create private" sub="Set players + stake, share a code" onPress={() => navigation.navigate("LudoCreateRoom")} />
+      <ActionTile icon="plus-box" title="Create private" sub="Pick players, share a code with friends" onPress={() => navigation.navigate("LudoCreateRoom")} />
       <ActionTile icon="key-variant" title="Join with code" sub="Enter a 6-character table code" onPress={() => navigation.navigate("LudoJoinRoom")} />
-      <ActionTile icon="lightning-bolt" title="Quick match" sub="Pick a stake, get seated fast" onPress={() => navigation.navigate("LudoRandomMatch")} />
+      <ActionTile icon="lightning-bolt" title="Quick match" sub="Get paired with real players" onPress={() => navigation.navigate("LudoRandomMatch")} />
 
       <View style={styles.recentHead}>
         <Label>Recent matches</Label>
@@ -34,21 +37,38 @@ export function LudoHubScreen() {
           <Text style={styles.link}>Wallet & history</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-        {MOCK_LEDGER.map((m) => (
-          <Pressable key={m.id} onPress={() => navigation.navigate("HomeStack", { screen: "Wallet" })}>
-            <Glass style={styles.recent}>
-              <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
-                {m.delta >= 0 ? "+" : ""}
-                {m.delta.toFixed(2)}
-              </Text>
-              <Muted>{m.players}P · {m.stake} USDC</Muted>
-              <Muted style={{ fontSize: 11 }}>{m.when}</Muted>
-            </Glass>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <Muted style={{ fontSize: 11, textAlign: "center" }}>Recent matches are example data until rooms go live.</Muted>
+      {recent.length === 0 ? (
+        <Glass style={styles.empty}>
+          <Text style={styles.emptyTitle}>{history.status === "loading" ? "Loading matches…" : "No matches yet"}</Text>
+          {history.status === "offline" ? (
+            <Muted style={{ textAlign: "center" }}>Can't reach the match server right now.</Muted>
+          ) : null}
+          {history.status !== "loading" ? (
+            <PrimaryButton icon="dice-5" label="Play Ludo" onPress={() => navigation.navigate("LudoRandomMatch")} />
+          ) : null}
+        </Glass>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+          {recent.map((m) => (
+            <Pressable key={m.id} onPress={() => navigation.navigate("HomeStack", { screen: "Wallet" })}>
+              <Glass style={styles.recent}>
+                {m.stake > 0 ? (
+                  <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
+                    {m.delta >= 0 ? "+" : ""}
+                    {m.delta.toFixed(2)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.delta, { color: m.result === "won" ? "#34D399" : aura.textMuted }]}>
+                    {m.result === "won" ? "Won" : m.place ? `#${m.place}` : "Lost"}
+                  </Text>
+                )}
+                <Muted>{m.players}P · {m.stake > 0 ? `${m.stake} USDC` : "No stake"}</Muted>
+                <Muted style={{ fontSize: 11 }}>{whenLabel(m.endedAt)}</Muted>
+              </Glass>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
     </LudoScreen>
   );
 }
@@ -58,4 +78,6 @@ const styles = StyleSheet.create({
   link: { color: aura.purpleBright, fontWeight: "700" },
   recent: { width: 132, gap: 2, padding: 14 },
   delta: { fontSize: 18, fontWeight: "800" },
+  empty: { padding: 16, gap: 10, alignItems: "stretch" },
+  emptyTitle: { color: aura.text, fontWeight: "800", fontSize: 16, textAlign: "center" },
 });

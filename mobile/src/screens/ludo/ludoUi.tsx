@@ -7,7 +7,8 @@ import { useNavigation } from "@react-navigation/native";
 import { GameHeader } from "../../components/top-bar/GameHeader";
 import { GlassPanel } from "../../components/store/GlassPanel";
 import { aura } from "../../theme/tokens";
-import { STAKE_CHIPS, MockSeat } from "./ludoMock";
+import { BOARD_SEAT_COLORS, ESCROW_LIVE, PAID_STAKE_CHIPS } from "./ludoShared";
+import type { PlayerInfo } from "../../match/MatchClient";
 
 export function LudoScreen({
   title = "Ludo",
@@ -135,8 +136,37 @@ export function Segmented<T extends string | number>({
   );
 }
 
+/**
+ * Stake picker. Until escrow ships only the 0 USDC friendly is selectable;
+ * paid chips show but stay disabled ("Unlocks with escrow").
+ */
 export function StakeChips({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return <Segmented options={STAKE_CHIPS} value={value as any} onChange={onChange as any} format={(v) => `${v} USDC`} />;
+  const options = [0, ...PAID_STAKE_CHIPS];
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={s.row}>
+        {options.map((o) => {
+          const locked = o > 0 && !ESCROW_LIVE;
+          const on = o === value;
+          return (
+            <Pressable
+              key={o}
+              disabled={locked}
+              onPress={() => onChange(o)}
+              accessibilityState={{ disabled: locked, selected: on }}
+              style={[s.chip, on && s.chipOn, locked && s.disabled]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                {locked ? <Icon name="lock" size={12} color={aura.textDim} /> : null}
+                <Text style={[s.chipText, on && s.chipTextOn]}>{o === 0 ? "Friendly · no stake" : `${o} USDC`}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {!ESCROW_LIVE ? <Muted style={{ fontSize: 12 }}>Paid stakes unlock with escrow.</Muted> : null}
+    </View>
+  );
 }
 
 export function SummaryRow({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
@@ -148,32 +178,57 @@ export function SummaryRow({ k, v, strong }: { k: string; v: string; strong?: bo
   );
 }
 
-export function SeatGrid({ seats, total = 4 }: { seats: MockSeat[]; total?: number }) {
-  const cells = Array.from({ length: total }, (_, i) => seats[i]);
+/**
+ * Lobby seats straight from the server's room.state. Empty seats read
+ * "Waiting for player…"; there are never placeholder names or stats.
+ */
+export function SeatGrid({
+  seats,
+  players,
+  mySeat,
+  onShareCode,
+}: {
+  seats: number[];
+  players: Record<number, PlayerInfo>;
+  mySeat: number | null;
+  /** Empty seats offer this so the host's next step is obvious. */
+  onShareCode?: () => void;
+}) {
   return (
     <View style={s.grid}>
-      {cells.map((seat, i) => (
-        <Glass key={i} style={s.seatCell}>
-          {seat ? (
-            <>
-              <View style={[s.avatar, { borderColor: seat.color }]}>
-                <Text style={s.avatarText}>{seat.you ? "You" : seat.name.charAt(0)}</Text>
-              </View>
-              <Text style={s.seatName}>{seat.name}</Text>
-              <Text style={[s.seatState, seat.ready && { color: "#34D399" }]}>
-                {seat.ready ? "Ready" : "Not ready"}
-              </Text>
-            </>
-          ) : (
-            <>
-              <View style={[s.avatar, s.avatarEmpty]}>
-                <Icon name="account-plus-outline" size={20} color={aura.textDim} />
-              </View>
-              <Muted>Open seat</Muted>
-            </>
-          )}
-        </Glass>
-      ))}
+      {seats.map((seatIdx) => {
+        const p = players[seatIdx];
+        const you = seatIdx === mySeat;
+        const color = BOARD_SEAT_COLORS[seatIdx] ?? aura.purple;
+        return (
+          <Glass key={seatIdx} style={s.seatCell}>
+            {p ? (
+              <>
+                <View style={[s.avatar, { borderColor: color }]}>
+                  <Text style={s.avatarText}>{you ? "You" : p.name.charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={s.seatName} numberOfLines={1}>{p.name}</Text>
+                <Text style={[s.seatState, p.connected !== false && { color: "#34D399" }]}>
+                  {p.connected === false ? "Reconnecting…" : you ? "You · seated" : "Seated"}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={[s.avatar, s.avatarEmpty]}>
+                  <Icon name="account-clock-outline" size={20} color={aura.textDim} />
+                </View>
+                <Muted>Waiting for player…</Muted>
+                {onShareCode ? (
+                  <Pressable accessibilityRole="button" onPress={onShareCode} hitSlop={6} style={s.shareCode}>
+                    <Icon name="share-variant" size={13} color={aura.purpleBright} />
+                    <Text style={s.shareCodeText}>Share code</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            )}
+          </Glass>
+        );
+      })}
     </View>
   );
 }
@@ -228,7 +283,9 @@ export const s = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   seatCell: { width: "48%", alignItems: "center", gap: 6, paddingVertical: 18 },
   avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 3, alignItems: "center", justifyContent: "center", backgroundColor: aura.bgElevated },
-  avatarEmpty: { borderStyle: "dashed", borderColor: aura.glassBorder, borderWidth: 2 },
+  avatarEmpty: { borderStyle: "dashed", borderColor: aura.glassBorder, borderWidth: 2, opacity: 0.6 },
+  shareCode: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: aura.glassBorder },
+  shareCodeText: { color: aura.purpleBright, fontWeight: "700", fontSize: 12 },
   avatarText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   seatName: { color: aura.text, fontWeight: "700" },
   seatState: { color: aura.textDim, fontSize: 12, fontWeight: "600" },

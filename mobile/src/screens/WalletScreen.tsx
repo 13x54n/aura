@@ -6,12 +6,15 @@ import { Text } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { aura } from "../theme/tokens";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { useHostBalances } from "../wallet/useHostBalances";
 import { AURA_GAMES } from "../data/catalog";
 import { Big, Glass, Label, Muted, PrimaryButton } from "./ludo/ludoUi";
-import { LedgerRow, MOCK_ALL_GAMES_LEDGER } from "./ludo/ludoMock";
+import { whenLabel } from "./ludo/ludoShared";
+import { HistoryRow } from "../match/MatchClient";
+import { useMatchHistory } from "../match/useMatchHistory";
 
 /** Withdraw from escrow ships with staked rooms; until then it's dimmed and explains. */
 const STAKED_ROOMS_LIVE = false;
@@ -31,6 +34,8 @@ export function WalletScreen() {
   const { connect } = useMobileWallet();
   const b = useHostBalances();
   const [filter, setFilter] = useState<Filter>("All");
+  const history = useMatchHistory();
+  const navigation = useNavigation<any>();
   const toast = useRef(new Animated.Value(0)).current;
 
   const copy = async () => {
@@ -46,15 +51,16 @@ export function WalletScreen() {
   };
 
   const groups = useMemo(() => {
-    const rows = MOCK_ALL_GAMES_LEDGER.filter((m) => filter === "All" || m.game === filter);
-    const out: { day: string; rows: LedgerRow[] }[] = [];
+    // Real server-recorded matches only — never example rows.
+    const rows = history.rows.filter((m) => filter === "All" || m.game === filter);
+    const out: { day: string; rows: HistoryRow[] }[] = [];
     for (const r of rows) {
-      const day = r.when.split(" · ")[0];
+      const day = whenLabel(r.endedAt).split(" · ")[0];
       const g = out.find((x) => x.day === day);
       g ? g.rows.push(r) : out.push({ day, rows: [r] });
     }
     return out;
-  }, [filter]);
+  }, [filter, history.rows]);
 
   return (
     <View style={styles.root}>
@@ -62,7 +68,14 @@ export function WalletScreen() {
         contentContainerStyle={[styles.screen, { paddingTop: insets.top + 56 }]}
         refreshControl={
           b.connected ? (
-            <RefreshControl refreshing={b.loading} onRefresh={b.refresh} tintColor={aura.text} />
+            <RefreshControl
+              refreshing={b.loading}
+              onRefresh={() => {
+                b.refresh();
+                history.refresh();
+              }}
+              tintColor={aura.text}
+            />
           ) : undefined
         }
       >
@@ -144,10 +157,6 @@ export function WalletScreen() {
               </View>
             </Glass>
 
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>EXAMPLE DATA · history goes live with staked rooms</Text>
-            </View>
-
             <View style={styles.head}>
               <Label>Match history</Label>
             </View>
@@ -164,7 +173,24 @@ export function WalletScreen() {
             </ScrollView>
 
             {groups.length === 0 ? (
-              <Muted style={{ textAlign: "center", marginTop: 8 }}>No {filter} matches yet.</Muted>
+              <Glass style={{ alignItems: "center", gap: 4, paddingVertical: 22 }}>
+                <Icon name="history" size={22} color={aura.textDim} />
+                <Text style={styles.title}>
+                  {history.status === "loading"
+                    ? "Loading matches…"
+                      : filter === "All"
+                        ? "No matches yet"
+                        : `No ${filter} matches yet`}
+                </Text>
+                {history.status === "offline" ? (
+                  <Muted style={{ textAlign: "center" }}>Can't reach the match server. Pull down to retry.</Muted>
+                ) : null}
+                {history.status !== "loading" ? (
+                  <View style={{ alignSelf: "stretch", marginTop: 8 }}>
+                    <PrimaryButton icon="dice-5" label="Play Ludo" onPress={() => navigation.navigate("LudoHub")} />
+                  </View>
+                ) : null}
+              </Glass>
             ) : (
               groups.map((g) => (
                 <View key={g.day} style={{ gap: 6 }}>
@@ -179,17 +205,22 @@ export function WalletScreen() {
                         )}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.title}>
-                            {m.result === "won" ? "Won" : "Lost"} · {m.players}p · {m.stake} USDC stake
+                            {m.result === "won" ? "Won" : "Lost"} · {m.players}p ·{" "}
+                            {m.stake > 0 ? `${m.stake} USDC stake` : "Friendly · no stake"}
                           </Text>
                           <Muted style={{ fontSize: 12 }}>
                             {m.game} · {m.code}
-                            {m.when.includes(" · ") ? ` · ${m.when.split(" · ")[1]}` : ""}
+                            {whenLabel(m.endedAt).includes(" · ") ? ` · ${whenLabel(m.endedAt).split(" · ")[1]}` : ""}
                           </Muted>
                         </View>
-                        <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
-                          {m.delta >= 0 ? "+" : "−"}
-                          {Math.abs(m.delta).toFixed(2)}
-                        </Text>
+                        {m.stake > 0 ? (
+                          <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
+                            {m.delta >= 0 ? "+" : "−"}
+                            {Math.abs(m.delta).toFixed(2)}
+                          </Text>
+                        ) : (
+                          <Muted style={{ fontSize: 12 }}>{m.place ? `#${m.place}` : "—"}</Muted>
+                        )}
                       </View>
                     ))}
                   </Glass>
@@ -257,8 +288,6 @@ const styles = StyleSheet.create({
   gameIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.06)" },
   title: { color: aura.text, fontWeight: "700" },
   delta: { fontWeight: "800", fontSize: 16 },
-  tag: { alignSelf: "center", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.08)" },
-  tagText: { color: aura.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
   toast: {
     position: "absolute", alignSelf: "center", flexDirection: "row", gap: 6, alignItems: "center",
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(20,20,28,0.92)",

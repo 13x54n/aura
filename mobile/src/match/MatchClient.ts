@@ -4,6 +4,7 @@
  */
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /**
  * Match server address, in priority order:
@@ -31,13 +32,44 @@ export type PlayerInfo = {
   graceUntil?: number | null;
 };
 
-/** Stable for this app session: the server gives a held seat back only to this id. */
-const PLAYER_ID = "aura-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+/** Persisted per install: held seats and match history are keyed to this id. */
+const PLAYER_ID_KEY = "aura.match.playerId";
+const GUEST_NAME_KEY = "aura.match.guestName";
+
+/** Public table card from room.peek (all real server data). */
+export type RoomInfo = {
+  roomCode: string;
+  host: string | null;
+  mode: RoomMode;
+  maxPlayers: number;
+  seated: number;
+  stake: number;
+  status: "waiting" | "playing" | "completed";
+};
+
+/** One real, server-recorded match for this player. */
+export type HistoryRow = {
+  id: string;
+  game: "Ludo" | "Chess" | "Snakes";
+  code: string;
+  kind: "private" | "quick";
+  players: number;
+  stake: number;
+  result: "won" | "lost";
+  place: number | null;
+  delta: number;
+  winnerName: string | null;
+  endedAt: number;
+};
+
+export type Standing = { seat: number; name: string; place: number; forfeited: boolean };
 
 export type MatchState = {
   roomCode: string;
   status: "waiting" | "playing" | "completed";
   mode: RoomMode;
+  stake?: number;
+  maxPlayers?: number;
   seats: number[];
   currentSeat: number;
   die: number | null;
@@ -56,13 +88,33 @@ class MatchClient {
   public currentRoomCode: string | null = null;
   /** Last table we were seated at; survives a drop so Retry can rejoin it. */
   public lastRoomCode: string | null = null;
-  public readonly playerId = PLAYER_ID;
+  public playerId = "aura-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  public guestName = "Guest " + Math.floor(1000 + Math.random() * 9000);
+  private identityReady: Promise<void>;
+  /** Last match.completed (real standings for the Result screen). */
+  public lastCompleted: { roomCode: string | null; winner: number | null; standings: Standing[]; stake: number } | null = null;
   public mySeat: number | null = null;
   public currentState: MatchState | null = null;
   public isConnected = false;
 
   constructor() {
     this.serverUrl = resolveMatchServerUrl();
+    this.identityReady = this.loadIdentity();
+  }
+
+  private async loadIdentity() {
+    try {
+      const [id, name] = await Promise.all([
+        AsyncStorage.getItem(PLAYER_ID_KEY),
+        AsyncStorage.getItem(GUEST_NAME_KEY),
+      ]);
+      if (id) this.playerId = id;
+      else await AsyncStorage.setItem(PLAYER_ID_KEY, this.playerId);
+      if (name) this.guestName = name;
+      else await AsyncStorage.setItem(GUEST_NAME_KEY, this.guestName);
+    } catch {
+      // Storage unavailable: keep the in-memory id for this session.
+    }
   }
 
   setServerUrl(url: string) {
@@ -76,7 +128,8 @@ class MatchClient {
     return this.serverUrl;
   }
 
-  connect(customUrl?: string): Promise<boolean> {
+  async connect(customUrl?: string): Promise<boolean> {
+    await this.identityReady;
     const url = customUrl || this.serverUrl;
     return new Promise((resolve) => {
       try {
@@ -206,6 +259,12 @@ class MatchClient {
         break;
 
       case "match.completed":
+        this.lastCompleted = {
+          roomCode: this.currentRoomCode,
+          winner: msg.winner ?? null,
+          standings: Array.isArray(msg.standings) ? msg.standings : [],
+          stake: Number(msg.stake ?? 0),
+        };
         if (this.currentState) {
           this.currentState.status = "completed";
           this.currentState.winner = msg.winner;
@@ -217,11 +276,46 @@ class MatchClient {
     this.emit("*", msg);
   }
 
-  createRoom(roomCode?: string, mode: RoomMode = "2p", playerName = "Player 1") {
+  /** One-shot request: resolves with the first matching reply, or null on timeout / error. */
+  private request<T>(msg: object, replyType: string, pick: (m: any) => T, ms = 4000): Promise<T | { error: string } | null> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v: any) => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        unsub();
+        resolve(v);
+      };
+      const unsub = this.on("*", (m: any) => {
+        if (m?.type === replyType) finish(pick(m));
+        else if (m?.type === "error" && (m.error === "room_not_found" || m.error === "bad_request")) finish({ error: m.error });
+      });
+      const t = setTimeout(() => finish(null), ms);
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return finish(null);
+      this.send(msg);
+    });
+  }
+
+  /** Real table card for Join-by-code. */
+  async peekRoom(roomCode: string): Promise<RoomInfo | { error: string } | null> {
+    if (!(await this.connect())) return null;
+    return this.request({ type: "room.peek", roomCode: roomCode.trim().toUpperCase() }, "room.info", (m) => m.info as RoomInfo);
+  }
+
+  /** This player's real completed matches (newest first). */
+  async getHistory(): Promise<HistoryRow[] | null> {
+    if (!(await this.connect())) return null;
+    const r = await this.request({ type: "history.get", playerId: this.playerId }, "history", (m) => (m.rows ?? []) as HistoryRow[]);
+    return Array.isArray(r) ? r : null;
+  }
+
+  createRoom(roomCode?: string, mode: RoomMode = "2p", playerName = "Player 1", stake = 0) {
     this.send({
       type: "room.create",
       roomCode,
       mode,
+      stake,
       playerId: this.playerId,
       playerName,
     });
@@ -243,12 +337,19 @@ class MatchClient {
     return true;
   }
 
-  joinRandom(playerName = "Player") {
+  /** Real Quick match queue (same player count + stake). Never bots. */
+  joinRandom(playerName = "Player", players = 2, stake = 0) {
     this.send({
       type: "room.random",
+      players,
+      stake,
       playerId: this.playerId,
       playerName,
     });
+  }
+
+  leaveQueue() {
+    this.send({ type: "queue.leave" });
   }
 
   sendRoll() {

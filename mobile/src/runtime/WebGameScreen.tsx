@@ -109,9 +109,11 @@ export function WebGameScreen({ route, navigation }: Props) {
   // Room boards: connecting → online | unreachable. Free Play never uses this.
   const [conn, setConn] = useState<"connecting" | "online" | "unreachable" | "lost" | "not_found" | "full" | "exists">("connecting");
   const [retry, setRetry] = useState(0);
-  const startedRef = useRef(false);
+  // The lobby / quick queue may have seated us (and even started) before this mounts.
+  const seatedAlready = !!roomCode && matchClient.currentRoomCode === roomCode;
+  const startedRef = useRef(seatedAlready && matchClient.currentState?.status === "playing");
   // Once seated at this table, every Retry is a room.join with our playerId.
-  const seatedRef = useRef(false);
+  const seatedRef = useRef(seatedAlready);
   const injected = useMemo(
     () => (roomCode ? INJECTED + "\nwindow.__AURA_ROOM__ = true; true;" : INJECTED),
     [roomCode]
@@ -335,7 +337,7 @@ export function WebGameScreen({ route, navigation }: Props) {
                       ? `Another table is already using ${roomCode}. Go back and create a new one.`
                       : conn === "lost"
                         ? "Your seat is held for 30 seconds. Retry to jump back in."
-                        : "Your stake stays in host escrow. Check you're on the same network as the server, then retry."}
+                        : "Check you're on the same network as the match server, then retry."}
               </Text>
               {conn === "unreachable" || conn === "lost" ? (
                 <Pressable style={styles.cardPrimary} onPress={() => setRetry((n) => n + 1)}>

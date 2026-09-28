@@ -30,13 +30,13 @@ export function LudoHubScreen() {
 
       <View style={styles.recentHead}>
         <Label>Recent matches</Label>
-        <Pressable onPress={() => navigation.navigate("LudoWallet")} hitSlop={8}>
+        <Pressable onPress={() => navigation.navigate("HomeStack", { screen: "Wallet" })} hitSlop={8}>
           <Text style={styles.link}>Wallet & history</Text>
         </Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
         {MOCK_LEDGER.map((m) => (
-          <Pressable key={m.id} onPress={() => navigation.navigate("LudoWallet")}>
+          <Pressable key={m.id} onPress={() => navigation.navigate("HomeStack", { screen: "Wallet" })}>
             <Glass style={styles.recent}>
               <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
                 {m.delta >= 0 ? "+" : ""}

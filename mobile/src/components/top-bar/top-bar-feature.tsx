@@ -8,7 +8,7 @@ const TITLES: Record<string, string> = {
   Home: "Home",
   Arcade: "Arcade",
   Friends: "Friends",
-  Library: "Library",
+  Wallet: "Wallet",
   Search: "Search",
 };
 

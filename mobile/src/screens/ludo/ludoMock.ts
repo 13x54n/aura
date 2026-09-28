@@ -28,6 +28,7 @@ export function mockSeats(players: number, youReady = false): MockSeat[] {
 
 export type LedgerRow = {
   id: string;
+  game: "Ludo" | "Chess" | "Snakes";
   code: string;
   players: number;
   stake: number;
@@ -38,10 +39,20 @@ export type LedgerRow = {
 
 /** Example history (mock) until the rooms backend records real matches. */
 export const MOCK_LEDGER: LedgerRow[] = [
-  { id: "m1", code: "K7Q2XP", players: 4, stake: 5, result: "won", delta: 14.25, when: "Today · 4:12 PM" },
-  { id: "m2", code: "RND-4821", players: 2, stake: 1, result: "lost", delta: -1, when: "Today · 1:03 PM" },
-  { id: "m3", code: "ZP9M3C", players: 3, stake: 10, result: "won", delta: 19, when: "Yesterday" },
-  { id: "m4", code: "RND-1177", players: 2, stake: 5, result: "lost", delta: -5, when: "Sep 26" },
+  { id: "m1", game: "Ludo", code: "K7Q2XP", players: 4, stake: 5, result: "won", delta: 14.25, when: "Today · 4:12 PM" },
+  { id: "m2", game: "Ludo", code: "RND-4821", players: 2, stake: 1, result: "lost", delta: -1, when: "Today · 1:03 PM" },
+  { id: "m3", game: "Ludo", code: "ZP9M3C", players: 3, stake: 10, result: "won", delta: 19, when: "Yesterday" },
+  { id: "m4", game: "Ludo", code: "RND-1177", players: 2, stake: 5, result: "lost", delta: -5, when: "Sep 26" },
+];
+
+/** Example cross-game ledger for the host Wallet tab (tagged as example data in UI). */
+export const MOCK_ALL_GAMES_LEDGER: LedgerRow[] = [
+  MOCK_LEDGER[0],
+  { id: "c1", game: "Chess", code: "CH-3310", players: 2, stake: 5, result: "won", delta: 9.5, when: "Today · 11:40 AM" },
+  MOCK_LEDGER[1],
+  { id: "s1", game: "Snakes", code: "SN-7702", players: 4, stake: 1, result: "lost", delta: -1, when: "Yesterday" },
+  MOCK_LEDGER[2],
+  MOCK_LEDGER[3],
 ];
 
 /** Payout = pot minus 5% house fee (mock rule, mirrors LUDO_RULEBOOK draft). */

@@ -20,7 +20,7 @@ import {
 } from "react-native-paper";
 
 type RootStackParamList = {
-  HomeStack: undefined;
+  HomeStack: undefined | { screen: "Home" | "Arcade" | "Friends" | "Wallet" | "Search" };
   Settings: undefined;
   LudoHub: undefined;
   LudoCreateRoom: undefined;
@@ -28,7 +28,6 @@ type RootStackParamList = {
   LudoRandomMatch: undefined;
   LudoLobby: { mode: "create" | "join" | "random"; roomCode: string; players: number; stake: number; visibility?: string };
   LudoResult: { mode?: "create" | "join" | "random"; won: boolean; winnerName?: string; roomCode?: string; stake?: number; players?: number; standings?: string[] };
-  LudoWallet: undefined;
   ChessHub: undefined;
   SnakesHub: undefined;
   WebGame: {
@@ -94,11 +93,6 @@ const AppStack = () => {
         name="LudoResult"
         component={Screens.LudoResultScreen}
         options={{ headerShown: false, gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="LudoWallet"
-        component={Screens.LudoWalletScreen}
-        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChessHub"

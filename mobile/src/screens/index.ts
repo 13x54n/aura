@@ -1,7 +1,7 @@
 export * from "./HomeScreen";
 export * from "./ArcadeScreen";
 export * from "./FriendsScreen";
-export * from "./LibraryScreen";
+export * from "./WalletScreen";
 export * from "./SearchScreen";
 export * from "./SettingsScreen";
 export * from "./ComingSoonScreen";
@@ -12,6 +12,5 @@ export * from "./ludo/RandomMatchScreen";
 export * from "./ludo/EscrowScreen";
 export * from "./ludo/LudoLobbyScreen";
 export * from "./ludo/LudoResultScreen";
-export * from "./ludo/LudoWalletScreen";
 export * from "./games/ChessHubScreen";
 export * from "./games/SnakesHubScreen";

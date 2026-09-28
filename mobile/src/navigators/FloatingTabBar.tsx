@@ -12,12 +12,12 @@ import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { aura } from "../theme/tokens";
 
-const MAIN = ["Home", "Arcade", "Friends", "Library"] as const;
+const MAIN = ["Home", "Arcade", "Friends", "Wallet"] as const;
 const ICONS: Record<string, { focused: string; idle: string }> = {
   Home: { focused: "home", idle: "home-outline" },
   Arcade: { focused: "gamepad-variant", idle: "gamepad-variant-outline" },
   Friends: { focused: "account-group", idle: "account-group-outline" },
-  Library: { focused: "view-grid", idle: "view-grid-outline" },
+  Wallet: { focused: "wallet", idle: "wallet-outline" },
   Search: { focused: "magnify", idle: "magnify" },
 };
 

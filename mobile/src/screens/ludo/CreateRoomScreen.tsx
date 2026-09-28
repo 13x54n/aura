@@ -1,48 +1,54 @@
-import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { Button, Text, TextInput, HelperText } from "react-native-paper";
+import React, { useMemo, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
+import { Glass, Label, LudoScreen, PrimaryButton, Segmented, StakeChips, SummaryRow } from "./ludoUi";
+import { mockCode, payoutFor } from "./ludoMock";
 
+/** Create match (wireframe 2): players · stake · visibility · summary. */
 export function CreateRoomScreen() {
   const navigation = useNavigation<any>();
-  const [roomName, setRoomName] = useState("ludo-" + Math.random().toString(36).slice(2, 7));
+  const [players, setPlayers] = useState<2 | 3 | 4>(4);
+  const [stake, setStake] = useState(5);
+  const [visibility, setVisibility] = useState<"Private" | "Public">("Private");
+  const { pot, fee, payout } = useMemo(() => payoutFor(stake, players), [stake, players]);
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineSmall" style={styles.title}>
-        Create room
-      </Text>
-      <Text variant="bodyMedium" style={styles.blurb}>
-        Stub UI — no matchmaking server yet. Continues to skill-match escrow.
-      </Text>
-      <TextInput
-        label="Room code"
-        value={roomName}
-        onChangeText={setRoomName}
-        mode="outlined"
-        style={styles.input}
-      />
-      <HelperText type="info">
-        Share this code with your opponent after escrow.
-      </HelperText>
-      <Button
-        mode="contained"
-        onPress={() =>
-          navigation.navigate("Escrow", {
-            mode: "create",
-            roomCode: roomName,
-          })
-        }
-      >
-        Continue to escrow
-      </Button>
-    </View>
+    <LudoScreen
+      title="Create match"
+      footer={
+        <PrimaryButton
+          icon="lock"
+          label="Create table · Lock"
+          onPress={() =>
+            navigation.navigate("LudoLobby", {
+              mode: "create",
+              roomCode: mockCode(),
+              players,
+              stake,
+              visibility,
+            })
+          }
+        />
+      }
+    >
+      <Glass style={{ gap: 10 }}>
+        <Label>Players</Label>
+        <Segmented options={[2, 3, 4] as const} value={players} onChange={setPlayers} format={(v) => `${v} players`} />
+      </Glass>
+      <Glass style={{ gap: 10 }}>
+        <Label>Stake per player</Label>
+        <StakeChips value={stake} onChange={setStake} />
+      </Glass>
+      <Glass style={{ gap: 10 }}>
+        <Label>Visibility</Label>
+        <Segmented options={["Private", "Public"] as const} value={visibility} onChange={setVisibility} />
+      </Glass>
+      <Glass>
+        <Label>Summary</Label>
+        <SummaryRow k="Your stake" v={`${stake} USDC`} />
+        <SummaryRow k="Pot" v={`${pot} USDC`} />
+        <SummaryRow k="House fee (5%)" v={`${fee} USDC`} />
+        <SummaryRow k="Winner takes" v={`${payout} USDC`} strong />
+      </Glass>
+    </LudoScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 8 },
-  title: { fontWeight: "800" },
-  blurb: { opacity: 0.75, marginBottom: 8 },
-  input: { marginBottom: 4 },
-});

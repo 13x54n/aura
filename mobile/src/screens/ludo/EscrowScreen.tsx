@@ -12,6 +12,8 @@ type EscrowParams = {
   Escrow: {
     mode: "create" | "join" | "random";
     roomCode: string;
+    stake?: string;
+    players?: number;
   };
 };
 
@@ -22,8 +24,8 @@ type EscrowParams = {
 export function EscrowScreen() {
   const route = useRoute<RouteProp<EscrowParams, "Escrow">>();
   const navigation = useNavigation<any>();
-  const { mode, roomCode } = route.params;
-  const [stake, setStake] = useState("0.1");
+  const { mode, roomCode, players } = route.params;
+  const [stake, setStake] = useState(route.params.stake ?? "1");
   const [busy, setBusy] = useState(false);
   const { selectedAccount } = useAuthorization();
   const { connect } = useMobileWallet();
@@ -37,7 +39,7 @@ export function EscrowScreen() {
       // Stub deposit — real PDA tx lands with Seed Vault (Sep 30).
       alertAndLog(
         "Stake locked (stub)",
-        `${stake} SOL escrowed for room ${roomCode}. Opening Ludo WebView — escrow stays on the host.`
+        `${stake} USDC escrowed for room ${roomCode}. Opening Ludo WebView — escrow stays on the host.`
       );
       const match = matchService.create(`ludo-${roomCode}`);
       matchService.command(match.matchId, { type: "join" });
@@ -47,7 +49,9 @@ export function EscrowScreen() {
         title: "Ludo",
         matchId: match.matchId,
         roomCode,
+        mode,
         stake,
+        players,
         escrowLocked: true,
       });
     } catch (e) {
@@ -76,7 +80,7 @@ export function EscrowScreen() {
       </Text>
 
       <TextInput
-        label="Stake amount (SOL)"
+        label="Stake amount (USDC)"
         value={stake}
         onChangeText={setStake}
         keyboardType="decimal-pad"

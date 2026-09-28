@@ -26,9 +26,9 @@ export function GameCover({
   accent,
   cover,
   onPress,
-  width = 132,
+  width = 10,
 }: Props) {
-  const h = width * 1.35;
+  const h = width;
   return (
     <Pressable
       onPress={onPress}
@@ -51,14 +51,9 @@ export function GameCover({
           </View>
         ) : null}
       </View>
-      <Text style={styles.title} variant="titleSmall" numberOfLines={2}>
+      {/* <Text style={styles.title} variant="titleSmall" numberOfLines={2}>
         {title}
-      </Text>
-      {subtitle ? (
-        <Text style={styles.subtitle} variant="bodySmall" numberOfLines={2}>
-          {subtitle}
-        </Text>
-      ) : null}
+      </Text> */}
     </Pressable>
   );
 }
@@ -73,7 +68,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: aura.glassBorder,
   },
-  coverImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  coverImg: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
   coverGlyph: {
     color: "rgba(255,255,255,0.92)",
     fontWeight: "800",

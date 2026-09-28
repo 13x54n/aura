@@ -1,7 +1,7 @@
 import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
 import { Buffer } from "buffer";
 
-global.Buffer = Buffer;
+(globalThis as any).Buffer = Buffer;
 
 class Crypto {
   getRandomValues = expoCryptoGetRandomValues;

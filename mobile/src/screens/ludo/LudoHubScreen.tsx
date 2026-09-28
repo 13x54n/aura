@@ -1,71 +1,79 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import { Button, Text, Card } from "react-native-paper";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
+import { useMobileWallet } from "../../utils/useMobileWallet";
+import { aura } from "../../theme/tokens";
+import { ActionTile, Big, Glass, GhostButton, Label, LudoScreen, Muted } from "./ludoUi";
+import { useHostUsdc } from "./useHostUsdc";
+import { MOCK_LEDGER } from "./ludoMock";
 
-/** Ludo lobby — room stubs only; matchmaking server later. */
+/**
+ * Ludo home (wireframe 1). One glass screen — no second tab bar inside Ludo:
+ * host USDC balance · Create / Join / Quick · Recent strip → Wallet/history.
+ */
 export function LudoHubScreen() {
   const navigation = useNavigation<any>();
+  const { connect } = useMobileWallet();
+  const { balance, loading, connected } = useHostUsdc();
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineSmall" style={styles.title}>
-        Ludo
-      </Text>
-      <Text variant="bodyMedium" style={styles.blurb}>
-        Free Play opens the WebView board. Create / Join / Random go through
-        host escrow (stake before mount), then the same WebView. Wallet +
-        payout stay on the host — not in the board.
-      </Text>
+    <LudoScreen>
+      <Glass>
+        <Label>Balance · host wallet</Label>
+        <View style={styles.balRow}>
+          <Big>{!connected ? "—" : loading || balance == null ? "…" : balance.toFixed(2)}</Big>
+          <Text style={styles.unit}>USDC</Text>
+        </View>
+        <Muted>{connected ? "Stakes lock in escrow; only the host signs." : "Connect your wallet to see your balance."}</Muted>
+        <View style={{ marginTop: 12 }}>
+          <GhostButton
+            label={connected ? "Add funds" : "Connect wallet"}
+            onPress={() => connect().catch(() => {})}
+          />
+        </View>
+      </Glass>
 
-      <Card style={styles.card} mode="outlined">
-        <Card.Content style={styles.actions}>
-          <Button
-            mode="contained"
-            icon="play"
-            onPress={() =>
-              navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo" })
-            }
-          >
-            Play
-          </Button>
-          <Button
-            mode="outlined"
-            icon="plus-box"
-            onPress={() => navigation.navigate("LudoCreateRoom")}
-          >
-            Create room
-          </Button>
-          <Button
-            mode="outlined"
-            icon="login"
-            onPress={() => navigation.navigate("LudoJoinRoom")}
-          >
-            Join room
-          </Button>
-          <Button
-            mode="outlined"
-            icon="dice-5"
-            onPress={() => navigation.navigate("LudoRandomMatch")}
-          >
-            Random match
-          </Button>
-        </Card.Content>
-      </Card>
+      <ActionTile
+        icon="play-circle"
+        title="Free Play"
+        sub="Practice vs bots · no stake"
+        onPress={() => navigation.navigate("WebGame", { gameId: "ludo", title: "Ludo" })}
+      />
+      <ActionTile icon="plus-box" title="Create private" sub="Set players + stake, share a code" onPress={() => navigation.navigate("LudoCreateRoom")} />
+      <ActionTile icon="key-variant" title="Join with code" sub="Enter a 6-character table code" onPress={() => navigation.navigate("LudoJoinRoom")} />
+      <ActionTile icon="lightning-bolt" title="Quick match" sub="Pick a stake, get seated fast" onPress={() => navigation.navigate("LudoRandomMatch")} />
 
-      <Text variant="bodySmall" style={styles.note}>
-        Escrow + Seed Vault on host (by Sep 30). Match authority is the host
-        Free Play mounts games/ludo (real board). Rooms still gate escrow on the host.
-      </Text>
-    </View>
+      <View style={styles.recentHead}>
+        <Label>Recent matches</Label>
+        <Pressable onPress={() => navigation.navigate("LudoWallet")} hitSlop={8}>
+          <Text style={styles.link}>Wallet & history</Text>
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+        {MOCK_LEDGER.map((m) => (
+          <Pressable key={m.id} onPress={() => navigation.navigate("LudoWallet")}>
+            <Glass style={styles.recent}>
+              <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
+                {m.delta >= 0 ? "+" : ""}
+                {m.delta.toFixed(2)}
+              </Text>
+              <Muted>{m.players}P · {m.stake} USDC</Muted>
+              <Muted style={{ fontSize: 11 }}>{m.when}</Muted>
+            </Glass>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <Muted style={{ fontSize: 11, textAlign: "center" }}>Recent matches are example data until rooms go live.</Muted>
+    </LudoScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontWeight: "800", marginBottom: 8 },
-  blurb: { opacity: 0.75, marginBottom: 16 },
-  card: { marginBottom: 16 },
-  actions: { gap: 12 },
-  note: { opacity: 0.6 },
+  balRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginVertical: 6 },
+  unit: { color: aura.textMuted, fontWeight: "700", marginBottom: 6 },
+  recentHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
+  link: { color: aura.purpleBright, fontWeight: "700" },
+  recent: { width: 132, gap: 2, padding: 14 },
+  delta: { fontSize: 18, fontWeight: "800" },
 });

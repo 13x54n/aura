@@ -55,7 +55,7 @@ export function HomeScreen() {
               title={g.title}
               subtitle={g.subtitle}
               accent={g.accent}
-              cover={g.cover}
+              cover={g.icon}
               onPress={() => navigation.navigate(g.route)}
               width={132}
             />

@@ -11,17 +11,11 @@
   var muteBtn = document.getElementById("muteBtn");
   var seatEls = Array.prototype.slice.call(document.querySelectorAll(".seat"));
   var seatById = {};
-  seatEls.forEach(function (el) {
-    var id = Number(el.getAttribute("data-seat"));
-    seatById[id] = {
-      el: el,
-      dice: el.querySelector(".seat-dice"),
-      dieBtn: el.querySelector(".seat-die-btn"),
-      dctx: el.querySelector(".seat-dice").getContext("2d"),
-      dieTimer: el.querySelector(".die-timer"),
-    };
-  });
+  var isMultiplayer = false;
+  var activeSeats = [0, 1, 2, 3];
   var DICE_SIZE = 40;
+  var HOP_MS = 200; // per-cell hop (Lex: slower moves)
+  var LAND_MS = 160; // brief pause on land before capture/finish
 
   /** Short WebAudio SFX — no asset pack required in Expo Go. */
   var juice = {
@@ -171,10 +165,56 @@
    *  Seat→CCW quarters from painted layout: Blue0 Yellow1 Green2 Red3→BL.
    *  Red human = 3 quarters. Rules/PATH stay absolute — view only.
    */
-  // Lex shot: 90° left Red at TR. Need 270° CCW (3) so Red BR → screen BL.
-  var VIEW_ROT = 3; // quarter-turns CCW
+  var ROT_FOR_SEAT = { 0: 1, 1: 2, 2: 0, 3: 3 };
+  var VIEW_ROT = ROT_FOR_SEAT[HUMAN] != null ? ROT_FOR_SEAT[HUMAN] : 3;
   var CX = 375 / 2;
   var CY = 375 / 2;
+
+  var CORNER_MAP = { tl: "bl", bl: "br", br: "tr", tr: "tl" };
+  var PAINT_CORNER = { 0: "tl", 1: "tr", 2: "bl", 3: "br" };
+
+  function getRotatedCorner(seat, rot) {
+    var c = PAINT_CORNER[seat];
+    for (var i = 0; i < rot; i++) {
+      c = CORNER_MAP[c];
+    }
+    return c;
+  }
+
+  function setupSeats(humanSeat, activeList) {
+    HUMAN = humanSeat;
+    VIEW_ROT = ROT_FOR_SEAT[HUMAN] != null ? ROT_FOR_SEAT[HUMAN] : 3;
+    seatById = {};
+    var activeSet = {};
+    (activeList || [0, 1, 2, 3]).forEach(function (s) { activeSet[s] = true; });
+
+    for (var s = 0; s < 4; s++) {
+      var corner = getRotatedCorner(s, VIEW_ROT);
+      var el = document.querySelector('[data-corner="' + corner + '"]');
+      if (!el) continue;
+      el.setAttribute("data-seat", String(s));
+      var isYou = (s === HUMAN);
+      el.classList.toggle("you", isYou);
+      var av = el.querySelector(".avatar");
+      if (av) {
+        av.style.setProperty("--seat", COLORS[s]);
+        av.textContent = isYou ? "You" : NAMES[s].charAt(0);
+      }
+      if (isMultiplayer && !activeSet[s]) {
+        el.style.display = "none";
+      } else {
+        el.style.display = "";
+      }
+      seatById[s] = {
+        el: el,
+        dice: el.querySelector(".seat-dice"),
+        dieBtn: el.querySelector(".seat-die-btn"),
+        dctx: el.querySelector(".seat-dice").getContext("2d"),
+        dieTimer: el.querySelector(".die-timer"),
+      };
+    }
+  }
+  setupSeats(HUMAN, activeSeats);
 
   // Canvas y-down: ctx.rotate(-PI/2) maps paint (rx,ry) → (ry,-rx) (= 90° CCW on screen).
   // toScreen must match that; fromScreen is the inverse for hit-testing.
@@ -436,6 +476,7 @@
 
   function drawPieces() {
     for (var seat = 0; seat < 4; seat++) {
+      if (isMultiplayer && activeSeats.indexOf(seat) === -1) continue;
       for (var idx = 0; idx < 4; idx++) {
         var pos = piecePos(seat, idx);
         if (
@@ -574,7 +615,7 @@
       );
     });
     if (state.winner != null) {
-      setStatus(NAMES[state.winner] + " wins · Free Play");
+      setStatus(NAMES[state.winner] + (state.winner === HUMAN ? " (You) wins!" : " wins!"));
       return;
     }
     if (state.turn === HUMAN) {
@@ -598,7 +639,7 @@
     startTurnTimer();
     updateTurnBanner();
     render();
-    if (state.turn !== HUMAN && state.winner == null) {
+    if (!isMultiplayer && state.turn !== HUMAN && state.winner == null) {
       setTimeout(botTurn, 480);
     }
   }
@@ -625,6 +666,16 @@
       state.phase = "done";
       state.highlight = [];
       updateTurnBanner();
+      // Let the win land on the board, then hand off to host payout (rooms only).
+      setTimeout(function () {
+        if (window.AuraHost && window.AuraHost.matchFinished) {
+          window.AuraHost.matchFinished({
+            won: move.seat === HUMAN,
+            winnerSeat: move.seat,
+            winnerName: NAMES[move.seat],
+          });
+        }
+      }, 1400);
       return;
     }
     // Rule Book: one bonus roll after 6, capture, or home (not stacked)
@@ -669,13 +720,15 @@
       render();
       i++;
       if (i < steps.length) {
-        setTimeout(tick, 90);
+        setTimeout(tick, HOP_MS);
       } else {
-        state.pieces[move.seat][move.idx] = to;
-        var captured = 0;
-        if (to < TRACK) captured = applyCapture(move.seat, to);
-        var homed = to >= FINISH;
-        finishMove(move, fromYard, captured, homed);
+        setTimeout(function () {
+          state.pieces[move.seat][move.idx] = to;
+          var captured = 0;
+          if (to < TRACK) captured = applyCapture(move.seat, to);
+          var homed = to >= FINISH;
+          finishMove(move, fromYard, captured, homed);
+        }, LAND_MS);
       }
     }
     tick();
@@ -731,6 +784,14 @@
   function rollTheDice(who) {
     if (state.phase !== "roll" || state.winner != null || state.rolling || juice.moving) return;
     if (state.turn !== HUMAN && who !== "bot") return;
+    if (isMultiplayer) {
+      state.rolling = true;
+      updateTurnBanner();
+      if (window.AuraHost && window.AuraHost.matchCommand) {
+        window.AuraHost.matchCommand({ type: "roll" });
+      }
+      return;
+    }
     state.rolling = true;
     updateTurnBanner();
     clearOtherDice(state.turn);
@@ -754,7 +815,7 @@
   }
 
   function botTurn() {
-    if (state.winner != null || state.turn === HUMAN) return;
+    if (isMultiplayer || state.winner != null || state.turn === HUMAN) return;
     rollTheDice("bot");
   }
 
@@ -777,20 +838,235 @@
       var dy = pos[1] - pt[1];
       var rad = state.pieces[m.seat][m.idx] < 0 ? 28 : 20;
       if (dx * dx + dy * dy <= rad * rad) {
-        doMove(m);
+        if (isMultiplayer) {
+          state.phase = "anim";
+          state.highlight = [];
+          render();
+          if (window.AuraHost && window.AuraHost.matchCommand) {
+            window.AuraHost.matchCommand({ type: "move", pieceIndex: m.idx });
+          }
+        } else {
+          doMove(m);
+        }
         return;
       }
     }
   }
 
-  seatEls.forEach(function (el) {
-    var id = Number(el.getAttribute("data-seat"));
-    var box = seatById[id];
-    box.dieBtn.addEventListener("click", function () {
-      if (id !== HUMAN || state.turn !== HUMAN) return;
+  var stage = document.getElementById("boardStage");
+  if (stage) {
+    stage.addEventListener("click", function (ev) {
+      var btn = ev.target.closest(".seat-die-btn");
+      if (!btn) return;
+      var seatEl = btn.closest(".seat");
+      if (!seatEl) return;
+      var id = Number(seatEl.getAttribute("data-seat"));
+      if (id !== HUMAN || state.turn !== HUMAN || state.phase !== "roll" || state.rolling || juice.moving) return;
       rollTheDice();
     });
-  });
+  }
+
+  function handleRemoteRoll(payload) {
+    var seat = payload.seat;
+    var value = payload.value;
+    state.rolling = true;
+    updateTurnBanner();
+    clearOtherDice(seat);
+    var box = seatById[seat];
+    if (box && box.dieBtn) box.dieBtn.classList.add("die-rolling");
+    ensureAudio();
+
+    var ticks = 0;
+    var iv = setInterval(function () {
+      drawDiceFace(1 + Math.floor(Math.random() * 6), seat);
+      sfxRollTick();
+      ticks++;
+      if (ticks >= 8) {
+        clearInterval(iv);
+        if (box && box.dieBtn) box.dieBtn.classList.remove("die-rolling");
+        sfxRollSettle();
+        state.die = value;
+        state.rolling = false;
+        drawDiceFace(value, seat);
+
+        if (payload.forfeited) {
+          setStatus("Three sixes — turn forfeited");
+          render();
+          return;
+        }
+
+        if (seat === HUMAN) {
+          var moves = payload.legalMoves || legalMoves(HUMAN, value);
+          if (!moves.length) {
+            setStatus("No legal moves");
+            render();
+          } else {
+            state.phase = "move";
+            state.highlight = moves.map(function (m) {
+              return { seat: seat, idx: m.idx, to: m.to };
+            });
+            updateTurnBanner();
+            render();
+            if (moves.length === 1 && moves[0].to === 0) {
+              setStatus("6 · out to your start");
+              setTimeout(function () {
+                if (window.AuraHost && window.AuraHost.matchCommand) {
+                  window.AuraHost.matchCommand({ type: "move", pieceIndex: moves[0].idx });
+                }
+              }, 280);
+            } else {
+              setStatus("Tap a highlighted piece");
+            }
+          }
+        } else {
+          setStatus(NAMES[seat] + " rolled " + value);
+          render();
+        }
+      }
+    }, 40);
+  }
+
+  function handleRemoteMove(payload) {
+    var move = { seat: payload.seat, idx: payload.pieceIndex, to: payload.to };
+    var from = payload.from != null ? payload.from : state.pieces[payload.seat][payload.pieceIndex];
+    var fromYard = from < 0;
+    juice.moving = true;
+    state.highlight = [];
+    state.phase = "anim";
+    updateTurnBanner();
+
+    var steps = [];
+    if (from < 0) {
+      steps.push(0);
+    } else {
+      for (var p = from + 1; p <= payload.to; p++) steps.push(p);
+    }
+    if (!steps.length) steps.push(payload.to);
+
+    var i = 0;
+    function tick() {
+      var prog = steps[i];
+      state.pieces[move.seat][move.idx] = prog;
+      var pos = progressPos(move.seat, prog);
+      if (from < 0 && i === 0) {
+        var yp = YARD[move.seat][move.idx];
+        juice.animPiece = { seat: move.seat, idx: move.idx, x: yp[0], y: yp[1] };
+        render();
+      }
+      juice.animPiece = {
+        seat: move.seat,
+        idx: move.idx,
+        x: pos[0],
+        y: pos[1],
+      };
+      sfxStep();
+      render();
+      i++;
+      if (i < steps.length) {
+        setTimeout(tick, HOP_MS);
+      } else {
+        setTimeout(function () {
+          state.pieces[move.seat][move.idx] = payload.to;
+          juice.animPiece = null;
+          juice.moving = false;
+          if (payload.captured > 0) {
+            sfxCapture();
+            applyCapture(move.seat, payload.to);
+          } else {
+            sfxLand();
+          }
+          if (fromYard && move.to === 0) {
+            setStatus(NAMES[move.seat] + " · yard → start cell");
+          }
+          render();
+        }, LAND_MS);
+      }
+    }
+    tick();
+  }
+
+  function handleRemoteTurn(payload) {
+    state.die = null;
+    state.highlight = [];
+    state.phase = "roll";
+    state.rolling = false;
+    state.turn = payload.currentSeat;
+    startTurnTimer();
+    updateTurnBanner();
+    render();
+    if (payload.extraTurn) {
+      setStatus(state.turn === HUMAN ? "Bonus roll! Tap the die" : NAMES[state.turn] + " gets a bonus roll!");
+    } else {
+      setStatus(state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn");
+    }
+  }
+
+  function handleRemoteCompleted(payload) {
+    state.winner = payload.winner;
+    state.phase = "done";
+    state.highlight = [];
+    stopTurnTimer();
+    updateTurnBanner();
+    if (payload.winner === HUMAN) {
+      setStatus("🏆 You win! All tokens home");
+    } else if (payload.reason === "opponent_disconnected") {
+      setStatus("Opponent disconnected · You win!");
+    } else {
+      setStatus((NAMES[payload.winner] || "Opponent") + " wins!");
+    }
+    render();
+  }
+
+  function handleHostEvent(event, payload) {
+    if (event === "match.started") {
+      initMultiplayer({
+        isMultiplayer: true,
+        mySeat: payload.yourSeat != null ? payload.yourSeat : HUMAN,
+        seats: payload.seats,
+        state: payload.state,
+      });
+    } else if (event === "die.rolled") {
+      handleRemoteRoll(payload);
+    } else if (event === "piece.moved") {
+      handleRemoteMove(payload);
+    } else if (event === "turn.changed") {
+      handleRemoteTurn(payload);
+    } else if (event === "match.completed") {
+      handleRemoteCompleted(payload);
+    } else if (event === "room.state") {
+      if (payload.state && payload.state.status === "waiting") {
+        setStatus("Waiting for opponent to join…");
+      }
+    }
+  }
+
+  function initMultiplayer(data) {
+    if (!data || !data.isMultiplayer) return;
+    isMultiplayer = true;
+    if (data.mySeat != null) {
+      HUMAN = data.mySeat;
+    }
+    if (data.seats) {
+      activeSeats = data.seats;
+    } else if (data.state && data.state.seats) {
+      activeSeats = data.state.seats;
+    }
+    setupSeats(HUMAN, activeSeats);
+    if (data.state) {
+      if (data.state.pieces) state.pieces = data.state.pieces;
+      if (data.state.currentSeat != null) state.turn = data.state.currentSeat;
+      if (data.state.status === "waiting") {
+        setStatus("Waiting for opponent to join…");
+      } else {
+        setStatus("Multiplayer match · " + (state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn"));
+      }
+    } else {
+      setStatus("Multiplayer match · " + (state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn"));
+    }
+    render();
+    updateTurnBanner();
+  }
+
   if (muteBtn) {
     setMuted(juice.muted);
     muteBtn.addEventListener("click", function () {
@@ -812,6 +1088,16 @@
         clearInterval(t);
         try {
           if (window.AuraHost.handshake) window.AuraHost.handshake();
+          if (window.AuraHost.onEvent) {
+            window.AuraHost.onEvent(handleHostEvent);
+          }
+          if (window.AuraHost.matchGet) {
+            window.AuraHost.matchGet().then(function (res) {
+              if (res && res.isMultiplayer) {
+                initMultiplayer(res);
+              }
+            }).catch(function () {});
+          }
           if (window.AuraHost.ready) window.AuraHost.ready();
         } catch (e) {}
       } else if (n > 50) clearInterval(t);

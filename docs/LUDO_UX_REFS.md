@@ -50,3 +50,15 @@ Backend still: create / join / random **sans H3** after Rule Book #1 clears (see
 - [In-board dock](./assets/ludo-refs/01-inboard.jpg)
 - [Mode sheet](./assets/ludo-refs/02-mode-sheet.jpg)
 - [Rooms / lobby](./assets/ludo-refs/03-rooms.jpg)
+
+## 8-screen wireframe (Lex 2026-09-28)
+
+Home dashboard · Create match · Join by code · Quick match (stake chips + finding table) · Pre-game lobby · Live game · Winner/payout · Wallet/history.
+
+- Balance / Add cash = **host USDC wallet**; stakes = escrow, host signs — no fake cash
+- Wireframe Home · Play · Wallet tabs → **Ludo hub sections** (locked 2026-09-28: UX call, Lex go) — no second tab bar in WebView
+- Live game keeps locks: human BL, die beside avatar (TL/BL right, TR/BR left), tap die, timer ≤10s
+- Create/Join/Quick/Lobby/Payout on mock data until rooms backend (sans H3)
+- Moves slower: `HOP_MS` 200 / `LAND_MS` 160 in `games/ludo/game.js` (6-cell ≈1.4s)
+- Hub layout: USDC balance card (Add funds → host Connect) · Create / Join / Quick · Recent strip → Wallet/history; lobby 2×2 seat grid; finding = pulsing ring + Cancel; payout card → Play again / Back to hub
+- Audio OK on Lex device; bridge + expo-audio (playsInSilentMode) held in reserve

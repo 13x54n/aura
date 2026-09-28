@@ -10,6 +10,7 @@ const DEFAULT_GRANTS: Capability[] = [
   "match.get",
   "match.command",
   "escrow.status",
+  "match.finished",
 ];
 
 /** Authorizes each Host SDK call against manifest grants (stub: fixed allowlist). */

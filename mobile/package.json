@@ -12,7 +12,8 @@
     "build:local": "npx eas build --profile development --platform android --local",
     "test": "echo \"No tests specified\" && exit 0",
     "start:go": "expo start",
-    "start:dev-client": "expo start --dev-client"
+    "start:dev-client": "expo start --dev-client",
+    "match-server": "node ../server/match-server.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

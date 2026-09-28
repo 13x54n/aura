@@ -26,6 +26,9 @@ type RootStackParamList = {
   LudoCreateRoom: undefined;
   LudoJoinRoom: undefined;
   LudoRandomMatch: undefined;
+  LudoLobby: { mode: "create" | "join" | "random"; roomCode: string; players: number; stake: number; visibility?: string };
+  LudoResult: { won: boolean; winnerName?: string; roomCode?: string; stake?: number; players?: number; standings?: string[] };
+  LudoWallet: undefined;
   ChessHub: undefined;
   SnakesHub: undefined;
   WebGame: {
@@ -33,10 +36,12 @@ type RootStackParamList = {
     title: string;
     matchId?: string;
     roomCode?: string;
+    mode?: "create" | "join" | "random";
     stake?: string;
+    players?: number;
     escrowLocked?: boolean;
   };
-  Escrow: { mode: "create" | "join" | "random"; roomCode: string };
+  Escrow: { mode: "create" | "join" | "random"; roomCode: string; stake?: string; players?: number };
 };
 
 declare global {
@@ -63,32 +68,47 @@ const AppStack = () => {
       <Stack.Screen
         name="LudoHub"
         component={Screens.LudoHubScreen}
-        options={{ title: "Ludo" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="LudoCreateRoom"
         component={Screens.CreateRoomScreen}
-        options={{ title: "Create room" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="LudoJoinRoom"
         component={Screens.JoinRoomScreen}
-        options={{ title: "Join room" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="LudoRandomMatch"
         component={Screens.RandomMatchScreen}
-        options={{ title: "Random match" }}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="LudoLobby"
+        component={Screens.LudoLobbyScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="LudoResult"
+        component={Screens.LudoResultScreen}
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="LudoWallet"
+        component={Screens.LudoWalletScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChessHub"
         component={Screens.ChessHubScreen}
-        options={{ title: "Chess" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="SnakesHub"
         component={Screens.SnakesHubScreen}
-        options={{ title: "Snakes & Ladders" }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="WebGame"

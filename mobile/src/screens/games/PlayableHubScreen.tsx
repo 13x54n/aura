@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Button, Text, Card, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
+import { GameHeader } from "../../components/top-bar/GameHeader";
 import { aura } from "../../theme/tokens";
 
 type Props = {
@@ -17,10 +18,12 @@ type Props = {
 export function PlayableHubScreen({ title, blurb, badge = "Playable", gameId }: Props) {
   const navigation = useNavigation<any>();
   return (
-    <View style={styles.container}>
-      <Chip compact style={styles.chip} textStyle={styles.chipText}>
-        {badge}
-      </Chip>
+    <View style={styles.root}>
+      <GameHeader gameId={gameId} title={title} onClose={() => navigation.goBack()} />
+      <View style={styles.container}>
+        <Chip compact style={styles.chip} textStyle={styles.chipText}>
+          {badge}
+        </Chip>
       <Text variant="headlineSmall" style={styles.title}>
         {title}
       </Text>
@@ -53,11 +56,13 @@ export function PlayableHubScreen({ title, blurb, badge = "Playable", gameId }: 
         Room stubs for now — same wallet / escrow pattern as Ludo. Deepen after
         the CLOCK IN Ludo path.
       </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: aura.bg },
   container: {
     flex: 1,
     padding: 16,

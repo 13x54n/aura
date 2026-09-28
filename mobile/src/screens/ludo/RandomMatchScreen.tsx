@@ -1,50 +1,56 @@
-import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { ActivityIndicator, Button, Text } from "react-native-paper";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
+import { GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, PulseRing, StakeChips, SummaryRow } from "./ludoUi";
+import { payoutFor } from "./ludoMock";
 
+/** Quick match (wireframe 4): stake chips → finding-table ring → lobby. */
 export function RandomMatchScreen() {
   const navigation = useNavigation<any>();
-  const [searching, setSearching] = useState(false);
+  const [stake, setStake] = useState(1);
+  const [finding, setFinding] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const findMatch = () => {
-    setSearching(true);
-    // Stub matchmaking — pretend we found a room after a short delay.
-    setTimeout(() => {
-      setSearching(false);
-      navigation.navigate("Escrow", {
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const find = () => {
+    setFinding(true);
+    // Mock matchmaking delay until the rooms backend exists.
+    timer.current = setTimeout(() => {
+      setFinding(false);
+      navigation.replace("LudoLobby", {
         mode: "random",
-        roomCode: "rnd-" + Math.random().toString(36).slice(2, 8),
+        roomCode: "RND-" + Math.floor(1000 + Math.random() * 9000),
+        players: 4,
+        stake,
+        visibility: "Public",
       });
-    }, 900);
+    }, 2200);
   };
 
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    setFinding(false);
+  };
+
+  if (finding) {
+    return (
+      <LudoScreen title="Quick match" footer={<GhostButton label="Cancel" onPress={cancel} />}>
+        <PulseRing label="Finding a table…" />
+        <Muted style={{ textAlign: "center" }}>{stake} USDC stake · 4 players</Muted>
+      </LudoScreen>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text variant="headlineSmall" style={styles.title}>
-        Random match
-      </Text>
-      <Text variant="bodyMedium" style={styles.blurb}>
-        Stub matchmaking server. Finds a placeholder room, then skill-match
-        escrow.
-      </Text>
-      {searching ? (
-        <View style={styles.searching}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 12 }}>Looking for opponents…</Text>
-        </View>
-      ) : (
-        <Button mode="contained" icon="magnify" onPress={findMatch}>
-          Find match
-        </Button>
-      )}
-    </View>
+    <LudoScreen title="Quick match" footer={<PrimaryButton icon="lightning-bolt" label="Find table" onPress={find} />}>
+      <Glass style={{ gap: 10 }}>
+        <Label>Stake</Label>
+        <StakeChips value={stake} onChange={setStake} />
+      </Glass>
+      <Glass>
+        <SummaryRow k="Players" v="4" />
+        <SummaryRow k="Winner takes" v={`${payoutFor(stake, 4).payout} USDC`} strong />
+      </Glass>
+    </LudoScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 8 },
-  title: { fontWeight: "800" },
-  blurb: { opacity: 0.75, marginBottom: 16 },
-  searching: { alignItems: "center", marginTop: 24 },
-});

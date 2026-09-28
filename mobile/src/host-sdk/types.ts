@@ -12,7 +12,8 @@ export type Capability =
   | "match.create"
   | "match.get"
   | "match.command"
-  | "escrow.status";
+  | "escrow.status"
+  | "match.finished";
 
 export type HostRequest = {
   id: string;

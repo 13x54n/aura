@@ -159,7 +159,7 @@ export function WalletScreen() {
           { bottom: insets.bottom + 110, opacity: toast, transform: [{ translateY: toast.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] },
         ]}
       >
-        <Icon name="check" size={15} color="#fff" />
+        <Icon name={toastText === "Copied" ? "check" : "clock-outline"} size={15} color="#fff" />
         <Text style={styles.toastText}>{toastText}</Text>
       </Animated.View>
     </View>

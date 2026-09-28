@@ -126,7 +126,7 @@ This is a stopgap until the match server is hosted on Fly or Railway. A Cloudfla
 2. In a second terminal: `cloudflared tunnel --url http://localhost:3001`. It prints `https://<random>.trycloudflare.com`. Keep it running.
 3. Check it: open `https://<random>.trycloudflare.com/health` in the phone's browser. It should return `"status":"healthy"`. If a brand-new hostname doesn't resolve, toggle Airplane mode and try again.
 4. Put the `wss://` form in `mobile/.env`: `EXPO_PUBLIC_MATCH_SERVER_URL=wss://<random>.trycloudflare.com`, with no port.
-5. Restart with the cache cleared (`npm run dev` or `npx expo start -c`), then reload the app. The hub should say "Connected to match server".
+5. Restart Expo with the cache cleared: `npx expo start -c`, then reload. **Don't use `npm run dev` here.** It starts its own match server on 3001, which clashes with step 1's, and if that server exits it takes Expo down with it. If you'd rather use `npm run dev`, skip step 1 and let it start the server the app. The hub should say "Connected to match server".
 
 Caveats:
 - **The URL changes every time `cloudflared` restarts**, so repeat steps 3 to 5 each time.

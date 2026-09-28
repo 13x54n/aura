@@ -102,7 +102,9 @@ The app uses the public devnet RPC by default, and it rate-limits with `429` err
 EXPO_PUBLIC_SOLANA_RPC_URL=https://devnet.helius-rpc.com/?api-key=<your key>
 ```
 
-The app shares one `Connection` and caches balances per wallet for 20s. They refresh when a screen opens and on pull-to-refresh. On a `429` the app backs off quietly and shows the last balance with an "Updated Xm ago" line. The escrow deploy uses its own RPC, separate from the app's.
+The app shares one `Connection` and caches balances per wallet for 20s. They refresh when a screen opens and on pull-to-refresh. On a `429` the app backs off quietly (2–60s) and keeps showing the last balance. Once that balance is more than 20s old, a muted "Updated Xm ago" line appears under it.
+
+The escrow side (`server/escrow.mjs` and `escrow/scripts/devnet-setup.mjs`) reads its own `SOLANA_RPC` variable, which defaults to the public devnet RPC, so it never shares the app's rate limit. Use a different key there, for example `SOLANA_RPC=https://devnet.helius-rpc.com/?api-key=<second key>`.
 
 `EXPO_PUBLIC_*` values are baked in when Metro bundles the app, so restart with `-c` after you change one.
 

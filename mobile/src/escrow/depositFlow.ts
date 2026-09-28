@@ -14,6 +14,8 @@ import bs58 from "bs58";
 import { buildDepositTx, isBlockhashError, verifySignedDeposit, type DepositParams } from "./depositTx";
 
 export type DepositStep =
+  | { step: "starting" } // before the flow: picking/vetting the deposit RPC
+  | { step: "slow" } // RPC genesis check timed out (5s) → "Network is slow" + Try again
   | { step: "connecting" }
   | { step: "preparing" }
   | { step: "wallet"; retry: boolean }
@@ -70,6 +72,24 @@ export async function awaitLandingOrExpiry(
 }
 
 const kindOf = (e: any): string | undefined => e?.kind;
+
+/**
+ * Single-flight guard: while one run is in progress, further calls are ignored (return null).
+ * A double tap on the sheet's button can never queue a second deposit.
+ */
+export function singleFlight<A extends unknown[], R>(fn: (...a: A) => Promise<R>) {
+  let inFlight = false;
+  const run = async (...a: A): Promise<R | null> => {
+    if (inFlight) return null;
+    inFlight = true;
+    try {
+      return await fn(...a);
+    } finally {
+      inFlight = false;
+    }
+  };
+  return Object.assign(run, { busy: () => inFlight });
+}
 
 export async function runDeposit(p: DepositParams, d: DepositDeps): Promise<DepositStep> {
   const done = (s: DepositStep) => {

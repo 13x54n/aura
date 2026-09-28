@@ -17,9 +17,12 @@ PIDFILE=${AURA_VALIDATOR_PIDFILE:-/tmp/aura-validator-$(printf %s "$LEDGER_ABS" 
 if [[ "${1:-}" == "stop" ]]; then
   if [[ -f "$PIDFILE" ]]; then
     VPID=$(cat "$PIDFILE")
-    # Only if that pid is still a solana-test-validator on THIS ledger.
-    if kill -0 "$VPID" 2>/dev/null && ps -p "$VPID" -o command= | grep -q solana-test-validator \
-       && ps -p "$VPID" -o command= | grep -qF -- "--ledger $LEDGER"; then
+    # Only if that pid is still a solana-test-validator whose --ledger argument is EXACTLY
+    # this ledger (token compare, not a substring: /tmp/aura-ledger ≠ /tmp/aura-ledger2).
+    VCMD=$(ps -p "$VPID" -o command= 2>/dev/null || true)
+    VLEDGER=$(printf '%s\n' "$VCMD" | awk '{for (i = 1; i < NF; i++) if ($i == "--ledger") { print $(i + 1); exit }}')
+    VBIN=$(printf '%s\n' "$VCMD" | awk '{print $1}')
+    if kill -0 "$VPID" 2>/dev/null && [[ "$(basename "$VBIN")" == "solana-test-validator" ]] && [[ "$VLEDGER" == "$LEDGER" ]]; then
       kill "$VPID"
       for i in $(seq 1 20); do kill -0 "$VPID" 2>/dev/null || break; sleep 0.5; done
       echo "validator $VPID stopped"

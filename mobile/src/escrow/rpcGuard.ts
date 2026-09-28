@@ -8,10 +8,11 @@
  *   - localhost / 127.0.0.1 / ::1 and private LAN IPv4 (10/8, 172.16/12, 192.168/16)
  * over http or https. "mainnet" anywhere in the URL is refused.
  *
- * A non-local host must also report the devnet genesis hash before it is trusted. Local/LAN
- * hosts skip the genesis check on purpose: a solana-test-validator has its own fresh genesis
+ * A non-local host must also report the devnet genesis hash (5s timeout) before it is
+ * trusted. Local/LAN hosts are allowed in __DEV__ builds only and skip the genesis check on purpose: a solana-test-validator has its own fresh genesis
  * every reset, and a LAN host can only be reached on the dev's own network.
- * On any failure the caller falls back to the app's normal RPC.
+ * A 5s genesis timeout is reported (timedOut) so the sheet can say "Network is slow" with
+ * Try again; other failures (not allowlisted, wrong genesis) fall back to the app's normal RPC.
  */
 export const DEVNET_GENESIS = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
 
@@ -42,15 +43,21 @@ export function isAllowedDevnetHost(host: string): boolean {
   return EXACT.has(host) || SUFFIXES.some((s) => host.endsWith(s) && host.length > s.length);
 }
 
+export type RpcGuardOpts = {
+  /** Local/LAN hosts (no genesis check) are only allowed in development builds (__DEV__). */
+  allowLocal?: boolean;
+};
+
 /** Synchronous host/scheme check. null = allowed (remote hosts still need the genesis check). */
-export function clientRpcProblem(raw: string | null | undefined): string | null {
+export function clientRpcProblem(raw: string | null | undefined, opts: RpcGuardOpts = {}): string | null {
   const u = parse(raw);
   if (typeof u === "string") return u;
   if (u.protocol !== "http:" && u.protocol !== "https:") return "must be http(s)";
   if (u.username || u.password) return "credentials in URL not allowed";
   if (/mainnet/i.test(u.href)) return "mainnet is not allowed";
   const host = hostOf(u);
-  if (isLocalHost(host) || isAllowedDevnetHost(host)) return null;
+  if (isLocalHost(host)) return opts.allowLocal ? null : "local/LAN RPC only in development builds";
+  if (isAllowedDevnetHost(host)) return null;
   return "host not on the devnet/localnet allowlist";
 }
 
@@ -60,18 +67,29 @@ export function clientRpcProblem(raw: string | null | undefined): string | null 
  */
 export async function vetClientRpc(
   raw: string | null | undefined,
-  getGenesisHash: (url: string) => Promise<string>
-): Promise<{ url: string | null; reason: string | null }> {
-  const problem = clientRpcProblem(raw);
+  getGenesisHash: (url: string) => Promise<string>,
+  opts: RpcGuardOpts & { timeoutMs?: number } = {}
+): Promise<{ url: string | null; reason: string | null; timedOut?: boolean }> {
+  const problem = clientRpcProblem(raw, opts);
   if (problem) return { url: null, reason: problem };
   const url = String(raw).trim();
   const host = hostOf(new URL(url));
-  if (isLocalHost(host)) return { url, reason: null };
+  if (isLocalHost(host)) return { url, reason: null }; // only reachable with allowLocal (dev)
+  const timeoutMs = opts.timeoutMs ?? 5000;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const g = await getGenesisHash(url);
+    const g = await Promise.race([
+      getGenesisHash(url),
+      new Promise<never>((_, rej) => {
+        timer = setTimeout(() => rej(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
     return g === DEVNET_GENESIS ? { url, reason: null } : { url: null, reason: `genesis ${g} is not devnet` };
   } catch (e: any) {
-    return { url: null, reason: `genesis check failed: ${e?.message ?? e}` };
+    const timedOut = /timed out after/.test(String(e?.message));
+    return { url: null, reason: `genesis check failed: ${e?.message ?? e}`, timedOut };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

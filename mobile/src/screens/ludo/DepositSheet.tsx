@@ -64,7 +64,7 @@ export function DepositSheet({
           ) : null}
           {view.detail ? <Text style={styles.note}>{view.detail}</Text> : null}
 
-          {view.primary ? <PrimaryButton icon="wallet" label={view.primary.label} onPress={start} /> : null}
+          {view.primary ? <PrimaryButton icon="wallet" label={view.primary.label} disabled={view.primary.disabled} onPress={start} /> : null}
           {view.leave ? <GhostButton label="Leave table" onPress={onLeave} /> : null}
 
           {url ? (

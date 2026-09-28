@@ -6,9 +6,11 @@
 import type { DepositStep } from "./depositFlow";
 
 export const COPY = {
+  preparing: "Preparing transaction…",
   opening: (stake: number) => `Opening Phantom to approve ${stake} USDC…`,
   confirming: "Confirming on Solana…",
   notApproved: "Not approved",
+  slow: "Network is slow",
   reprompt: "That took too long, please approve once more",
   locked: "Locked ✓",
   approve: "Approve in Phantom",
@@ -18,27 +20,39 @@ export type SheetView = {
   status: string | null;
   detail: string | null;
   spinner: boolean;
-  primary: { label: string; action: "start" | "none" } | null;
+  /** The sheet's one purple button. Disabled while anything is in flight (no double deposit). */
+  primary: { label: string; disabled: boolean } | null;
   leave: boolean;
 };
+
+const busy = (status: string, detail: string | null = null): SheetView => ({
+  status, detail, spinner: true, primary: { label: COPY.approve, disabled: true }, leave: false,
+});
+const retry = (status: string, detail: string | null, leave: boolean): SheetView => ({
+  status, detail, spinner: false, primary: { label: "Try again", disabled: false }, leave,
+});
 
 export function depositView(state: DepositStep | null, stake: number, chainLocked: boolean): SheetView {
   if (chainLocked) return { status: COPY.locked, detail: null, spinner: false, primary: null, leave: false };
   switch (state?.step) {
     case undefined:
-      return { status: null, detail: null, spinner: false, primary: { label: COPY.approve, action: "start" }, leave: false };
+      return { status: null, detail: null, spinner: false, primary: { label: COPY.approve, disabled: false }, leave: false };
+    case "starting": // vetting the deposit RPC (genesis check, 5s timeout)
+      return busy(COPY.preparing);
+    case "slow": // the 5s timeout hit: say so, don't fall back silently
+      return retry(COPY.slow, null, false);
     case "connecting":
     case "preparing":
-      return { status: COPY.opening(stake), detail: null, spinner: true, primary: null, leave: false };
+      return busy(COPY.opening(stake));
     case "wallet":
-      return { status: state.retry ? COPY.reprompt : COPY.opening(stake), detail: null, spinner: true, primary: null, leave: false };
+      return busy(state.retry ? COPY.reprompt : COPY.opening(stake));
     case "sending":
     case "confirming":
     case "locked": // tx confirmed; Locked ✓ waits for the server's room-account read
-      return { status: COPY.confirming, detail: null, spinner: true, primary: null, leave: false };
+      return busy(COPY.confirming);
     case "cancelled":
-      return { status: COPY.notApproved, detail: null, spinner: false, primary: { label: "Try again", action: "start" }, leave: true };
+      return retry(COPY.notApproved, null, true);
     case "error":
-      return { status: COPY.notApproved, detail: state.message, spinner: false, primary: { label: "Try again", action: "start" }, leave: true };
+      return retry(COPY.notApproved, state.message, true);
   }
 }

@@ -1,6 +1,6 @@
 # aura_escrow build hashes (for the devnet deploy check)
 
-Fresh `anchor build` on 2026-09-28 19:33 EDT from program source identical to commit 5c8d57f
+Fresh `anchor build` on 2026-09-28 19:31 EDT (the .so mtime: `stat -f %Sm target/deploy/aura_escrow.so`) from program source identical to commit 5c8d57f
 (`git diff 5c8d57f HEAD -- escrow/programs` is empty). Rebuilt from scratch (old .so moved away,
 lib.rs touched); the result is byte-identical to the .so the LiteSVM tests used before.
 

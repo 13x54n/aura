@@ -9,7 +9,7 @@ import bs58 from "bs58";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { encryptPayload, decryptPayload, sharedSecretFor, phantomErrorFrom, PhantomError } from "../src/escrow/phantomCrypto.ts";
 import { buildDepositTx, verifySignedDeposit, isBlockhashError, DEPOSIT_DISC, COMPUTE_BUDGET_ID } from "../src/escrow/depositTx.ts";
-import { runDeposit, awaitLandingOrExpiry } from "../src/escrow/depositFlow.ts";
+import { runDeposit, awaitLandingOrExpiry, singleFlight } from "../src/escrow/depositFlow.ts";
 import { createReturnWatcher } from "../src/escrow/appReturn.ts";
 import { clientRpcProblem, vetClientRpc, trackClientRpc, DEVNET_GENESIS } from "../src/escrow/rpcGuard.ts";
 import { depositView, COPY } from "../src/escrow/depositCopy.ts";
@@ -313,14 +313,28 @@ await t("return watcher: redirect arrives (stop) or app leaves again during the 
 });
 
 // ── (3) clientRpc guard ──
-await t("clientRpc guard: exact allowlist + local/LAN accepted", () => {
+await t("clientRpc guard: exact allowlist + local/LAN accepted (dev builds)", () => {
   for (const ok of [
     "https://api.devnet.solana.com", "https://API.DEVNET.SOLANA.COM/",
     "https://devnet.helius-rpc.com/?api-key=x", "https://eu.devnet.helius-rpc.com/?api-key=x",
     "https://my-node.solana-devnet.quiknode.pro/abc123/",
     "http://127.0.0.1:8899", "http://localhost:8899", "http://[::1]:8899",
     "http://192.168.1.20:8899", "http://10.0.0.5:8899", "http://172.16.0.1:8899", "http://172.31.255.254:8899",
-  ]) assert.equal(clientRpcProblem(ok), null, ok);
+  ]) assert.equal(clientRpcProblem(ok, { allowLocal: true }), null, ok);
+});
+
+await t("clientRpc guard: release builds (allowLocal false) reject local/LAN hosts; remote allowlist still passes", async () => {
+  for (const lan of ["http://192.168.1.20:8899", "http://127.0.0.1:8899", "http://localhost:8899", "http://10.0.0.5:8899", "http://[::1]:8899"]) {
+    assert.match(clientRpcProblem(lan) ?? "", /only in development builds/, lan);
+    assert.match(clientRpcProblem(lan, { allowLocal: false }) ?? "", /only in development builds/, lan);
+    let asked = 0;
+    const v = await vetClientRpc(lan, async () => { asked++; return "localnet-genesis"; }, { allowLocal: false });
+    assert.equal(v.url, null, lan); assert.equal(asked, 0);
+  }
+  for (const ok of ["https://api.devnet.solana.com", "https://devnet.helius-rpc.com/?api-key=x", "https://my-node.solana-devnet.quiknode.pro/abc123/"]) {
+    assert.equal(clientRpcProblem(ok), null, ok);
+    assert.equal((await vetClientRpc(ok, async () => DEVNET_GENESIS, { allowLocal: false })).url, ok);
+  }
 });
 
 await t("clientRpc guard: substring/lookalike hosts, mainnet and others rejected", () => {
@@ -349,8 +363,18 @@ await t("vetClientRpc: remote host must report the devnet genesis; mismatch / RP
 
 await t("vetClientRpc: local/LAN hosts skip the genesis check (localnet has its own genesis)", async () => {
   let asked = 0;
-  const r = await vetClientRpc("http://192.168.1.20:8899", async () => { asked++; return "localnet-genesis"; });
+  const r = await vetClientRpc("http://192.168.1.20:8899", async () => { asked++; return "localnet-genesis"; }, { allowLocal: true });
   assert.equal(r.url, "http://192.168.1.20:8899"); assert.equal(asked, 0);
+});
+
+await t("vetClientRpc: genesis check that hangs past the timeout → timedOut (sheet shows 'Network is slow')", async () => {
+  const t0 = Date.now();
+  const v = await vetClientRpc("https://api.devnet.solana.com", () => new Promise((res) => setTimeout(() => res(DEVNET_GENESIS), 2000)), { timeoutMs: 50 });
+  assert.equal(v.url, null); assert.equal(v.timedOut, true); assert.match(v.reason, /timed out after 50/);
+  assert.ok(Date.now() - t0 < 1000, "did not wait for the slow RPC");
+  // A plain RPC error / wrong genesis is not a timeout → caller falls back to the normal RPC.
+  assert.ok(!(await vetClientRpc("https://api.devnet.solana.com", async () => { throw new Error("boom"); })).timedOut);
+  assert.ok(!(await vetClientRpc("https://api.devnet.solana.com", async () => "wrong", { timeoutMs: 50 })).timedOut);
 });
 
 await t("trackClientRpc: picks up a server.info that arrives after mount", () => {
@@ -369,7 +393,36 @@ await t("trackClientRpc: picks up a server.info that arrives after mount", () =>
 await t("copy: before switching apps → 'Opening Phantom to approve {stake} USDC…' with spinner", () => {
   for (const step of [{ step: "preparing" }, { step: "wallet", retry: false }]) {
     const v = depositView(step, 5, false);
-    assert.equal(v.status, "Opening Phantom to approve 5 USDC…"); assert.ok(v.spinner); assert.equal(v.primary, null);
+    assert.equal(v.status, "Opening Phantom to approve 5 USDC…"); assert.ok(v.spinner); assert.equal(v.primary.disabled, true);
+  }
+});
+await t("copy: first step → 'Preparing transaction…' with spinner, button disabled", () => {
+  const v = depositView({ step: "starting" }, 5, false);
+  assert.equal(v.status, "Preparing transaction…"); assert.ok(v.spinner);
+  assert.ok(v.primary); assert.equal(v.primary.disabled, true); assert.ok(!v.leave);
+});
+await t("copy: RPC timeout → 'Network is slow' + Try again (enabled), no spinner", () => {
+  const v = depositView({ step: "slow" }, 5, false);
+  assert.equal(v.status, "Network is slow"); assert.ok(!v.spinner);
+  assert.equal(v.primary.label, "Try again"); assert.equal(v.primary.disabled, false);
+});
+await t("double-tap guard: two taps while preparing run the deposit once; a later tap runs again", async () => {
+  let runs = 0; let release;
+  const start = singleFlight(async () => { runs++; await new Promise((r) => (release = r)); return "done"; });
+  const a = start(); const b = start();
+  assert.equal(start.busy(), true);
+  assert.equal(await b, null, "second tap ignored");
+  release(); assert.equal(await a, "done"); assert.equal(runs, 1);
+  assert.equal(start.busy(), false);
+  const c = start(); release(); await c; assert.equal(runs, 2, "Try again works after the first run ends");
+  // A throwing run also releases the gate.
+  const bad = singleFlight(async () => { throw new Error("x"); });
+  await bad().catch(() => {}); assert.equal(bad.busy(), false);
+});
+await t("double-tap guard: button is never enabled while a step is in flight", () => {
+  for (const st of [{ step: "starting" }, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "wallet", retry: true }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }]) {
+    const v = depositView(st, 1, false);
+    assert.ok(v.spinner && v.primary?.disabled === true, st.step);
   }
 });
 await t("copy: blockhash re-prompt → 'That took too long, please approve once more'", () => {
@@ -391,11 +444,11 @@ await t("copy: cancelled / returned without approving / error → 'Not approved'
   }
 });
 await t("copy: no state ever shows a spinner without an in-flight step", () => {
-  const all = [null, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }, { step: "cancelled" }, { step: "error", message: "m" }];
+  const all = [null, { step: "starting" }, { step: "slow" }, { step: "connecting" }, { step: "preparing" }, { step: "wallet", retry: false }, { step: "sending" }, { step: "confirming", sig: "x" }, { step: "locked", sig: "x", url: null }, { step: "cancelled" }, { step: "error", message: "m" }];
   for (const st of all) {
     const v = depositView(st, 1, false);
     assert.ok(v.spinner || v.primary || v.status === "Locked ✓", `stuck state ${st?.step}`);
-    assert.ok(!(v.spinner && v.primary), "spinner and a button at once");
+    assert.ok(!(v.spinner && v.primary && !v.primary.disabled), "spinner and a tappable button at once");
   }
 });
 

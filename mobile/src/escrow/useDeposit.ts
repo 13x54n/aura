@@ -11,7 +11,7 @@ import { useMobileWallet } from "../utils/useMobileWallet";
 import { cancelPhantomSign, connectPhantomDeeplink, loadPhantomSession, phantomSignTransaction, takeOrphanSignedTx } from "../utils/phantomDeeplink";
 import { useAuthorization } from "../utils/useAuthorization";
 import { EscrowSnapshot, matchClient } from "../match/MatchClient";
-import { DepositStep, runDeposit } from "./depositFlow";
+import { DepositStep, runDeposit, singleFlight } from "./depositFlow";
 import { trackClientRpc, vetClientRpc } from "./rpcGuard";
 
 export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | null) {
@@ -19,28 +19,36 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
   const { signTransaction: mwaSign } = useMobileWallet();
   const { setMockAuthorization } = useAuthorization();
   const [state, setState] = useState<DepositStep | null>(null);
-  const running = useRef(false);
+  // Single flight: a second tap while a deposit is being prepared/signed does nothing.
+  const gate = useRef(singleFlight((body: () => Promise<void>) => body()));
 
   // server.info may arrive after mount: follow it.
   const [clientRpc, setClientRpc] = useState<string | null>(matchClient.escrowInfo.clientRpc ?? null);
   useEffect(() => trackClientRpc(matchClient, setClientRpc), []);
 
   /** Deposit RPC: a vetted clientRpc (allowlist + devnet genesis for remote hosts), else the app RPC. */
-  const pickConnection = useCallback(async (): Promise<Connection> => {
+  const pickConnection = useCallback(async (): Promise<Connection | "slow"> => {
     if (!clientRpc) return connection;
-    const v = await vetClientRpc(clientRpc, (url) => new Connection(url, "confirmed").getGenesisHash());
+    // Genesis check times out after 5s → "Network is slow" + Try again (no silent fallback).
+    // Not allowlisted / wrong genesis → the normal RPC. LAN/local hosts only in dev builds.
+    const v = await vetClientRpc(clientRpc, (url) => new Connection(url, "confirmed").getGenesisHash(), {
+      allowLocal: __DEV__,
+      timeoutMs: 5000,
+    });
     if (v.url) return new Connection(v.url, "confirmed");
+    if (v.timedOut) return "slow";
     console.warn(`[escrow] ignoring clientRpc ${clientRpc}: ${v.reason}`);
     return connection;
   }, [clientRpc, connection]);
 
-  const start = useCallback(async () => {
-    if (running.current || !escrow?.room || !escrow.mint || !escrow.programId || mySeat == null) return;
+  const start = useCallback(() => gate.current(async () => {
+    if (!escrow?.room || !escrow.mint || !escrow.programId || mySeat == null) return;
     const seat = escrow.seats[mySeat];
     const player = seat?.wallet ?? matchClient.wallet;
     if (!seat || !player) return setState({ step: "error", message: "Connect the wallet you joined with." });
-    running.current = true;
+    setState({ step: "starting" }); // "Preparing transaction…" while the RPC is vetted
     const conn = await pickConnection();
+    if (conn === "slow") return setState({ step: "slow" });
     const usePhantom = isExpoGo() || !!(await loadPhantomSession());
     matchClient.depositSigning(true);
     try {
@@ -87,10 +95,11 @@ export function useDeposit(escrow: EscrowSnapshot | undefined, mySeat: number | 
         }
       );
       if (result.step !== "locked") matchClient.depositSigning(false);
-    } finally {
-      running.current = false;
+    } catch (e) {
+      matchClient.depositSigning(false);
+      throw e;
     }
-  }, [escrow, mySeat, pickConnection, mwaSign, setMockAuthorization]);
+  }), [escrow, mySeat, pickConnection, mwaSign, setMockAuthorization]);
 
   return { state, start, walletName: isExpoGo() ? "Phantom" : "wallet", reset: () => setState(null) };
 }

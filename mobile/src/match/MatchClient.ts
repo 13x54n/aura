@@ -22,7 +22,7 @@ export function resolveMatchServerUrl(): string {
   return `ws://${host}:3001`;
 }
 
-export type RoomMode = "2p" | "4p";
+export type RoomMode = "2p" | "3p" | "4p";
 
 export type PlayerInfo = {
   name: string;
@@ -81,6 +81,9 @@ class MatchClient {
 
         const timeout = setTimeout(() => {
           if (!this.isConnected) {
+            // Drop the half-open socket so Retry really reconnects.
+            try { this.ws?.close(); } catch (_) {}
+            this.ws = null;
             resolve(false);
           }
         }, 3000);

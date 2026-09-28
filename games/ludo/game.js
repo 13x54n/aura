@@ -12,6 +12,8 @@
   var seatEls = Array.prototype.slice.call(document.querySelectorAll(".seat"));
   var seatById = {};
   var isMultiplayer = false;
+  // Room board: hold bots + local rolls until the server seats us.
+  var awaitingRoom = !!window.__AURA_ROOM__;
   var activeSeats = [0, 1, 2, 3];
   var DICE_SIZE = 40;
   var HOP_MS = 200; // per-cell hop (Lex: slower moves)
@@ -200,11 +202,8 @@
         av.style.setProperty("--seat", COLORS[s]);
         av.textContent = isYou ? "You" : NAMES[s].charAt(0);
       }
-      if (isMultiplayer && !activeSet[s]) {
-        el.style.display = "none";
-      } else {
-        el.style.display = "";
-      }
+      // Unused corner (2p/3p) = empty dimmed seat, no avatar or die.
+      el.classList.toggle("seat-empty", !!(isMultiplayer && !activeSet[s]));
       seatById[s] = {
         el: el,
         dice: el.querySelector(".seat-dice"),
@@ -639,7 +638,7 @@
     startTurnTimer();
     updateTurnBanner();
     render();
-    if (!isMultiplayer && state.turn !== HUMAN && state.winner == null) {
+    if (!isMultiplayer && !awaitingRoom && state.turn !== HUMAN && state.winner == null) {
       setTimeout(botTurn, 480);
     }
   }
@@ -782,6 +781,7 @@
   }
 
   function rollTheDice(who) {
+    if (awaitingRoom && !isMultiplayer) return;
     if (state.phase !== "roll" || state.winner != null || state.rolling || juice.moving) return;
     if (state.turn !== HUMAN && who !== "bot") return;
     if (isMultiplayer) {
@@ -1044,9 +1044,6 @@
       handleRemoteTurn(payload);
     } else if (event === "match.completed") {
       handleRemoteCompleted(payload);
-    } else if (event === "match.unavailable") {
-      // Host couldn't reach the match server — keep the local board playable.
-      if (!isMultiplayer) setStatus("Match server unreachable · playing locally vs bots");
     } else if (event === "room.state") {
       if (payload.state && payload.state.status === "waiting") {
         setStatus("Waiting for opponent to join…");
@@ -1057,6 +1054,7 @@
   function initMultiplayer(data) {
     if (!data || !data.isMultiplayer) return;
     isMultiplayer = true;
+    awaitingRoom = false;
     if (data.mySeat != null) {
       HUMAN = data.mySeat;
     }
@@ -1102,6 +1100,7 @@
         clearInterval(t);
         try {
           if (window.AuraHost.handshake) window.AuraHost.handshake();
+          if (awaitingRoom && !isMultiplayer) setStatus("Connecting…");
           if (window.AuraHost.onEvent) {
             window.AuraHost.onEvent(handleHostEvent);
           }

@@ -4,7 +4,7 @@ import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GameListRow } from "../components/store/GameListRow";
-import { AURA_GAMES } from "../data/catalog";
+import { AURA_GAMES, launchGame } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 export function LibraryScreen() {
@@ -26,7 +26,7 @@ export function LibraryScreen() {
             subtitle={g.subtitle}
             accent={g.accent}
             icon={g.icon}
-            onPress={() => navigation.navigate("WebGame", { gameId: g.id, title: g.title })}
+            onPress={() => launchGame(navigation, g.id, g.title)}
           />
         ))}
       </ScrollView>

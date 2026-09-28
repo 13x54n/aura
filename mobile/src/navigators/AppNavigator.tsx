@@ -27,7 +27,7 @@ type RootStackParamList = {
   LudoJoinRoom: undefined;
   LudoRandomMatch: undefined;
   LudoLobby: { mode: "create" | "join" | "random"; roomCode: string; players: number; stake: number; visibility?: string };
-  LudoResult: { won: boolean; winnerName?: string; roomCode?: string; stake?: number; players?: number; standings?: string[] };
+  LudoResult: { mode?: "create" | "join" | "random"; won: boolean; winnerName?: string; roomCode?: string; stake?: number; players?: number; standings?: string[] };
   LudoWallet: undefined;
   ChessHub: undefined;
   SnakesHub: undefined;

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GameListRow } from "../components/store/GameListRow";
 import { EmptyShelf } from "../components/store/EmptyShelf";
 import { GlassPanel } from "../components/store/GlassPanel";
-import { AURA_GAMES } from "../data/catalog";
+import { AURA_GAMES, launchGame } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 export function SearchScreen() {
@@ -52,7 +52,7 @@ export function SearchScreen() {
             subtitle={g.subtitle}
             accent={g.accent}
             icon={g.icon}
-            onPress={() => navigation.navigate("WebGame", { gameId: g.id, title: g.title })}
+            onPress={() => launchGame(navigation, g.id, g.title)}
           />
         ))
       )}

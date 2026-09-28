@@ -18,12 +18,14 @@ const SAFE_CELLS = new Set([4, 12, 17, 25, 30, 38, 43, 51]);
 const SEATS_2P = [3, 0];
 // 4-Player mode uses clockwise corners (Red 3 -> Green 2 -> Blue 0 -> Yellow 1)
 const SEATS_4P = [3, 2, 0, 1];
+// 3-Player mode skips Yellow (1): Red 3 -> Green 2 -> Blue 0
+const SEATS_3P = [3, 2, 0];
 
 class LudoRoom {
   constructor(roomCode, mode = "2p") {
     this.roomCode = roomCode;
     this.mode = mode;
-    this.seatOrder = mode === "2p" ? SEATS_2P : SEATS_4P;
+    this.seatOrder = mode === "2p" ? SEATS_2P : mode === "3p" ? SEATS_3P : SEATS_4P;
     this.maxPlayers = this.seatOrder.length;
 
     // Player slots: seat -> { ws, playerId, playerName }
@@ -479,6 +481,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`[Aura Match Server] Listening on port ${PORT}`);
 });

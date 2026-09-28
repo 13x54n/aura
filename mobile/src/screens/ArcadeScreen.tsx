@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 import { FilterChipRow } from "../components/store/FilterChipRow";
-import { AURA_GAMES } from "../data/catalog";
+import { AURA_GAMES, launchGame } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 const CHIPS = [
@@ -36,7 +36,7 @@ export function ArcadeScreen() {
               accent={g.accent}
               cover={g.cover}
               onPress={() =>
-                navigation.navigate("WebGame", { gameId: g.id, title: g.title })
+                launchGame(navigation, g.id, g.title)
               }
               width={148}
             />

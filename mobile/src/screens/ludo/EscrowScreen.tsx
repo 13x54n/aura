@@ -110,6 +110,5 @@ export function EscrowScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 4, backgroundColor: aura.bg },
-  title: { fontWeight: "800", marginBottom: 4, color: aura.text },
   blurb: { opacity: 0.75, marginBottom: 12, color: aura.textMuted },
 });

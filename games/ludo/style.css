@@ -179,3 +179,12 @@ button.ghost {
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 #muteBtn { min-width: 88px; font-size: 13px; }
+
+/* Unused corner at a 2p/3p table: empty, dimmed, no avatar or die. */
+.seat.seat-empty { opacity: 0.35; pointer-events: none; }
+.seat.seat-empty .avatar { visibility: hidden; }
+.seat.seat-empty .seat-die-btn { visibility: hidden; }
+.seat.seat-empty .identity {
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+}

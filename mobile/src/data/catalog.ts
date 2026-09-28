@@ -65,3 +65,12 @@ export const AURA_GAMES: AuraGame[] = [
 export function webGameParams(game: AuraGame): { gameId: string; title: string } {
   return { gameId: game.id, title: game.title };
 }
+
+/** Store entry: Ludo opens its hub (Free Play lives inside it); others open the board. */
+export function launchGame(navigation: any, gameId: string, title: string) {
+  if (gameId === "ludo") {
+    navigation.navigate("LudoHub");
+    return;
+  }
+  navigation.navigate("WebGame", { gameId, title });
+}

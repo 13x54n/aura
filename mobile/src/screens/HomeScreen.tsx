@@ -8,7 +8,7 @@ import { FeaturedHero, HeroSlide } from "../components/store/FeaturedHero";
 import { EmptyShelf } from "../components/store/EmptyShelf";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
-import { AURA_GAMES } from "../data/catalog";
+import { AURA_GAMES, launchGame } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 /**
@@ -20,7 +20,7 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const play = useCallback(
     (gameId: string, title: string) =>
-      navigation.navigate("WebGame", { gameId, title }),
+      launchGame(navigation, gameId, title),
     [navigation]
   );
 

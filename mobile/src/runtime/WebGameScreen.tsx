@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   View,
 } from "react-native";
@@ -105,6 +106,14 @@ export function WebGameScreen({ route, navigation }: Props) {
   const { selectedAccount } = useAuthorization();
   const { connect } = useMobileWallet();
   const storageRef = useRef<Record<string, string>>({});
+  // Room boards: connecting → online | unreachable. Free Play never uses this.
+  const [conn, setConn] = useState<"connecting" | "online" | "unreachable">("connecting");
+  const [retry, setRetry] = useState(0);
+  const startedRef = useRef(false);
+  const injected = useMemo(
+    () => (roomCode ? INJECTED + "\nwindow.__AURA_ROOM__ = true; true;" : INJECTED),
+    [roomCode]
+  );
 
   const html =
     gameId === "ludo"
@@ -134,7 +143,9 @@ export function WebGameScreen({ route, navigation }: Props) {
     if (!roomCode) return;
 
     let mounted = true;
+    setConn("connecting");
     const unsub = matchClient.on("*", (msg: any) => {
+      if (msg?.type === "match.started") startedRef.current = true;
       if (mounted) {
         emitHostEvent(msg.type, msg);
       }
@@ -144,13 +155,14 @@ export function WebGameScreen({ route, navigation }: Props) {
       const ok = await matchClient.connect();
       if (!ok) {
         console.warn("[WebGameScreen] Could not connect to match server", matchClient.getServerUrl());
-        if (mounted) emitHostEvent("match.unavailable", { url: matchClient.getServerUrl() });
+        if (mounted) setConn("unreachable");
         return;
       }
+      if (mounted) setConn("online");
       if (matchClient.currentRoomCode !== roomCode) {
         if (mode === "create") {
-          // Server supports 2p / 4p seatings; 3 players sit in the 4p layout.
-          matchClient.createRoom(roomCode, (players ?? 2) <= 2 ? "2p" : "4p");
+          // Server seatings: 2p (Red/Blue), 3p (Red/Green/Blue), 4p.
+          matchClient.createRoom(roomCode, (players ?? 2) <= 2 ? "2p" : players === 3 ? "3p" : "4p");
         } else if (mode === "random") {
           matchClient.joinRandom();
         } else {
@@ -164,7 +176,7 @@ export function WebGameScreen({ route, navigation }: Props) {
       unsub();
       matchClient.leaveRoom();
     };
-  }, [roomCode, mode, players, emitHostEvent]);
+  }, [roomCode, mode, players, emitHostEvent, retry]);
 
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
@@ -229,6 +241,8 @@ export function WebGameScreen({ route, navigation }: Props) {
           // Room / staked matches hand off to the host payout screen.
           // Free Play stays on the board (no stake, no receipt).
           if (!roomCode) return { handled: false };
+          // Only a match that really ran on the server gets a receipt.
+          if (!startedRef.current || !matchClient.isConnected) return { handled: false };
           navigation?.replace?.("LudoResult", {
             mode,
             won: !!params?.won,
@@ -269,7 +283,7 @@ export function WebGameScreen({ route, navigation }: Props) {
           originWhitelist={["*"]}
           source={{ html }}
           onMessage={onMessage}
-          injectedJavaScriptBeforeContentLoaded={INJECTED}
+          injectedJavaScriptBeforeContentLoaded={injected}
           javaScriptEnabled
           domStorageEnabled
           allowFileAccess={false}
@@ -279,6 +293,22 @@ export function WebGameScreen({ route, navigation }: Props) {
           onLoadEnd={() => setLoading(false)}
           onError={() => setLoading(false)}
         />
+        {roomCode && conn === "unreachable" ? (
+          <View style={styles.overlay}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Can't reach match server</Text>
+              <Text style={styles.cardBody}>
+                Your stake stays in host escrow. Check you're on the same network as the server, then retry.
+              </Text>
+              <Pressable style={styles.cardPrimary} onPress={() => setRetry((n) => n + 1)}>
+                <Text style={styles.cardPrimaryText}>Retry</Text>
+              </Pressable>
+              <Pressable style={styles.cardGhost} onPress={() => navigation?.navigate?.("LudoHub")}>
+                <Text style={styles.cardGhostText}>Back to hub</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -301,4 +331,27 @@ const styles = StyleSheet.create({
   loadingText: { color: aura.textMuted, fontWeight: "600" },
   web: { flex: 1, backgroundColor: "transparent" },
   webHidden: { opacity: 0 },
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(12, 11, 20, 0.88)",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    borderRadius: 18,
+    padding: 20,
+    gap: 10,
+    backgroundColor: aura.glassStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: aura.glassBorder,
+  },
+  cardTitle: { color: aura.text, fontSize: 18, fontWeight: "800" },
+  cardBody: { color: aura.textMuted, marginBottom: 6 },
+  cardPrimary: { backgroundColor: aura.purple, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  cardPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  cardGhost: { borderRadius: 14, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: aura.glassBorder },
+  cardGhostText: { color: aura.purpleBright, fontWeight: "700" },
 });

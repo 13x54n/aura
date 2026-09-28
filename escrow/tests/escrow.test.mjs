@@ -91,12 +91,13 @@ const attacker = Keypair.generate(); svm.airdrop(attacker.publicKey, 1_000_000_0
 }
 
 // ── helpers ──
-function newRoom({ seats = 2, stakeUi = 5, window = 300, refundAfter = 7200 } = {}) {
+function newRoom({ seats = 2, stakeUi = 5, window = 300, refundAfter = 7200, bind } = {}) {
+  const bound = (bind ?? players.slice(0, seats)).map((k) => (k ? k.publicKey : null));
   const roomId = Buffer.from(createHash("sha256").update(Math.random() + "").digest().subarray(0, 16));
   const seed = Buffer.from(createHash("sha256").update("seed" + Math.random()).digest());
   const room = E.roomPda(PROGRAM_ID, roomId);
   const r = send([E.initRoomIx({ programId: PROGRAM_ID, authority: auth.publicKey, mint, roomId, stake: BigInt(stakeUi) * USDC, seats,
-    commit: E.diceCommit(seed), depositDeadline: now() + window, refundAfterSecs: refundAfter })], [auth]);
+    commit: E.diceCommit(seed), depositDeadline: now() + window, refundAfterSecs: refundAfter, players: bound })], [auth]);
   return { roomId, seed, room, vault: E.ata(room, mint), stake: BigInt(stakeUi) * USDC, ok: r.ok, r };
 }
 const dep = (R, p, seat) => send([E.depositIx({ programId: PROGRAM_ID, player: p.publicKey, mint, room: R.room, seat })], [p]);
@@ -120,6 +121,19 @@ ok(!newRoom({ refundAfter: 30 }).ok, "init_room refund window < 60s rejected");
   ok(errIs(r, "Unauthorized"), "init_room by non-settle-authority rejected");
 }
 
+// 0. Seat binding (anti-squatting): wallets are fixed by the referee at init_room.
+{
+  const [p1, p2] = players;
+  ok(errIs(newRoom({ bind: [p1, p1] }).r, "AlreadySeated"), "init_room binding one wallet to two seats rejected");
+  ok(errIs(newRoom({ seats: 2, bind: [p1, p2, attacker] }).r, "BadSeat"), "init_room binding a wallet beyond `seats` rejected");
+  const R = newRoom({ bind: [p1, null] });
+  ok(R.ok, "init_room with an unassigned seat");
+  ok(errIs(dep(R, p2, 1), "SeatUnassigned"), "deposit into an unassigned seat rejected");
+  ok(errIs(dep(R, attacker, 0), "NotYourSeat"), "stranger's deposit into a bound seat rejected");
+  ok(dep(R, p1, 0).ok, "bound wallet deposits into its seat");
+  ok(refund(R, auth, [A(p1)]).ok, "cleanup refund");
+}
+
 // 1. 2p win: pot 10, fee 0.5, winner 9.5; room + vault closed, rent back to payer.
 {
   const [p1, p2] = players;
@@ -127,7 +141,8 @@ ok(!newRoom({ refundAfter: 30 }).ok, "init_room refund window < 60s rejected");
   ok(R.ok, "2p room init");
   const b1 = bal(A(p1)), b2 = bal(A(p2)), bt = bal(treasury);
   ok(dep(R, p1, 0).ok, "p1 deposit seat 0");
-  ok(errIs(dep(R, p1, 1), "AlreadySeated"), "same wallet 2nd seat rejected");
+  ok(errIs(dep(R, p1, 1), "NotYourSeat"), "same wallet into the other (bound) seat rejected");
+  ok(errIs(dep(R, attacker, 1), "NotYourSeat"), "stranger's deposit into a bound seat rejected");
   ok(errIs(dep(R, p2, 0), "SeatTaken"), "taken seat rejected");
   const d2 = dep(R, p2, 1);
   ok(d2.ok && d2.logs.some((l) => l.startsWith("Program data:")), "p2 deposit -> locked");
@@ -151,7 +166,7 @@ ok(!newRoom({ refundAfter: 30 }).ok, "init_room refund window < 60s rejected");
 // 2. Forfeit: seat 1 forfeits → seat 0 is paid.
 {
   const [, , p3, p4] = players;
-  const R = newRoom({ stakeUi: 3 });
+  const R = newRoom({ stakeUi: 3, bind: [p3, p4] });
   dep(R, p3, 0); dep(R, p4, 1);
   const b3 = bal(A(p3));
   ok(settle(R, 0).ok && bal(A(p3)) - b3 === 5_700_000n, "forfeit: other player paid 5.7 (pot 6 − 0.3)");
@@ -169,7 +184,7 @@ ok(!newRoom({ refundAfter: 30 }).ok, "init_room refund window < 60s rejected");
 // 4. Cancel (server) refunds everyone who deposited; table never filled.
 {
   const [p1, p2] = players;
-  const R = newRoom({ seats: 3, stakeUi: 10 });
+  const R = newRoom({ seats: 3, stakeUi: 10, bind: [p1, players[2], p2] });
   dep(R, p1, 0); dep(R, p2, 2);
   const b1 = bal(A(p1)), b2 = bal(A(p2));
   ok(errIs(refund(R, attacker, [A(p1), A(p2)]), "RefundNotAllowed"), "random signer can't refund an open room before the deadline");

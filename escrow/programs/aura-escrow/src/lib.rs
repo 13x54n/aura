@@ -56,6 +56,7 @@ pub mod aura_escrow {
         dice_commit: [u8; 32],
         deposit_deadline: i64,
         refund_after_secs: i64,
+        players: [Pubkey; MAX_SEATS],
     ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         require!(stake > 0, EscrowError::BadStake);
@@ -68,6 +69,17 @@ pub mod aura_escrow {
             (MIN_REFUND_AFTER..=MAX_REFUND_AFTER).contains(&refund_after_secs),
             EscrowError::BadDeadline
         );
+        // Seat i < seats is bound to players[i] (default = unassigned, can't be funded);
+        // seats beyond `seats` stay empty; one wallet can't hold two seats.
+        for i in 0..MAX_SEATS {
+            if i >= seats as usize {
+                require_keys_eq!(players[i], Pubkey::default(), EscrowError::BadSeat);
+            } else if players[i] != Pubkey::default() {
+                for j in 0..i {
+                    require_keys_neq!(players[i], players[j], EscrowError::AlreadySeated);
+                }
+            }
+        }
         ctx.accounts.room.set_inner(Room {
             config: ctx.accounts.config.key(),
             payer: ctx.accounts.authority.key(),
@@ -77,7 +89,7 @@ pub mod aura_escrow {
             deposited: 0,
             status: OPEN,
             bump: ctx.bumps.room,
-            players: [Pubkey::default(); MAX_SEATS],
+            players,
             dice_commit,
             deposit_deadline,
             settle_deadline: 0,
@@ -86,7 +98,8 @@ pub mod aura_escrow {
         Ok(())
     }
 
-    /// Player moves exactly `stake` into the vault for `seat`.
+    /// Player moves exactly `stake` into the vault for `seat`. Only the wallet the
+    /// referee bound to that seat at `init_room` may fund it (no open-seat squatting).
     pub fn deposit(ctx: Context<Deposit>, seat: u8) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let player = ctx.accounts.player.key();
@@ -96,11 +109,9 @@ pub mod aura_escrow {
         require!(now <= room.deposit_deadline, EscrowError::DepositClosed);
         require!(seat < room.seats, EscrowError::BadSeat);
         require!(room.deposited & (1u8 << seat) == 0, EscrowError::SeatTaken);
-        for i in 0..room.seats as usize {
-            if room.deposited & (1u8 << i) != 0 {
-                require_keys_neq!(room.players[i], player, EscrowError::AlreadySeated);
-            }
-        }
+        let bound = room.players[seat as usize];
+        require_keys_neq!(bound, Pubkey::default(), EscrowError::SeatUnassigned);
+        require_keys_eq!(bound, player, EscrowError::NotYourSeat);
         let stake = room.stake;
         token::transfer_checked(
             CpiContext::new(
@@ -117,7 +128,6 @@ pub mod aura_escrow {
         )?;
         let key = ctx.accounts.room.key();
         let room = &mut ctx.accounts.room;
-        room.players[seat as usize] = player;
         room.deposited |= 1u8 << seat;
         emit!(Deposited { room: key, seat, player });
         if room.deposited.count_ones() == room.seats as u32 {
@@ -462,4 +472,8 @@ pub enum EscrowError {
     BadPayer,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Seat has no bound wallet")]
+    SeatUnassigned,
+    #[msg("This seat is bound to another wallet")]
+    NotYourSeat,
 }

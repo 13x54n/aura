@@ -16,7 +16,8 @@ export type AuraEscrow = {
     {
       "name": "deposit",
       "docs": [
-        "Player moves exactly `stake` into the vault for `seat`."
+        "Player moves exactly `stake` into the vault for `seat`. Only the wallet the",
+        "referee bound to that seat at `init_room` may fund it (no open-seat squatting)."
       ],
       "discriminator": [
         242,
@@ -431,6 +432,15 @@ export type AuraEscrow = {
         {
           "name": "refundAfterSecs",
           "type": "i64"
+        },
+        {
+          "name": "players",
+          "type": {
+            "array": [
+              "pubkey",
+              4
+            ]
+          }
         }
       ]
     },
@@ -1003,6 +1013,16 @@ export type AuraEscrow = {
       "code": 6018,
       "name": "overflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6019,
+      "name": "seatUnassigned",
+      "msg": "Seat has no bound wallet"
+    },
+    {
+      "code": 6020,
+      "name": "notYourSeat",
+      "msg": "This seat is bound to another wallet"
     }
   ],
   "types": [

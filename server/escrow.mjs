@@ -97,7 +97,9 @@ export function updateConfigIx({ programId, admin, mint, settleAuthority, paused
   });
 }
 
-export function initRoomIx({ programId, authority, mint, roomId, stake, seats, commit, depositDeadline, refundAfterSecs }) {
+/** `players` = wallet bound to each seat (length = seats; null/undefined = unassigned). */
+export function initRoomIx({ programId, authority, mint, roomId, stake, seats, commit, depositDeadline, refundAfterSecs, players = [] }) {
+  const bound = Buffer.concat([0, 1, 2, 3].map((i) => (players[i] ? pk(players[i]).toBuffer() : Buffer.alloc(32))));
   const room = roomPda(programId, roomId);
   return new TransactionInstruction({
     programId: pk(programId),
@@ -107,7 +109,7 @@ export function initRoomIx({ programId, authority, mint, roomId, stake, seats, c
     ],
     data: Buffer.concat([
       disc("init_room"), bytes(roomId, 16), u64(stake), u8(seats), bytes(commit, 32),
-      i64(depositDeadline), i64(refundAfterSecs),
+      i64(depositDeadline), i64(refundAfterSecs), bound,
     ]),
   });
 }
@@ -298,7 +300,8 @@ export class EscrowService {
   }
 
   /** Server pays rent for Room + vault (returned when they close). */
-  async initRoom({ seats, stakeUi }) {
+  /** `players[i]` = wallet bound to chain seat i (only it can fund that seat). */
+  async initRoom({ seats, stakeUi, players }) {
     const roomId = randomBytes(16);
     const seed = randomBytes(32);
     const commit = diceCommit(seed);
@@ -308,7 +311,7 @@ export class EscrowService {
     const sig = await this.send(
       [initRoomIx({
         programId: this.programId, authority: this.authority.publicKey, mint: this.mint, roomId, stake, seats,
-        commit, depositDeadline, refundAfterSecs: this.refundAfterSecs,
+        commit, depositDeadline, refundAfterSecs: this.refundAfterSecs, players,
       })],
       "init_room"
     );

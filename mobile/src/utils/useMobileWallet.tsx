@@ -9,6 +9,7 @@ import { isExpoGo } from "./isExpoGo";
 import {
   clearPhantomSession,
   connectPhantomDeeplink,
+  phantomSignTransaction,
 } from "./phantomDeeplink";
 
 /**
@@ -105,7 +106,8 @@ export function useMobileWallet() {
   const signTransaction = useCallback(
     async (transaction: Transaction): Promise<Transaction> => {
       if (isExpoGo()) {
-        throw new Error("Staked tables need the Aura app with a mobile wallet (Seed Vault / MWA), not Expo Go.");
+        // Expo Go: Phantom signTransaction deeplink (same dapp keypair + session as connect).
+        return await phantomSignTransaction(transaction);
       }
       const { transact } = await import(
         "@solana-mobile/mobile-wallet-adapter-protocol-web3js"

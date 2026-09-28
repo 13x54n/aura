@@ -84,6 +84,8 @@ export type EscrowInfo = {
   cluster?: string;
   depositSecs?: number;
   refundAfterSecs?: number;
+  /** RPC the phone submits deposits to (localnet on a device); null → app RPC setting. */
+  clientRpc?: string | null;
 };
 
 export type EscrowSeatState = "waiting" | "signing" | "depositing" | "ready";
@@ -92,6 +94,7 @@ export type EscrowSnapshot = {
   room: string | null;
   vault: string | null;
   mint: string | null;
+  programId: string | null;
   cluster: string | null;
   stake: number;
   feeBps: number;
@@ -519,6 +522,17 @@ class MatchClient {
   /** Relay the wallet-signed deposit; resolves once the server read the room account. */
   async submitDeposit(signedTx: string): Promise<{ sig: string; url: string; confirmed: boolean } | { error: string; message?: string }> {
     return this.escrowRequest({ type: "escrow.deposit.submit", tx: signedTx }, "escrow.deposit.sent", 60000);
+  }
+
+  /** Seat shows "Depositing…" while we're in the wallet (false = back to waiting). */
+  depositSigning(active: boolean) {
+    this.send({ type: "escrow.deposit.signing", active });
+  }
+
+  /** Confirm-deposit after the app submitted the tx itself: the server reads the room account. */
+  async confirmDeposit(sig: string): Promise<{ ok: boolean; url?: string | null; message?: string | null; error?: string }> {
+    const r = await this.escrowRequest({ type: "escrow.deposit.confirm", sig }, "escrow.deposit.confirmed", 30000);
+    return r.error ? { ok: false, message: r.message, error: r.error } : r;
   }
 
   private escrowRequest(msg: object, replyType: string, ms: number): Promise<any> {

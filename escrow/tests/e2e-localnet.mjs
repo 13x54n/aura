@@ -10,6 +10,13 @@ import * as E from "../../server/escrow.mjs";
 const require = createRequire(new URL("../../server/package.json", import.meta.url));
 const { Connection, PublicKey, Transaction } = require("@solana/web3.js");
 const WS = require("ws");
+// Phone-side code under test (Phantom deeplink path): the app's own tx builder + payload crypto.
+import { buildDepositTx, verifySignedDeposit, isBlockhashError } from "../../mobile/src/escrow/depositTx.ts";
+import { encryptPayload, decryptPayload } from "../../mobile/src/escrow/phantomCrypto.ts";
+const mreq = createRequire(new URL("../../mobile/package.json", import.meta.url));
+const nacl = mreq("tweetnacl");
+const bs58 = mreq("bs58");
+const MTransaction = mreq("@solana/web3.js").Transaction;
 
 const RPC = process.env.SOLANA_RPC || "http://127.0.0.1:8899";
 if (!/127\.0\.0\.1|localhost/.test(RPC)) throw new Error("e2e-localnet only runs against a local validator");
@@ -74,6 +81,7 @@ function client(name, kp) {
     // Deposit: sign exactly the server-built tx with the player's own key.
     if (m.type === "escrow.deposit.tx") {
       const tx = Transaction.from(Buffer.from(m.tx, "base64"));
+      c.serverTxUnsigned = tx.signatures.length === 1 && tx.signatures[0].signature === null && tx.feePayer.equals(kp.publicKey);
       tx.partialSign(kp);
       c.send({ type: "escrow.deposit.submit", tx: tx.serialize().toString("base64") });
     }
@@ -108,6 +116,67 @@ await waitServer(PORT);
 const health = await (await fetch(`http://127.0.0.1:${PORT}/`)).json();
 ok(health.escrowLive === true, "server reports escrow live on localnet");
 
+// ── 0. Phantom deeplink path: phone builds (fresh blockhash), "Phantom" signs, phone submits,
+//       server confirm-deposit reads the room account. B's first attempt uses an expired blockhash.
+{
+  const b1 = await bal(p1.publicKey), b2 = await bal(p2.publicKey);
+  const { A, B, esc } = await seatBoth("E2EPHM", { deposit1: false, deposit2: false });
+  const dappKp = nacl.box.keyPair(), phantomKp = nacl.box.keyPair();
+  const sDapp = nacl.box.before(phantomKp.publicKey, dappKp.secretKey);
+  const sPh = nacl.box.before(dappKp.publicKey, phantomKp.secretKey);
+  // Stand-in for Phantom's signTransaction deeplink (same encrypted payload + session).
+  const phantomSign = (tx, kp) => {
+    const req = encryptPayload({ session: "s1", transaction: bs58.encode(tx.serialize({ requireAllSignatures: false })) }, sDapp);
+    const got = decryptPayload(req.payload, req.nonce, sPh);
+    const t2 = MTransaction.from(bs58.decode(got.transaction));
+    t2.partialSign(kp);
+    const res = encryptPayload({ transaction: bs58.encode(t2.serialize()) }, sPh);
+    return MTransaction.from(bs58.decode(decryptPayload(res.payload, res.nonce, sDapp).transaction));
+  };
+  const deposit = async (c, kp, { staleFirst = false } = {}) => {
+    const snap = c.state.escrow;
+    const P = { programId: snap.programId, mint: snap.mint, room: snap.room, chainSeat: snap.seats[c.seat].chainSeat, player: kp.publicKey.toBase58() };
+    c.send({ type: "escrow.deposit.signing", active: true });
+    let prompts = 0, retried = false;
+    for (;;) {
+      const bh = staleFirst && prompts === 0
+        ? { blockhash: "11111111111111111111111111111111", lastValidBlockHeight: 1 }
+        : await conn.getLatestBlockhash("confirmed");
+      const tx = buildDepositTx({ ...P, ...bh });
+      prompts++;
+      const signed = phantomSign(tx, kp);
+      const bad = verifySignedDeposit(signed, P);
+      if (bad) throw new Error(bad);
+      try {
+        const sig = await conn.sendRawTransaction(signed.serialize(), { preflightCommitment: "confirmed" });
+        const res = await conn.confirmTransaction({ signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight }, "confirmed");
+        if (res.value.err) throw new Error(JSON.stringify(res.value.err));
+        c.send({ type: "escrow.deposit.confirm", sig });
+        const conf = await c.wait((m) => m.type === "escrow.deposit.confirmed", 30000);
+        return { sig, conf, prompts, retried };
+      } catch (e) {
+        if (isBlockhashError(e) && !retried) { retried = true; continue; }
+        throw e;
+      }
+    }
+  };
+  ok(esc.programId && esc.mint && esc.room, "phantom: lobby snapshot carries programId/mint/room for the phone builder");
+  const signingSeen = A.wait((m) => m.type === "room.state" && m.state?.escrow?.seats?.[A.seat]?.state === "signing", 10000).then(() => true).catch(() => false);
+  const da = await deposit(A, p1);
+  ok(await signingSeen, "phantom: seat shows Depositing… while in the wallet");
+  ok(da.conf.ok && da.conf.sig === da.sig, `phantom: A signed as Phantom, app submitted, server confirm-deposit read the room (${da.sig.slice(0, 10)}…)`);
+  const readyA = A.log.filter((m) => m.type === "room.state").map((m) => m.state?.escrow?.seats?.[A.seat]?.state).pop();
+  ok(readyA === "ready" && (await bal(p1.publicKey)) === b1 - 1_000_000n, "phantom: A Locked ✓ only after the chain read; 1 USDC left A's wallet");
+  const db = await deposit(B, p2, { staleFirst: true });
+  ok(db.retried && db.prompts === 2 && db.conf.ok, "phantom: expired blockhash → rebuilt with a fresh one, re-prompted once, then locked");
+  await A.wait((m) => m.type === "match.started", 30000);
+  ok((await bal(p2.publicKey)) === b2 - 1_000_000n, "phantom: both seats funded → match started");
+  B.send({ type: "room.leave" });
+  const done = await A.wait((m) => m.type === "match.completed", 60000);
+  ok(done.payout?.sig, "phantom: settled after B left");
+  A.ws.close(); B.ws.close();
+}
+
 // ── 1. Win + payout ──
 {
   const b1 = await bal(p1.publicKey), b2 = await bal(p2.publicKey), bt = await bal(treasury);
@@ -117,6 +186,7 @@ ok(health.escrowLive === true, "server reports escrow live on localnet");
   ok(!!signing, "win: lobby shows a seat signing/depositing");
   const sent = await A.wait((m) => m.type === "escrow.deposit.sent", 30000);
   ok(!!sent.sig && sent.confirmed === true, "win: A deposit relayed + confirm-deposit read the room account");
+  ok(A.serverTxUnsigned === true, "win: server-built deposit tx arrives unsigned, player = fee payer (no co-signature)");
   A.auto = B.auto = true;
   const started = await A.wait((m) => m.type === "match.started", 30000);
   const readyState = A.log.filter((m) => m.type === "room.state").map((m) => m.state?.escrow).filter(Boolean).pop();

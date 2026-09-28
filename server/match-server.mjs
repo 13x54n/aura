@@ -75,6 +75,9 @@ function escrowInfo() {
         cluster: escrow.cluster,
         depositSecs: escrow.depositWindowSecs,
         refundAfterSecs: escrow.refundAfterSecs,
+        // RPC the phone submits deposits to. Unset → the app's own RPC setting. Set it for
+        // localnet on a device (http://<mac-lan-ip>:8899). Never the server's keyed RPC.
+        clientRpc: process.env.ESCROW_CLIENT_RPC || null,
       }
     : { live: false, stakes: [] };
 }
@@ -688,6 +691,55 @@ class LudoRoom {
     }
   }
 
+  /** Seat shows "Depositing…" while the player is in their wallet (never Ready from this). */
+  escrowSeatSigning(ws, active) {
+    const e = this.esc;
+    const p = this.players.get(ws.seat);
+    if (!p || p.ws !== ws || e.phase !== "depositing" || e.seatState[ws.seat] === "ready") return;
+    e.seatState[ws.seat] = active ? "signing" : "waiting";
+    this.broadcastState();
+  }
+
+  /**
+   * Confirm-deposit for a tx the app submitted itself: read the room account (the only
+   * source of Ready). Retries the read briefly for RPC lag; the sig is informational.
+   */
+  async escrowConfirmDeposit(ws, sig) {
+    const e = this.esc;
+    const seat = ws.seat;
+    const p = this.players.get(seat);
+    if (!p || p.ws !== ws || !e.room) return;
+    const chainSeat = this.seatOrder.indexOf(seat);
+    if (e.seatState[seat] !== "ready") {
+      e.seatState[seat] = "depositing";
+      this.broadcastState();
+    }
+    let ok = false;
+    for (let i = 0; i < 12 && !ok && !this.destroyed; i++) {
+      try {
+        ok = (await escrow.confirmDeposit({ room: e.room, chainSeat, wallet: p.wallet })).ok;
+      } catch {}
+      if (!ok) await sleep(1000);
+    }
+    const s = typeof sig === "string" && /^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(sig) ? sig : null;
+    if (ok) {
+      if (s) e.depositSig[seat] = s;
+      if (e.phase === "depositing" && e.seatState[seat] !== "ready") {
+        e.seatState[seat] = "ready"; // from the room-account read above
+        this.broadcastState();
+      }
+      this.escrowPoll(); // locks + starts once every seat is funded
+    } else if (e.seatState[seat] !== "ready" && e.phase === "depositing") {
+      e.seatState[seat] = "waiting";
+      this.broadcastState();
+    }
+    this.send(ws, {
+      type: "escrow.deposit.confirmed", roomCode: this.roomCode, ok, sig: s,
+      url: s ? escrowMod.explorerTx(s, escrow.cluster) : null,
+      message: ok ? null : "Your deposit isn't on the table account yet.",
+    });
+  }
+
   /** Relay the wallet-signed deposit (only the exact tx we built for this seat). */
   async escrowSubmitDeposit(ws, signedTx) {
     const e = this.esc;
@@ -1219,6 +1271,17 @@ function onMessage(ws, msg) {
 
     case "escrow.deposit.submit": {
       if (ws.room?.esc) ws.room.escrowSubmitDeposit(ws, msg.tx);
+      break;
+    }
+
+    // App-submitted path (Phantom deeplink / MWA): the phone builds + submits the tx itself.
+    case "escrow.deposit.signing": {
+      if (ws.room?.esc) ws.room.escrowSeatSigning(ws, msg.active !== false);
+      break;
+    }
+
+    case "escrow.deposit.confirm": {
+      if (ws.room?.esc) ws.room.escrowConfirmDeposit(ws, msg.sig);
       break;
     }
 

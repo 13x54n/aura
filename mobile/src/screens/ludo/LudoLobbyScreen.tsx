@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, Share, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
@@ -37,6 +37,7 @@ export function LudoLobbyScreen() {
   const [stakeError, setStakeError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
 
   useEffect(() => {
     let live = true;
@@ -271,7 +272,7 @@ export function LudoLobbyScreen() {
           {stake > 0 ? "Once every seat is filled, each player locks their stake, then the match starts." : "The match starts on its own once every seat is filled."}
         </Muted>
       )}
-      {esc ? <DepositSheet visible={sheetOpen} escrow={esc} onClose={() => setSheetOpen(false)} /> : null}
+      {esc ? <DepositSheet visible={sheetOpen} escrow={esc} mySeat={mySeat} onClose={closeSheet} /> : null}
     </LudoScreen>
   );
 }

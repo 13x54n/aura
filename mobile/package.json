@@ -11,7 +11,7 @@
     "prebuild": "expo prebuild",
     "build": "npx eas build --profile development --platform android",
     "build:local": "npx eas build --profile development --platform android --local",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "node --import ./tests/ts-resolve.mjs tests/phantom-deposit.test.mjs",
     "start:go": "expo start",
     "start:dev-client": "expo start --dev-client",
     "match-server": "npm --prefix ../server install --no-audit --no-fund --silent && node ../server/match-server.mjs"

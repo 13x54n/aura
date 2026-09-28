@@ -45,12 +45,20 @@ const FRESH_MS = 20_000;
 const cache = new Map<string, { snap: Snapshot; at: number }>();
 const inflight = new Map<string, Promise<Snapshot | null>>();
 let cooldownUntil = 0;
+const subs = new Map<string, Set<() => void>>();
+const notify = (k: string) => subs.get(k)?.forEach((f) => f());
+const cacheKey = (endpoint: string, owner: string) => `${endpoint}|${owner}`;
+
+/** Seconds left in the 429 cooldown (0 = can fetch now). */
+export function rpcCooldownSecs() {
+  return Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+}
 let backoffMs = 0;
 
 const is429 = (e: any) => /429|Too Many Requests/i.test(String(e?.message ?? e));
 
 async function fetchBalances(connection: Connection, owner: PublicKey): Promise<Snapshot | null> {
-  const key = owner.toBase58();
+  const key = cacheKey(connection.rpcEndpoint, owner.toBase58());
   const running = inflight.get(key);
   if (running) return running;
   const p = (async () => {
@@ -67,6 +75,7 @@ async function fetchBalances(connection: Connection, owner: PublicKey): Promise<
       const snap = { usdc, sol: lamports / LAMPORTS_PER_SOL, skr };
       cache.set(key, { snap, at: Date.now() });
       backoffMs = 0;
+      notify(key);
       return snap;
     } catch (e) {
       if (is429(e)) {
@@ -87,7 +96,8 @@ export function useHostBalances(): HostBalances {
   const { connection } = useConnection();
   const { selectedAccount } = useAuthorization();
   const owner = selectedAccount?.publicKey;
-  const key = owner?.toBase58() ?? null;
+  const address = owner?.toBase58() ?? null;
+  const key = address ? cacheKey(connection.rpcEndpoint, address) : null;
   const [snap, setSnap] = useState<Snapshot | null>(key ? cache.get(key)?.snap ?? null : null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(key ? cache.get(key)?.at ?? null : null);
   const [now, setNow] = useState(Date.now());
@@ -127,9 +137,36 @@ export function useHostBalances(): HostBalances {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tick]);
 
-  // Re-evaluate "Updated Xm ago" every 30s while a cached value is showing (no RPC).
+  // A refresh on any screen updates every mounted card (hub + Wallet tab).
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000);
+    if (!key) return;
+    const onUpdate = () => {
+      const hit = cache.get(key);
+      if (hit) {
+        setSnap(hit.snap);
+        setUpdatedAt(hit.at);
+        setNow(Date.now());
+      }
+    };
+    const set = subs.get(key) ?? new Set();
+    set.add(onUpdate);
+    subs.set(key, set);
+    return () => {
+      set.delete(onUpdate);
+    };
+  }, [key]);
+
+  // Flip to stale exactly when the freshness window ends, then tick every 15s.
+  useEffect(() => {
+    if (!updatedAt) return;
+    const until = updatedAt + FRESH_MS - Date.now();
+    const t = setTimeout(() => setNow(Date.now()), Math.max(0, until) + 50);
+    return () => clearTimeout(t);
+  }, [updatedAt]);
+
+  // Re-evaluate "Updated Xm ago" every 15s while a cached value is showing (no RPC).
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, []);
 
@@ -138,6 +175,6 @@ export function useHostBalances(): HostBalances {
     stale: !!updatedAt && !!snap && now - updatedAt > FRESH_MS,
     usdc: snap?.usdc ?? null, sol: snap?.sol ?? null, skr: snap?.skr ?? null,
     skrConfigured: !!SKR_MINT, loading,
-    connected: !!owner, address: key, refresh,
+    connected: !!owner, address, refresh,
   };
 }

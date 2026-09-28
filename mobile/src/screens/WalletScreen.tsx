@@ -7,7 +7,7 @@ import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { aura } from "../theme/tokens";
-import { useHostBalances } from "../wallet/useHostBalances";
+import { rpcCooldownSecs, useHostBalances } from "../wallet/useHostBalances";
 import { HostWalletCard } from "../components/wallet/HostWalletCard";
 import { AURA_GAMES } from "../data/catalog";
 import { Glass, Label, Muted, PrimaryButton } from "./ludo/ludoUi";
@@ -31,7 +31,9 @@ export function WalletScreen() {
   const navigation = useNavigation<any>();
   const toast = useRef(new Animated.Value(0)).current;
 
-  const showToast = () => {
+  const [toastText, setToastText] = useState("Copied");
+  const showToast = (text = "Copied") => {
+    setToastText(text);
     toast.stopAnimation();
     toast.setValue(0);
     Animated.sequence([
@@ -62,7 +64,9 @@ export function WalletScreen() {
             <RefreshControl
               refreshing={b.loading}
               onRefresh={() => {
-                b.refresh();
+                const wait = rpcCooldownSecs();
+                if (wait > 0) showToast(`Network busy · try in ${wait}s`);
+                else b.refresh();
                 history.refresh();
               }}
               tintColor={aura.text}
@@ -70,7 +74,7 @@ export function WalletScreen() {
           ) : undefined
         }
       >
-        <HostWalletCard balances={b} onCopied={showToast} />
+        <HostWalletCard balances={b} onCopied={() => showToast()} />
         {b.connected ? (
           <>
 
@@ -156,7 +160,7 @@ export function WalletScreen() {
         ]}
       >
         <Icon name="check" size={15} color="#fff" />
-        <Text style={styles.toastText}>Copied</Text>
+        <Text style={styles.toastText}>{toastText}</Text>
       </Animated.View>
     </View>
   );

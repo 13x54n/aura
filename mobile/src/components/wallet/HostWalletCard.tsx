@@ -13,7 +13,7 @@ const STAKED_ROOMS_LIVE = false;
 
 const agoLabel = (at: number) => {
   const m = Math.floor((Date.now() - at) / 60_000);
-  return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+  return m < 1 ? "<1m ago" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
 };
 
 const num = (v: number | null, dp: number, loading: boolean) =>

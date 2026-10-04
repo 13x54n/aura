@@ -1,15 +1,8 @@
 /**
- * Aura Match Server
- * Lightweight WebSocket server for authoritative multiplayer matches.
- * 
- * ARCHITECTURE NOTE: This server currently implements Ludo-specific rules.
- * Future enhancement: Make this game-agnostic by:
- * 1. Adding gameType parameter to room creation
- * 2. Implementing pluggable rule systems (ludo, chess, snakes)
- * 3. Moving game-specific constants to per-game rule modules
- * 
- * For now: Ludo is the only game with multiplayer. Chess and Snakes
- * use Free Play only (local/bot matches in the WebView).
+ * Ludo match server.
+ * Standalone WebSocket process that curates Ludo rooms only:
+ * private tables, join-by-code, and quick match.
+ * Chess and Snakes are not in scope.
  */
 import { confirmDepositRequest } from "./escrowConfirm.mjs";
 import { createHash } from "crypto";
@@ -59,10 +52,10 @@ if (ESCROW_LIVE) {
     const svc = escrowMod.EscrowService.fromEnv();
     if (!svc) throw new Error("set ESCROW_AUTHORITY_KEYPAIR and a dedicated SOLANA_RPC");
     escrow = await svc.init();
-    console.log(`[Aura Match Server] Escrow live: program ${svc.programId.toBase58()} mint ${svc.mint.toBase58()} (${svc.decimals} dp) rpc ${svc.rpc}`);
+    console.log(`[ludo-match-server] Escrow live: program ${svc.programId.toBase58()} mint ${svc.mint.toBase58()} (${svc.decimals} dp) rpc ${svc.rpc}`);
   } catch (e) {
     escrow = null;
-    console.error(`[Aura Match Server] ESCROW_LIVE=1 but escrow is unavailable (${e.message}); staked tables are refused.`);
+    console.error(`[ludo-match-server] ESCROW_LIVE=1 but escrow is unavailable (${e.message}); staked tables are refused.`);
   }
 }
 const sha256 = (...parts) => {
@@ -114,7 +107,7 @@ function saveHistory() {
     mkdirSync(dirname(HISTORY_FILE), { recursive: true });
     writeFileSync(HISTORY_FILE, JSON.stringify(history.slice(-5000)));
   } catch (e) {
-    console.error("[Aura Match Server] could not save history:", e.message);
+    console.error("[ludo-match-server] could not save history:", e.message);
   }
 }
 
@@ -153,7 +146,7 @@ function saveForfeits() {
     mkdirSync(dirname(FORFEITS_FILE), { recursive: true });
     writeFileSync(FORFEITS_FILE, JSON.stringify(Object.fromEntries(recentForfeits)));
   } catch (e) {
-    console.error("[Aura Match Server] could not save forfeits:", e.message);
+    console.error("[ludo-match-server] could not save forfeits:", e.message);
   }
 }
 function noteForfeit(code, playerId) {
@@ -1190,7 +1183,7 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
-      name: "aura-match-server",
+      name: "ludo-match-server",
       status: "healthy",
       roomsCount: rooms.size,
       queuedRandom: queueSize(),
@@ -1387,7 +1380,7 @@ wss.on("connection", (ws) => {
     try {
       onMessage(ws, msg);
     } catch (err) {
-      console.error("[Aura Match Server] handler error:", err);
+      console.error("[ludo-match-server] handler error:", err);
       sendErr(ws, "server_error", "Something went wrong on the match server.");
     }
   });
@@ -1408,5 +1401,5 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[Aura Match Server] Listening on port ${PORT}`);
+  console.log(`[ludo-match-server] Listening on port ${PORT}`);
 });

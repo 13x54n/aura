@@ -10,6 +10,19 @@
 | Bridge | Versioned **Host SDK** over postMessage — capability scoped |
 | Native federation | Re.Pack **later**, first-party only |
 | Escrow / wallet | **Host only** — never inside the game bundle |
+| **Game independence** | **Each mini-app operates independently** — Ludo, Chess, Snakes |
+
+## Aura is a Marketplace, Not a Single Game
+
+**Critical:** Aura is a **marketplace for mini-apps**, not a Ludo app with extensions. Each game (Ludo, Chess, Snakes, future titles) is an **independent mini-app** that:
+
+- Has its own hub screen (deep like Ludo, or simple playable screen)
+- Defines its own multiplayer configuration (room types, player counts)
+- Specifies its own escrow/staking rules
+- Implements its own game logic independently
+- Can be added/updated without affecting other games
+
+The host provides shared infrastructure (catalog, wallet, match server protocol) but **never assumes** any game-specific logic at the platform level.
 
 ## Trust zones
 
@@ -18,7 +31,7 @@ Player → RN Host (identity, catalog, wallet, policy)
             ↓ mounts
          WebView mini-app (board, input, animation)
             ↓ commands / events
-         Match service (authoritative rules, dice, rooms)  [when multiplayer]
+         Match service (authoritative rules per game type)  [when multiplayer]
 ```
 
 Hard boundary: WebView never receives primary access/refresh tokens, keychain access, or generic native handles. Games get a short-lived, game-scoped session + declared capabilities.
@@ -54,9 +67,14 @@ Headline capabilities today: `host.handshake` / `host.ready`, `wallet.getAddress
 
 ## Match authority (multiplayer)
 
-Clients send **commands**; only server-approved **events** mutate canonical state. Deterministic reducer + versioned **`RuleProfile`** per match (immutable once referenced — publish `classic-v2`, never mutate `classic-v1`). Free Play may run local/bots without ranked claims.
+Clients send **commands**; only server-approved **events** mutate canonical state. Deterministic reducer + versioned **`RuleProfile`** per match per **game type** (immutable once referenced — publish `ludo-classic-v2`, never mutate `ludo-classic-v1`). Free Play may run local/bots without ranked claims.
 
-Sample Ludo `classic-v1`: see [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) — enter on 6→start (not +6), exact home, safe cells, bonus on 6/capture/home (one only), max 3 consecutive sixes (third ignored), blockades off, friendly stacking.
+**Game-specific rules:**
+- **Ludo** `classic-v1`: see [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) — enter on 6→start (not +6), exact home, safe cells, bonus on 6/capture/home (one only), max 3 consecutive sixes (third ignored), blockades off, friendly stacking.
+- **Chess**: Standard chess rules (to be implemented when multiplayer enabled)
+- **Snakes**: Standard Snakes & Ladders rules (to be implemented when multiplayer enabled)
+
+Each game registers its rule profile independently via the **Game Registry** (`mobile/src/data/gameRegistry.ts`).
 
 ## Package / release (near-term stub)
 

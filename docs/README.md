@@ -5,7 +5,8 @@ Deep product and platform docs. **Build priority:** three playable boards first;
 | Doc | What it covers |
 |-----|----------------|
 | [PRODUCT.md](./PRODUCT.md) | Vision, IA, catalog, kill rules, north star |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | RN host, WebView mini-apps, Host SDK bridge, trust zones |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | RN host, WebView mini-apps, Host SDK bridge, trust zones, **game independence** |
+| [GAME_REGISTRY.md](./GAME_REGISTRY.md) | **Pluggable mini-app system, adding new games independently** |
 | [HOST_SDK.md](./HOST_SDK.md) | Live Host SDK methods (v0.1.0) |
 | [GAMES.md](./GAMES.md) | Ludo · Chess · Snakes packages, pack pipeline, Free Play |
 | [WALLET_AND_ESCROW.md](./WALLET_AND_ESCROW.md) | Seed Vault / Phantom, host-only escrow |

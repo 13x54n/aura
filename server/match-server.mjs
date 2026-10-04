@@ -1,6 +1,15 @@
 /**
- * Aura Ludo Authoritative Match Server
- * Lightweight WebSocket server implementing classic-v1 Ludo rules.
+ * Aura Match Server
+ * Lightweight WebSocket server for authoritative multiplayer matches.
+ * 
+ * ARCHITECTURE NOTE: This server currently implements Ludo-specific rules.
+ * Future enhancement: Make this game-agnostic by:
+ * 1. Adding gameType parameter to room creation
+ * 2. Implementing pluggable rule systems (ludo, chess, snakes)
+ * 3. Moving game-specific constants to per-game rule modules
+ * 
+ * For now: Ludo is the only game with multiplayer. Chess and Snakes
+ * use Free Play only (local/bot matches in the WebView).
  */
 import { confirmDepositRequest } from "./escrowConfirm.mjs";
 import { createHash } from "crypto";

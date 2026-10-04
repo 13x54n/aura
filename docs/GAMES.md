@@ -1,5 +1,17 @@
 # Aura — games catalog
 
+## Architecture Overview
+
+**Aura is a marketplace of independent mini-apps, NOT a Ludo app with extras.**
+
+Each game (Ludo, Chess, Snakes) operates independently with its own:
+- Hub screen (deep or playable)
+- Multiplayer configuration
+- Escrow rules
+- Game logic
+
+See [GAME_REGISTRY.md](./GAME_REGISTRY.md) for the complete mini-app system documentation.
+
 ## Layout
 
 ```
@@ -7,19 +19,26 @@ games/
   ludo/     # mini-app + icon.png + cover.png + manifest.json
   chess/
   snakes/
-mobile/src/runtime/   # packed HTML bundles Aura mounts
-scripts/              # pack-*.mjs
+mobile/src/runtime/          # packed HTML bundles Aura mounts
+mobile/src/data/games/       # game registry configs
+mobile/src/data/gameRegistry.ts  # pluggable game system
+scripts/                     # pack-*.mjs
 ```
 
 Aura **does not** embed game logic in RN screens long-term. It packs each mini-app and loads it in a WebView.
 
 ## Titles
 
-| ID | Free Play | Deep roadmap |
-|----|-----------|--------------|
-| `ludo` | Canvas board, Roll, tap Red, bots | Rooms, random match, host escrow |
-| `chess` | White vs random Black | Rooms / rated later |
-| `snakes` | 1–100 board, Roll, vs bot | Rooms later |
+Each game is independently configured via the Game Registry.
+
+| ID | Status | Hub Type | Multiplayer | Escrow | Notes |
+|----|--------|----------|-------------|--------|-------|
+| `ludo` | **Deep** | Custom Hub | ✅ 2p/3p/4p | ✅ 1,3,5,10 USDC | Full rooms, quick match, server-authoritative |
+| `chess` | **Playable** | Generic Hub | ❌ Planned | ❌ Planned | Free Play only, vs bot |
+| `snakes` | **Playable** | Generic Hub | ❌ Planned | ❌ Planned | Free Play only, vs bot |
+
+**Deep** = Custom hub with full room creation/join flows (like Ludo)  
+**Playable** = Generic hub with Free Play button (Chess, Snakes)
 
 ## Packaging
 

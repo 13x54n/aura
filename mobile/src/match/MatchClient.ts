@@ -61,7 +61,8 @@ export type RoomInfo = {
 /** One real, server-recorded match for this player. */
 export type HistoryRow = {
   id: string;
-  game: "Ludo" | "Chess" | "Snakes";
+  game: "Ludo" | "Chess" | "Snakes" | string; // Allow any game name
+  gameType?: "ludo" | "chess" | "snakes" | string; // Game type identifier
   code: string;
   kind: "private" | "quick";
   players: number;
@@ -152,12 +153,14 @@ export type Standing = { seat: number; name: string; place: number; forfeited: b
 
 export type MatchState = {
   roomCode: string;
+  gameType?: "ludo" | "chess" | "snakes" | string; // Game type for this match
   status: "waiting" | "playing" | "completed";
   mode: RoomMode;
   stake?: number;
   maxPlayers?: number;
   seats: number[];
   currentSeat: number;
+  // Ludo-specific (for backward compatibility, will be in gameState in future)
   die: number | null;
   sixStreak: number;
   pieces: number[][];
@@ -165,6 +168,10 @@ export type MatchState = {
   players: Record<number, PlayerInfo>;
   /** Staked tables only. */
   escrow?: EscrowSnapshot;
+  /** Game-specific state for extensibility */
+  gameState?: {
+    [key: string]: any;
+  };
 };
 
 type Listener = (data: any) => void;

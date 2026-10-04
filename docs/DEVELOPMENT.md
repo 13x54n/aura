@@ -4,9 +4,9 @@
 
 This doc gets you from a fresh checkout to playing a **Ludo room on your phone**.
 
-> **Do I need a server?** Only for rooms. **Free Play** runs entirely in the app.
-> **Create private**, **Join with code** and **Quick match** all need the **match server** (`server/match-server.mjs`).
-> Until it's hosted, it runs on your Mac, and your phone must be on the **same Wi-Fi**.
+> **Do I need a server?** Only for Ludo rooms. **Free Play** runs entirely in the app.
+> **Create private**, **Join with code** and **Quick match** need the **Ludo match server** (`server/match-server.mjs`).
+> It is its own process. Aura does not start or stop it. Until it's hosted, it runs on your Mac, and your phone must be on the **same Wi-Fi**.
 
 | Feature | Needs match server? |
 |---|---|
@@ -16,22 +16,25 @@ This doc gets you from a fresh checkout to playing a **Ludo room on your phone**
 
 ---
 
-## 1. Quick start (one command)
+## 1. Start (two terminals)
+
+**Terminal A: the Ludo match server**
 
 ```bash
 cd ~/aura/mobile
-npm run dev
+npm run match-server          # installs server deps if needed, then runs node ../server/match-server.mjs
 ```
 
-This starts the match server on port `3001` together with `expo start -c`, and sets `EXPO_PUBLIC_MATCH_SERVER_URL` to your Mac's network address.
-Scan the QR code with **Expo Go** on your phone. Then tap **Ludo**. You should land on the **Ludo hub**.
+Leave this running. `Ctrl+C` in Expo does not stop it. Port `3001`. Override it with `PORT=4000 npm run match-server`. If the port is taken, the process exits. Run `lsof -i :3001` to see what's using it. Health check: `curl http://$(ipconfig getifaddr en0):3001/health` should return `"name":"ludo-match-server"`.
 
-The first run installs the match server's own dependency (`ws`) into `server/node_modules`.
-Press `Ctrl+C` once to stop both the server and Expo.
+**Terminal B: Expo**
 
-- To force an address, run `MATCH_HOST=192.168.1.20 npm run dev`.
-- To use another port, run `PORT=4000 npm run dev`.
-- If the port is taken, the script says so and exits. Run `lsof -i :3001` to see what's using it.
+```bash
+cd ~/aura/mobile
+npm run dev                   # expo start -c only
+```
+
+Scan the QR code with **Expo Go** on your phone. Then tap **Ludo**. You should land on the **Ludo hub**, and the pill should say connected. The app finds the server from Expo's LAN host on port `3001` (the address in a "Can't reach match server" log). Set `EXPO_PUBLIC_MATCH_SERVER_URL` in the shell or `mobile/.env` only when you need to pin a different address.
 
 ---
 
@@ -52,19 +55,11 @@ cd ~/aura/mobile
 npm install
 ```
 
-The match server has its own `server/package.json` with `ws` as its only dependency.
-`npm run dev` and `npm run match-server` both install it automatically. To install it by hand, run `npm install --prefix ~/aura/server`.
+The Ludo server has its own `server/package.json` (`ludo-match-server`) with `ws` as its only dependency.
+`npm run match-server` installs it automatically. To install it by hand, run `npm install --prefix ~/aura/server`.
 
-## 4. Manual start (two terminals)
+## 4. Ludo server settings
 
-**Terminal A: the match server**
-
-```bash
-cd ~/aura/mobile
-npm run match-server          # installs server deps if needed, then runs node ../server/match-server.mjs
-```
-
-- Port: `3001`. Override it with `PORT=4000 npm run match-server`.
 - It listens on `0.0.0.0`, meaning every network interface, so your phone can reach it at the Mac's network address.
 - Turn clock: 20 seconds by default (one clock covers the roll and the move). Override it with `TURN_MS=10000`.
 - Reconnect grace: 30 seconds by default. Override it with `GRACE_MS=10000`, which is handy for testing drops quickly.
@@ -74,12 +69,7 @@ npm run match-server          # installs server deps if needed, then runs node .
 - `ESCROW_LIVE=1` allows real stakes. Leave it unset for now, which forces every stake to 0 on the server. Don't set it until gate 3 passes.
 - Stakes are forced to 0 on the server until escrow ships, so every room is a "Friendly · no stake" table.
 
-**Terminal B: Expo**
-
-```bash
-cd ~/aura/mobile
-npx expo start -c             # -c clears the Metro cache
-```
+`npm run dev` is `expo start -c`. `npx expo start -c` is the same app process without the reminder line.
 
 ### How the app finds the server
 
@@ -126,11 +116,11 @@ This is a stopgap until the match server is hosted on Fly or Railway. A Cloudfla
 2. In a second terminal: `cloudflared tunnel --url http://localhost:3001`. It prints `https://<random>.trycloudflare.com`. Keep it running.
 3. Check it: open `https://<random>.trycloudflare.com/health` in the phone's browser. It should return `"status":"healthy"`. If a brand-new hostname doesn't resolve, toggle Airplane mode and try again.
 4. Put the `wss://` form in `mobile/.env`: `EXPO_PUBLIC_MATCH_SERVER_URL=wss://<random>.trycloudflare.com`, with no port.
-5. Restart Expo with the cache cleared: `npx expo start -c`, then reload. **Don't use `npm run dev` here.** It starts its own match server on 3001, which clashes with step 1's, and if that server exits it takes Expo down with it. If you'd rather use `npm run dev`, skip step 1 and let it start the server the app. The hub should say "Connected to match server".
+5. Restart Expo with the cache cleared: `npm run dev` or `npx expo start -c`, then reload. Leave the Ludo server from step 1 running. The hub should say "Connected to match server".
 
 Caveats:
 - **The URL changes every time `cloudflared` restarts**, so repeat steps 3 to 5 each time.
-- **`npm run dev` respects `.env`** (as of `8fe2e7f`). It picks the match URL from the shell env first, then `mobile/.env`, then the LAN address, and prints which one it used along with the `/health` link. `npx expo start -c` also works.
+- **`npm run dev` does not set the match URL.** The client uses `EXPO_PUBLIC_MATCH_SERVER_URL` from the shell or `mobile/.env` when that is set, otherwise Expo's LAN host on port 3001.
 - Anyone with the URL can reach the server. That's fine for friendly tables. Don't point a real-money settle key at a quick tunnel.
 
 ## 6. Test a 2p / 3p / 4p room on one Mac

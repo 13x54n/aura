@@ -50,17 +50,17 @@ flowchart TD
 ## 2. Match Server Quick Start
 
 ### Running the Server
-The match server is a lightweight standalone Node.js process using `ws`:
+The Ludo match server is its own Node.js process (`ws`). Aura's `npm run dev` does not start or stop it.
 
 ```bash
-# From workspace root
+cd mobile
 npm run match-server
 
-# Or directly with node:
+# Or directly:
 node server/match-server.mjs
 ```
 
-The server binds to port **3001** by default (configurable via `PORT` environment variable).
+The server binds to port **3001** by default (configurable via `PORT` environment variable) and listens on `0.0.0.0`.
 
 ### Health Check
 You can verify the server is running by querying its HTTP endpoint:
@@ -72,7 +72,7 @@ curl http://localhost:3001/
 **Response:**
 ```json
 {
-  "name": "aura-match-server",
+  "name": "ludo-match-server",
   "status": "healthy",
   "roomsCount": 0,
   "queuedRandom": 0

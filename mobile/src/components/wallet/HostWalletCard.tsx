@@ -8,9 +8,6 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useHostBalances } from "../../wallet/useHostBalances";
 import { Big, Glass, Label, Muted, PrimaryButton } from "../../screens/ludo/ludoUi";
 
-/** Withdraw from escrow ships with staked rooms; until then it's dimmed and explains. */
-const STAKED_ROOMS_LIVE = false;
-
 const agoLabel = (at: number) => {
   const m = Math.floor((Date.now() - at) / 60_000);
   return m < 1 ? "<1m ago" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
@@ -137,16 +134,10 @@ export function HostWalletCard({
                   onPress={() =>
                     Alert.alert(
                       "Withdraw",
-                      STAKED_ROOMS_LIVE
-                        ? "Withdraw your escrowed winnings."
-                        : "Your USDC already sits in your own wallet. Withdrawing winnings from escrow goes live with staked rooms."
+                      "Winnings from a staked match are paid back to this wallet. There is no separate balance to withdraw."
                     )
                   }
-                  style={({ pressed }) => [
-                    styles.glassBtn,
-                    !STAKED_ROOMS_LIVE && styles.dimmed,
-                    pressed && { opacity: 0.7 },
-                  ]}
+                  style={({ pressed }) => [styles.glassBtn, pressed && { opacity: 0.7 }]}
                 >
                   <Icon name="arrow-top-right" size={17} color={aura.text} />
                   <Text style={styles.glassBtnText}>Withdraw</Text>
@@ -184,7 +175,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: aura.glassBorder, minHeight: 48,
   },
   glassBtnText: { color: aura.text, fontWeight: "800" },
-  dimmed: { opacity: 0.45 },
   errRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   updated: { fontSize: 12, marginTop: -2, marginBottom: 8 },
 });

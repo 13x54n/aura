@@ -950,6 +950,19 @@ class LudoRoom {
 
   /** Friendly: Math.random. Staked: derived from the committed seed + roll number (replayable). */
   rollDie() {
+    // TEST_DICE is a comma-separated script for friendly-room tests only.
+    // Staked dice stay commit-reveal and never read it.
+    if (!this.esc && process.env.TEST_DICE) {
+      const script = String(process.env.TEST_DICE)
+        .split(",")
+        .map((n) => Number(n.trim()))
+        .filter((n) => n >= 1 && n <= 6);
+      if (script.length) {
+        const v = script[this.rollCount % script.length];
+        this.rollCount++;
+        return v;
+      }
+    }
     if (!this.esc) return 1 + Math.floor(Math.random() * 6);
     // Staked: the dice MUST mix the committed seed with the lock-time slot hash. No fallback.
     if (!this.esc.seed || !this.esc.slotHash || this.esc.slotHash.length !== 32) {

@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { aura } from "../../theme/tokens";
-import { GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SeatGrid, SummaryRow } from "./ludoUi";
+import { Big, GhostButton, Glass, Label, LudoScreen, Muted, PrimaryButton, SeatGrid, SummaryRow } from "./ludoUi";
 import { modeFor, payoutFor, usePlayerName } from "./ludoShared";
 import { matchClient, MatchState, REFUND_REASON_TEXT, RefundNotice } from "../../match/MatchClient";
 import { DepositSheet } from "./DepositSheet";
@@ -123,6 +123,8 @@ export function LudoLobbyScreen() {
   const seats = room?.seats ?? [];
   const seated = room ? Object.keys(room.players ?? {}).length : 0;
   const total = room?.maxPlayers ?? players;
+  const prize = payoutFor(stake, total);
+  const winnerTakes = esc?.payout ?? prize.payout;
 
   if (phase === "refunded" && refund) {
     const why = REFUND_REASON_TEXT[refund.reason] ?? "table closed";
@@ -218,10 +220,23 @@ export function LudoLobbyScreen() {
         </>
       }
     >
-      <Glass>
+      <Glass style={{ gap: 8 }}>
         <Label>Invite code</Label>
-        <View style={styles.codeRow}>
-          <Text style={styles.code}>{roomCode}</Text>
+        <Text style={styles.code}>{roomCode}</Text>
+        <Big style={{ fontSize: 22 }}>{stake > 0 ? `Winner takes ${winnerTakes} USDC` : "Friendly"}</Big>
+        <Muted>
+          {stake > 0
+            ? `${stake} USDC each · pot ${esc?.pot ?? prize.pot} USDC · 5% fee`
+            : "No stake. The match starts when every seat is filled."}
+        </Muted>
+        {stake > 0 ? (
+          <>
+            <SummaryRow k="Your stake" v={`${stake} USDC`} />
+            <SummaryRow k="Fee (5%)" v={`${esc?.fee ?? prize.fee} USDC`} />
+            <SummaryRow k="Paid to winner" v={`${winnerTakes} USDC`} strong />
+          </>
+        ) : null}
+        <View style={styles.codeActions}>
           <Pressable
             hitSlop={8}
             onPress={async () => {
@@ -229,9 +244,25 @@ export function LudoLobbyScreen() {
               setCopied(true);
             }}
             style={styles.copy}
+            accessibilityRole="button"
           >
             <Icon name={copied ? "check" : "content-copy"} size={18} color={aura.purpleBright} />
-            <Text style={styles.copyText}>{copied ? "Copied" : "Copy"}</Text>
+            <Text style={styles.copyText}>{copied ? "Copied" : "Copy code"}</Text>
+          </Pressable>
+          <Pressable
+            hitSlop={8}
+            onPress={() =>
+              Share.share({
+                message: stake > 0
+                  ? `Join my Ludo table on Aura. Code ${roomCode}. ${stake} USDC each, winner takes ${winnerTakes} USDC.`
+                  : `Join my Ludo table on Aura. Code ${roomCode}. Friendly, no stake.`,
+              }).catch(() => {})
+            }
+            style={styles.copy}
+            accessibilityRole="button"
+          >
+            <Icon name="share-variant" size={18} color={aura.purpleBright} />
+            <Text style={styles.copyText}>Share</Text>
           </Pressable>
         </View>
       </Glass>
@@ -245,22 +276,15 @@ export function LudoLobbyScreen() {
           players={room.players ?? {}}
           mySeat={mySeat}
           escrowSeats={esc && esc.phase !== "filling" ? esc.seats : undefined}
-          onShareCode={() => Share.share({ message: `Join my Ludo table on Aura with code ${roomCode}` }).catch(() => {})}
+          onShareCode={() =>
+            Share.share({
+              message: stake > 0
+                ? `Join my Ludo table on Aura. Code ${roomCode}. ${stake} USDC each.`
+                : `Join my Ludo table on Aura with code ${roomCode}`,
+            }).catch(() => {})
+          }
         />
       )}
-
-      <Glass>
-        {stake > 0 ? (
-          <>
-            <SummaryRow k="Stake per player" v={`${stake} USDC`} />
-            <SummaryRow k="Pot" v={`${esc?.pot ?? payoutFor(stake, total).pot} USDC`} />
-            <SummaryRow k="Fee (5%)" v={`${esc?.fee ?? payoutFor(stake, total).fee} USDC`} />
-            <SummaryRow k="Winner takes" v={`${esc?.payout ?? payoutFor(stake, total).payout} USDC`} strong />
-          </>
-        ) : (
-          <SummaryRow k="Stake" v="Friendly · no stake" strong />
-        )}
-      </Glass>
       {esc?.phase === "depositing" && secsLeft != null ? (
         <Muted style={{ fontSize: 12, textAlign: "center" }}>
           {unfunded > 0
@@ -287,8 +311,8 @@ export function LudoLobbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  codeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
-  code: { color: aura.text, fontSize: 28, fontWeight: "800", letterSpacing: 6 },
+  code: { color: aura.text, fontSize: 32, fontWeight: "800", letterSpacing: 6 },
+  codeActions: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 4 },
   copy: { flexDirection: "row", alignItems: "center", gap: 6 },
   copyText: { color: aura.purpleBright, fontWeight: "700" },
   title: { color: aura.text, fontSize: 18, fontWeight: "800" },

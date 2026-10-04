@@ -12,13 +12,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * 2. The Expo dev server's LAN host (so a real phone in Expo Go reaches the Mac)
  * 3. localhost / 10.0.2.2 (simulator / emulator)
  */
-export function resolveMatchServerUrl(): string {
-  const env = process.env.EXPO_PUBLIC_MATCH_SERVER_URL;
-  if (env) return env;
+export function resolveFallbackLanUrl(): string | null {
   const hostUri: string | undefined =
     (Constants.expoConfig as any)?.hostUri ?? (Constants as any).expoGoConfig?.debuggerHost;
   const lan = hostUri?.split(":")[0];
   if (lan && lan !== "localhost" && lan !== "127.0.0.1") return `ws://${lan}:3001`;
+  return null;
+}
+
+export function resolveMatchServerUrl(): string {
+  const env = process.env.EXPO_PUBLIC_MATCH_SERVER_URL;
+  if (env && !env.includes("eds-hans-greeting-por")) return env;
+  const lan = resolveFallbackLanUrl();
+  if (lan) return lan;
   const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
   return `ws://${host}:3001`;
 }
@@ -279,6 +285,25 @@ class MatchClient {
   async connect(customUrl?: string): Promise<boolean> {
     await this.identityReady;
     const url = customUrl || this.serverUrl;
+    const ok = await this.tryConnect(url);
+    if (ok) return true;
+
+    // Resilient fallback: if connecting to a remote wss:// tunnel failed and we have a local LAN address, try LAN!
+    if (!customUrl && url.startsWith("wss://")) {
+      const lanUrl = resolveFallbackLanUrl();
+      if (lanUrl && lanUrl !== url) {
+        console.warn(`[MatchClient] Tunnel ${url} unreachable; falling back to LAN ${lanUrl}`);
+        const lanOk = await this.tryConnect(lanUrl);
+        if (lanOk) {
+          this.serverUrl = lanUrl;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private tryConnect(url: string): Promise<boolean> {
     return new Promise((resolve) => {
       try {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {

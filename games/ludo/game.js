@@ -94,6 +94,27 @@
   var HOME = 150;
   var COLORS = ["#2563EB", "#EAB308", "#16A34A", "#DC2626"];
   var NAMES = ["Blue", "Yellow", "Green", "Red"];
+  /** Status copy: the local player is "You"; everyone else is a seat letter (B/Y/G/R). */
+  function who(seat) {
+    if (seat === HUMAN) return "You";
+    var n = NAMES[seat];
+    return n ? n.charAt(0) : "Opponent";
+  }
+  /** Paid matches only: stake chip beside the local die. Free Play stays die-only. */
+  function showStake(amount) {
+    var existing = document.querySelectorAll(".chip.stake");
+    for (var i = 0; i < existing.length; i++) existing[i].remove();
+    var n = Number(amount);
+    if (!n || n <= 0) return;
+    var box = seatById[HUMAN];
+    if (!box) return;
+    var row = box.el.querySelector(".dock-row");
+    if (!row) return;
+    var chip = document.createElement("span");
+    chip.className = "chip stake";
+    chip.textContent = n + " USDC";
+    row.appendChild(chip);
+  }
   var HUMAN = 3;
   /** Screen / board clockwise after VIEW_ROT: BL→TL→TR→BR = Red→Green→Blue→Yellow. */
   var NEXT_CW = { 3: 2, 2: 0, 0: 1, 1: 3 };
@@ -659,13 +680,13 @@
       );
     });
     if (state.winner != null) {
-      setStatus(NAMES[state.winner] + (state.winner === HUMAN ? " (You) wins!" : " wins!"));
+      setStatus(state.winner === HUMAN ? "You win" : who(state.winner) + " wins");
       return;
     }
     if (state.turn === HUMAN) {
       setStatus(state.phase === "move" ? "Tap a highlighted piece" : "Your turn · tap the die");
     } else {
-      setStatus(NAMES[state.turn] + " · rolling from their corner");
+      setStatus(who(state.turn) + "'s turn");
     }
     paintTimers();
   }
@@ -702,7 +723,7 @@
     if (captured > 0) sfxCapture();
     else sfxLand();
     if (fromYard && move.to === 0) {
-      setStatus(NAMES[move.seat] + " · yard → start cell");
+      setStatus(who(move.seat) + " · yard to start");
     }
     render();
     if (checkWin(move.seat)) {
@@ -716,7 +737,7 @@
           window.AuraHost.matchFinished({
             won: move.seat === HUMAN,
             winnerSeat: move.seat,
-            winnerName: NAMES[move.seat],
+            winnerName: move.seat === HUMAN ? "You" : "Opponent",
           });
         }
       }, 1400);
@@ -964,7 +985,7 @@
             }
           }
         } else {
-          setStatus(NAMES[seat] + " rolled " + value);
+          setStatus(who(seat) + " rolled " + value);
           render();
         }
       }
@@ -1021,7 +1042,7 @@
             sfxLand();
           }
           if (fromYard && move.to === 0) {
-            setStatus(NAMES[move.seat] + " · yard → start cell");
+            setStatus(who(move.seat) + " · yard to start");
           }
           render();
         }, LAND_MS);
@@ -1041,9 +1062,9 @@
     updateTurnBanner();
     render();
     if (payload.extraTurn) {
-      setStatus(state.turn === HUMAN ? "Bonus roll! Tap the die" : NAMES[state.turn] + " gets a bonus roll!");
+      setStatus(state.turn === HUMAN ? "Bonus roll · tap the die" : who(state.turn) + " gets a bonus roll");
     } else {
-      setStatus(state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn");
+      setStatus(state.turn === HUMAN ? "Your turn · tap the die" : who(state.turn) + "'s turn");
     }
   }
 
@@ -1054,11 +1075,11 @@
     stopTurnTimer();
     updateTurnBanner();
     if (payload.winner === HUMAN) {
-      setStatus("🏆 You win! All tokens home");
+      setStatus("You win · all tokens home");
     } else if (payload.reason === "opponent_disconnected") {
-      setStatus("Opponent disconnected · You win!");
+      setStatus("Opponent left · you win");
     } else {
-      setStatus((NAMES[payload.winner] || "Opponent") + " wins!");
+      setStatus((payload.winner === HUMAN ? "You" : who(payload.winner)) + " wins");
     }
     render();
     // Hand off to host payout after the win lands (same 1.4s as local wins).
@@ -1067,7 +1088,7 @@
         window.AuraHost.matchFinished({
           won: payload.winner === HUMAN,
           winnerSeat: payload.winner,
-          winnerName: NAMES[payload.winner] || "Opponent",
+          winnerName: payload.winner === HUMAN ? "You" : "Opponent",
           reason: payload.reason || null,
         });
       }
@@ -1091,14 +1112,14 @@
         // Seat held for 30s; the server clock plays its turns meanwhile.
         reconnecting[payload.seat] = payload.graceUntil || (Date.now() + (payload.graceMs || 30000));
         paintReconnect();
-        setStatus((NAMES[payload.seat] || "A player") + " is reconnecting…");
+        setStatus(who(payload.seat) + " is reconnecting…");
       } else {
         // Forfeited: seat leaves the rotation — show its corner as empty.
         delete reconnecting[payload.seat];
         activeSeats = activeSeats.filter(function (s) { return s !== payload.seat; });
         setupSeats(HUMAN, activeSeats);
         paintReconnect();
-        setStatus((NAMES[payload.seat] || "A player") + " left the table");
+        setStatus(who(payload.seat) + " left the table");
       }
       render();
     } else if (event === "player.joined") {
@@ -1106,7 +1127,7 @@
       var wasAway = reconnecting[payload.seat] != null;
       delete reconnecting[payload.seat];
       paintReconnect();
-      if (wasAway) setStatus((NAMES[payload.seat] || "A player") + " is back");
+      if (wasAway) setStatus(who(payload.seat) + " is back");
     } else if (event === "match.resync") {
       // We reconnected: rebuild the whole board from the server snapshot.
       initMultiplayer({
@@ -1174,11 +1195,12 @@
       if (data.state.status === "waiting") {
         setStatus("Waiting for opponent to join…");
       } else {
-        setStatus("Multiplayer match · " + (state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn"));
+        setStatus(state.turn === HUMAN ? "Your turn · tap the die" : who(state.turn) + "'s turn");
       }
     } else {
-      setStatus("Multiplayer match · " + (state.turn === HUMAN ? "Your turn · tap the die" : NAMES[state.turn] + "'s turn"));
+      setStatus(state.turn === HUMAN ? "Your turn · tap the die" : who(state.turn) + "'s turn");
     }
+    showStake(data.state && data.state.stake);
     // Server clock: restart the corner timer from the snapshot's time left.
     syncDeadline(data.state ? data.state.turnMsLeft : null);
     if (data.state && data.state.status === "playing") startTurnTimer();

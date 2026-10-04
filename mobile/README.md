@@ -113,7 +113,7 @@ aura/
         CreateRoomScreen.tsx
         JoinRoomScreen.tsx
         RandomMatchScreen.tsx
-        EscrowScreen.tsx   # skill-escrow stub
+        LudoLobbyScreen.tsx  # seats, then DepositSheet locks USDC
     utils/                 # MWA authorize + mobile wallet hooks
 ```
 

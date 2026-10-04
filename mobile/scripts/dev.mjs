@@ -40,6 +40,45 @@ if (!existsSync(join(serverDir, "node_modules", "ws"))) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+/**
+ * Staked tables only when the operator opted in AND both a dedicated RPC and the
+ * settle key are present. Otherwise the child is forced friendly (ESCROW_LIVE unset).
+ */
+function rpcBlocked(rpc) {
+  if (!rpc) return "SOLANA_RPC is not set";
+  const mod = join(serverDir, "escrow.mjs");
+  const r = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", `import { rpcProblem } from ${JSON.stringify(mod)}; const p = rpcProblem(process.env.SOLANA_RPC); if (p) { console.log(p); process.exit(2); }`],
+    { env: { ...process.env, SOLANA_RPC: rpc }, encoding: "utf8" }
+  );
+  if (r.status === 2) return (r.stdout || "SOLANA_RPC refused").trim();
+  if (r.status !== 0) return (r.stderr || "could not check SOLANA_RPC").trim();
+  return null;
+}
+
+function escrowChildEnv(base) {
+  const env = { ...base };
+  const live = env.ESCROW_LIVE === "1";
+  const key = env.ESCROW_AUTHORITY_KEYPAIR || "";
+  if (live) {
+    const why = !key
+      ? "ESCROW_AUTHORITY_KEYPAIR is not set"
+      : !existsSync(key)
+        ? "ESCROW_AUTHORITY_KEYPAIR file is missing"
+        : rpcBlocked(env.SOLANA_RPC || "");
+    if (!why) {
+      console.log("[dev] Staked tables on (ESCROW_LIVE=1).");
+      return env;
+    }
+    console.warn(`[dev] ESCROW_LIVE=1 ignored (${why}). Tables stay friendly.`);
+  } else {
+    console.log("[dev] Friendly tables only. Export ESCROW_LIVE=1 with SOLANA_RPC and ESCROW_AUTHORITY_KEYPAIR for USDC stakes.");
+  }
+  delete env.ESCROW_LIVE;
+  return env;
+}
+
 const ip = lanIp();
 /** EXPO_PUBLIC_MATCH_SERVER_URL from mobile/.env (e.g. a wss:// tunnel), if set. */
 function envFileMatchUrl() {
@@ -74,7 +113,7 @@ function tag(stream, label) {
 
 const srv = spawn(process.execPath, ["match-server.mjs"], {
   cwd: serverDir,
-  env: { ...process.env, PORT },
+  env: escrowChildEnv({ ...process.env, PORT }),
   stdio: ["ignore", "pipe", "pipe"],
 });
 tag(srv.stdout, "[server]");

@@ -79,9 +79,9 @@ export function LudoResultScreen() {
                   Share.share({
                     message: p.won
                       ? stake > 0
-                        ? `I just won ${payout} USDC in Ludo on Aura 🎲`
-                        : `I won a friendly Ludo match on Aura 🎲`
-                      : `Just played Ludo on Aura 🎲`,
+                        ? `I won ${payout} USDC in a Ludo match on Aura.`
+                        : `I won a friendly Ludo match on Aura.`
+                      : `Just played Ludo on Aura.`,
                   }).catch(() => {})
                 }
               />
@@ -94,15 +94,18 @@ export function LudoResultScreen() {
       }
     >
       <Glass style={styles.hero}>
-        <Icon name={p.won ? "trophy" : "dice-multiple"} size={48} color={p.won ? "#FACC15" : aura.purpleBright} />
+        <Icon name={p.won ? "check-decagram" : "dice-multiple"} size={48} color={aura.purpleBright} />
         {stake > 0 ? (
           p.won ? (
-            <Big>You won {payout} USDC</Big>
+            <>
+              <Big>You won</Big>
+              <Muted>{payout} USDC paid to your wallet</Muted>
+            </>
           ) : (
             <>
-              <Big>Better luck next time</Big>
+              <Big>Match over</Big>
               <Muted>
-                {p.winnerName ?? "Opponent"} won · you staked {stake} USDC
+                {p.winnerName ?? "Opponent"} won {payout} USDC · you staked {stake} USDC
               </Muted>
             </>
           )

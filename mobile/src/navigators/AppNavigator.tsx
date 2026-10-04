@@ -40,7 +40,6 @@ type RootStackParamList = {
     players?: number;
     escrowLocked?: boolean;
   };
-  Escrow: { mode: "create" | "join" | "random"; roomCode: string; stake?: string; players?: number };
 };
 
 declare global {
@@ -114,11 +113,6 @@ const AppStack = () => {
           // room board always asks "Leave match?" before forfeiting.
           gestureEnabled: false,
         }}
-      />
-      <Stack.Screen
-        name="Escrow"
-        component={Screens.EscrowScreen}
-        options={{ title: "Skill match escrow" }}
       />
     </Stack.Navigator>
   );

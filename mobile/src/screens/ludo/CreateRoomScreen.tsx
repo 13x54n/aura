@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
+import { Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Glass, Label, LudoScreen, Muted, PrimaryButton, Segmented, StakeChips, SummaryRow } from "./ludoUi";
+import { Glass, Label, LudoScreen, Muted, PrimaryButton, Segmented, StakeChips, SummaryRow, s } from "./ludoUi";
 import { newTableCode, payoutFor } from "./ludoShared";
 
 /** Create a private table: players · stake (0 USDC friendly until escrow) · real lobby. */
@@ -24,6 +25,21 @@ export function CreateRoomScreen() {
         />
       }
     >
+      <Glass style={{ gap: 10 }}>
+        <Label>Mode</Label>
+        <View style={s.row}>
+          <View style={[s.chip, s.chipOn]} accessibilityRole="text" accessibilityState={{ selected: true }}>
+            <Text style={[s.chipText, s.chipTextOn]}>Classic</Text>
+          </View>
+          <View style={[s.chip, s.disabled]} accessibilityState={{ disabled: true }}>
+            <Text style={s.chipText}>Rush · soon</Text>
+          </View>
+          <View style={[s.chip, s.disabled]} accessibilityState={{ disabled: true }}>
+            <Text style={s.chipText}>Tournament · soon</Text>
+          </View>
+        </View>
+        <Muted style={{ fontSize: 12 }}>Classic is the live ruleset. Rush and Tournament aren't playable yet.</Muted>
+      </Glass>
       <Glass style={{ gap: 10 }}>
         <Label>Players</Label>
         <Segmented options={[2, 3, 4] as const} value={players} onChange={setPlayers} format={(v) => `${v} players`} />

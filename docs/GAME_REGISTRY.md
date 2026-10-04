@@ -155,10 +155,6 @@ Place required assets:
 - `games/mygame/cover.png` (portrait, 2:3 ratio recommended)
 - `games/mygame/manifest.json`
 
-### 8. Update Match Server (if multiplayer)
-
-If your game supports multiplayer, extend the match server at `server/match-server.mjs` to handle your game's specific rules.
-
 ## Current Games
 
 ### Ludo
@@ -166,21 +162,21 @@ If your game supports multiplayer, extend the match server at `server/match-serv
 - **Hub**: Custom LudoHubScreen with Create/Join/Quick match flows
 - **Multiplayer**: 2p, 3p, 4p rooms
 - **Escrow**: Enabled (1, 3, 5, 10 USDC)
-- **Match Server**: Full implementation
+- **Match Server**: Standalone Ludo server (`server/match-server.mjs`), not an Aura process
 
 ### Chess
 - **Status**: Playable (Free Play only)
 - **Hub**: Generic PlayableHubScreen
-- **Multiplayer**: Disabled (planned)
-- **Escrow**: Disabled (planned)
-- **Match Server**: Not yet implemented
+- **Multiplayer**: Off (Free Play only)
+- **Escrow**: Off
+- **Match Server**: None. The Ludo server does not host Chess.
 
 ### Snakes & Ladders
 - **Status**: Playable (Free Play only)
 - **Hub**: Generic PlayableHubScreen
-- **Multiplayer**: Disabled (planned)
-- **Escrow**: Disabled (planned)
-- **Match Server**: Not yet implemented
+- **Multiplayer**: Off (Free Play only)
+- **Escrow**: Off
+- **Match Server**: None. The Ludo server does not host Snakes.
 
 ## API Reference
 

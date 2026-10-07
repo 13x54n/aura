@@ -11,7 +11,7 @@ export function FriendsScreen() {
     <View style={[styles.root, { paddingTop: insets.top + 52 }]}>
       <EmptyShelf
         title="No friends yet"
-        body="Invite friends to skill matches once realtime rooms land. Empty on purpose — not broken."
+        body="Friends land later. This shelf is empty on purpose."
       />
     </View>
   );

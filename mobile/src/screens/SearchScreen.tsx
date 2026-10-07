@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GameListRow } from "../components/store/GameListRow";
 import { EmptyShelf } from "../components/store/EmptyShelf";
 import { GlassPanel } from "../components/store/GlassPanel";
-import { AURA_GAMES, launchGame } from "../data/catalog";
+import { AURA_GAMES, launchGame, remoteImage } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 export function SearchScreen() {
@@ -17,11 +17,11 @@ export function SearchScreen() {
     const q = query.trim().toLowerCase();
     if (!q) return AURA_GAMES;
     return AURA_GAMES.filter(
-      (g) =>
-        g.title.toLowerCase().includes(q) ||
-        g.subtitle.toLowerCase().includes(q)
+      (g) => g.title.toLowerCase().includes(q) || g.subtitle.toLowerCase().includes(q)
     );
   }, [query]);
+
+  const q = query.trim();
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 52 }]}>
@@ -41,8 +41,12 @@ export function SearchScreen() {
       </GlassPanel>
       {results.length === 0 ? (
         <EmptyShelf
-          title="No matches"
-          body={`Nothing named “${query.trim()}” yet. Real catalog: Ludo, Chess, Snakes & Ladders.`}
+          title={q ? "No matches" : "No games yet"}
+          body={
+            q
+              ? `Nothing named “${q}” in the catalog.`
+              : "Mini-games will appear here when they are published."
+          }
         />
       ) : (
         results.map((g) => (
@@ -51,8 +55,8 @@ export function SearchScreen() {
             title={g.title}
             subtitle={g.subtitle}
             accent={g.accent}
-            icon={g.icon}
-            onPress={() => launchGame(navigation, g.id, g.title)}
+            icon={remoteImage(g.iconUrl)}
+            onPress={() => launchGame(navigation, g)}
           />
         ))
       )}
@@ -68,10 +72,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
-  searchGlass: {
-    marginHorizontal: 16,
-    borderRadius: 18,
-    marginBottom: 16,
-  },
+  searchGlass: { marginHorizontal: 16, marginBottom: 12, borderRadius: 16 },
   search: { backgroundColor: "transparent", elevation: 0 },
 });

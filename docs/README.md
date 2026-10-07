@@ -1,21 +1,18 @@
 # Aura documentation
 
-Deep product and platform docs. **Build priority:** three playable boards first; portal/admin is phase 2.
+Aura is the Solana Seeker game store. This repo is the platform. Mini-games are loaded from a URL and are not developed here.
 
 | Doc | What it covers |
 |-----|----------------|
-| [PRODUCT.md](./PRODUCT.md) | Vision, IA, catalog, kill rules, north star |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | RN host, WebView mini-apps, Host SDK bridge, trust zones, **game independence** |
-| [GAME_REGISTRY.md](./GAME_REGISTRY.md) | **Pluggable mini-app system, adding new games independently** |
+| [PRODUCT.md](./PRODUCT.md) | Vision, IA, catalog, kill rules |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | RN host, WebView mini-games, Host SDK, trust zones |
+| [GAME_REGISTRY.md](./GAME_REGISTRY.md) | Store listings (`entryUrl`), not in-repo games |
 | [HOST_SDK.md](./HOST_SDK.md) | Live Host SDK methods (v0.1.0) |
-| [GAMES.md](./GAMES.md) | Ludo · Chess · Snakes packages, pack pipeline, Free Play |
+| [GAMES.md](./GAMES.md) | How a mini-game is listed and mounted |
 | [WALLET_AND_ESCROW.md](./WALLET_AND_ESCROW.md) | Seed Vault / Phantom, host-only escrow |
 | [OPS_PHASE2.md](./OPS_PHASE2.md) | Developer portal + admin console (later) |
-| [LUDO_MULTIPLAYER_ADR.md](./LUDO_MULTIPLAYER_ADR.md) | Rooms, Colyseus, stake validate, H3 v1.1, build sequence |
-| [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) | Canonical Ludo Rule Book v1.0 + RuleProfile + acceptance |
-| [LUDO_UX_REFS.md](./LUDO_UX_REFS.md) | Board chrome, mode sheet, rooms lobby (Lex refs) |
-| [../RESEARCH.md](../RESEARCH.md) | Competitors, ADRs, OSS starters, visual locks |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | Run the Expo store locally |
+| [../RESEARCH.md](../RESEARCH.md) | Earlier research notes (not the current build) |
 
 Path on Mac: `/Users/lex-work/aura`  
 Repo: **https://github.com/13x54n/aura** (private)
-- [DEVELOPMENT.md](./DEVELOPMENT.md): local setup, match server, rooms on device, troubleshooting

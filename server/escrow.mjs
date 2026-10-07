@@ -1,5 +1,5 @@
 /**
- * aura_escrow client for the match server (devnet).
+ * aura_escrow client (devnet).
  * - Instruction builders (hand-encoded Anchor layout; IDL at escrow/target/idl/aura_escrow.json)
  * - EscrowService: init_room / read room / settle / refund, signed by the settle authority.
  * The server never custodies funds: the vault is the Room PDA's token account and the

@@ -28,7 +28,7 @@ Phantom is the v1 wallet. Seed Vault is the Seeker upgrade once a dev client exi
 | `wallet.getAddress` (triggers host Connect) | Host bridge |
 | Escrow lock / payout UI | Host screens (not bridge) |
 | `escrow.status` | Host bridge (read-only) |
-| `match.create` / `match.get` / `match.command` | Host `MatchService` stub → remote later |
+| `match.create` / `match.get` / `match.command` | Declared on the Host SDK; not implemented on the host yet |
 | Board render | Mini-app |
 
 ---

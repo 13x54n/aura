@@ -1,34 +1,19 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
-  Animated, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
+  Animated, Platform, RefreshControl, ScrollView, StyleSheet, View,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
 import { aura } from "../theme/tokens";
 import { rpcCooldownSecs, useHostBalances } from "../wallet/useHostBalances";
 import { HostWalletCard } from "../components/wallet/HostWalletCard";
-import { AURA_GAMES } from "../data/catalog";
-import { Glass, Label, Muted, PrimaryButton } from "./ludo/ludoUi";
-import { whenLabel } from "./ludo/ludoShared";
-import { HistoryRow } from "../match/MatchClient";
-import { useMatchHistory } from "../match/useMatchHistory";
-
-const FILTERS = ["All", "Ludo", "Chess", "Snakes"] as const;
-type Filter = (typeof FILTERS)[number];
-
-const ICON_BY_GAME: Record<string, any> = Object.fromEntries(
-  AURA_GAMES.map((g) => [g.title.toLowerCase().startsWith("snakes") ? "Snakes" : g.title, g.icon])
-);
+import { GlassPanel } from "../components/store/GlassPanel";
 
 /** Host Wallet tab (replaces Library). Wallet UI is host-only — games never render this. */
 export function WalletScreen() {
   const insets = useSafeAreaInsets();
   const b = useHostBalances();
-  const [filter, setFilter] = useState<Filter>("All");
-  const history = useMatchHistory();
-  const navigation = useNavigation<any>();
   const toast = useRef(new Animated.Value(0)).current;
 
   const [toastText, setToastText] = useState("Copied");
@@ -43,18 +28,6 @@ export function WalletScreen() {
     ]).start();
   };
 
-  const groups = useMemo(() => {
-    // Real server-recorded matches only — never example rows.
-    const rows = history.rows.filter((m) => filter === "All" || m.game === filter);
-    const out: { day: string; rows: HistoryRow[] }[] = [];
-    for (const r of rows) {
-      const day = whenLabel(r.endedAt).split(" · ")[0];
-      const g = out.find((x) => x.day === day);
-      g ? g.rows.push(r) : out.push({ day, rows: [r] });
-    }
-    return out;
-  }, [filter, history.rows]);
-
   return (
     <View style={styles.root}>
       <ScrollView
@@ -67,7 +40,6 @@ export function WalletScreen() {
                 const wait = rpcCooldownSecs();
                 if (wait > 0) showToast(`Network busy · try in ${wait}s`);
                 else b.refresh();
-                history.refresh();
               }}
               tintColor={aura.text}
             />
@@ -78,84 +50,12 @@ export function WalletScreen() {
         {b.connected ? (
           <>
 
-            <View style={styles.head}>
-              <Label>Match history</Label>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {FILTERS.map((f) => (
-                <Pressable
-                  key={f}
-                  onPress={() => setFilter(f)}
-                  style={[styles.filter, filter === f && styles.filterOn]}
-                >
-                  <Text style={[styles.filterText, filter === f && styles.filterTextOn]}>{f}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {groups.length === 0 ? (
-              <Glass style={{ alignItems: "center", gap: 4, paddingVertical: 22 }}>
-                <Icon name="history" size={22} color={aura.textDim} />
-                <Text style={styles.title}>
-                  {history.status === "loading"
-                    ? "Loading matches…"
-                      : filter === "All"
-                        ? "No matches yet"
-                        : `No ${filter} matches yet`}
-                </Text>
-                {history.status === "offline" ? (
-                  <Muted style={{ textAlign: "center" }}>Can't reach the match server. Pull down to retry.</Muted>
-                ) : null}
-                {history.status !== "loading" ? (
-                  <View style={{ alignSelf: "stretch", marginTop: 8 }}>
-                    <PrimaryButton icon="dice-5" label="Play Ludo" onPress={() => navigation.navigate("LudoHub")} />
-                  </View>
-                ) : null}
-              </Glass>
-            ) : (
-              groups.map((g) => (
-                <View key={g.day} style={{ gap: 6 }}>
-                  <Text style={styles.day}>{g.day}</Text>
-                  <Glass style={{ paddingVertical: 4 }}>
-                    {g.rows.map((m, i) => (
-                      <Pressable
-                        key={m.id}
-                        disabled={!(m.refundUrl || m.payoutUrl)}
-                        onPress={() => Linking.openURL((m.refundUrl || m.payoutUrl) as string).catch(() => {})}
-                        accessibilityHint={m.refundUrl || m.payoutUrl ? "Opens the transaction in the explorer" : undefined}
-                        style={[styles.row, i > 0 && styles.divider]}
-                      >
-                        {ICON_BY_GAME[m.game] ? (
-                          <Image source={ICON_BY_GAME[m.game]} style={styles.gameIcon} />
-                        ) : (
-                          <View style={styles.gameIcon} />
-                        )}
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.title}>
-                            {m.result === "won" ? "Won" : m.result === "refunded" ? "Refunded" : "Lost"} · {m.players}p ·{" "}
-                            {m.stake > 0 ? `${m.stake} USDC stake` : "Friendly · no stake"}
-                          </Text>
-                          <Muted style={{ fontSize: 12 }}>
-                            {m.game} · {m.code}
-                            {whenLabel(m.endedAt).includes(" · ") ? ` · ${whenLabel(m.endedAt).split(" · ")[1]}` : ""}
-                          </Muted>
-                        </View>
-                        {m.result === "refunded" ? (
-                          <Muted style={{ fontSize: 12 }}>{m.stake} USDC back</Muted>
-                        ) : m.stake > 0 ? (
-                          <Text style={[styles.delta, { color: m.delta >= 0 ? "#34D399" : "#F87171" }]}>
-                            {m.delta >= 0 ? "+" : "−"}
-                            {Math.abs(m.delta).toFixed(2)}
-                          </Text>
-                        ) : (
-                          <Muted style={{ fontSize: 12 }}>{m.place ? `#${m.place}` : "—"}</Muted>
-                        )}
-                      </Pressable>
-                    ))}
-                  </Glass>
-                </View>
-              ))
-            )}
+            <Text style={styles.head}>Match history</Text>
+            <GlassPanel style={styles.emptyHistory}>
+              <Icon name="history" size={22} color={aura.textDim} />
+              <Text style={styles.title}>No matches yet</Text>
+              <Text style={styles.muted}>Play history will show here after mini-games are listed.</Text>
+            </GlassPanel>
           </>
         ) : null}
       </ScrollView>
@@ -203,20 +103,10 @@ const styles = StyleSheet.create({
   },
   glassBtnText: { color: aura.text, fontWeight: "800" },
   dimmed: { opacity: 0.45 },
-  head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 2 },
-  filter: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)", borderWidth: StyleSheet.hairlineWidth, borderColor: aura.glassBorder,
-  },
-  filterOn: { backgroundColor: aura.purple, borderColor: aura.purple },
-  filterText: { color: aura.textMuted, fontWeight: "700" },
-  filterTextOn: { color: "#fff" },
-  day: { color: aura.textMuted, fontWeight: "800", fontSize: 12, letterSpacing: 0.4, marginTop: 4 },
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: 11, gap: 10 },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: aura.glassBorder },
-  gameIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.06)" },
+  head: { color: aura.textMuted, fontWeight: "800", fontSize: 12, letterSpacing: 0.4, marginTop: 2 },
+  emptyHistory: { alignItems: "center", gap: 4, paddingVertical: 22, paddingHorizontal: 16, borderRadius: 18 },
   title: { color: aura.text, fontWeight: "700" },
-  delta: { fontWeight: "800", fontSize: 16 },
+  muted: { color: aura.textMuted, textAlign: "center" },
   toast: {
     position: "absolute", alignSelf: "center", flexDirection: "row", gap: 6, alignItems: "center",
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(20,20,28,0.92)",

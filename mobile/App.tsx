@@ -1,9 +1,6 @@
 // Polyfills
 import "./src/polyfills";
 
-// Initialize game registry (register all games)
-import "./src/data/games";
-
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";

@@ -29,9 +29,9 @@ Default Free Play grants (stub allowlist):
 | `storage.save` | Game → host | Persist `{ key, value }` | Game-scoped in-memory stub today |
 | `storage.load` | Game → host | Load by `key` | |
 | `haptics.light` | Game → host | Light haptic | Stub OK |
-| `match.create` | Game → host | Create match snapshot | In-host `MatchService` stub |
-| `match.get` | Game → host | `{ matchId }` → snapshot | |
-| `match.command` | Game → host | `{ matchId, command }` | Commands: `join`, `ready`, `roll`, `move`, `forfeit` |
+| `match.create` | Game → host | Create match snapshot | Not implemented on the host yet (`not_implemented`) |
+| `match.get` | Game → host | `{ matchId }` → snapshot | Not implemented yet |
+| `match.command` | Game → host | `{ matchId, command }` | Not implemented yet |
 | `escrow.status` | Game → host | `{ locked, matchId }` | Read-only; lock/payout stay **host screens** |
 
 Declared but not in default grants yet: `score.submit`.
@@ -50,13 +50,13 @@ Declared but not in default grants yet: `score.submit`.
 |---------|----------------|
 | Connect / Seed Vault / Phantom UI | Host only |
 | Escrow lock / payout | Host screens (`EscrowScreen`) |
-| Catalog / icons / covers | Host reads `games/*/manifest.json` + assets |
+| Catalog / icons / covers | Host catalog (`entryUrl` + remote art). No in-repo game assets |
 | Primary tokens / refresh | Never exposed to WebView |
 
 ## Manifest tie-in
 
-Each `games/<id>/manifest.json` lists `capabilities` the package may request. Broker should intersect grants with the manifest (today: fixed allowlist; tighten in phase 2).
+A future remote manifest lists `capabilities` the package may request. Broker should intersect grants with that manifest (today: fixed allowlist; tighten in phase 2).
 
 ## Injected helper
 
-Packed games may use `window.AuraHost.*` wrappers (`handshake`, `ready`, `getAddress`, `close`, `matchCreate`, `matchCommand`, `escrowStatus`, …) — thin clients over the same methods.
+A mini-game loaded from `entryUrl` may use `window.AuraHost.*` wrappers (`handshake`, `ready`, `getAddress`, `close`, `matchCreate`, `matchCommand`, `escrowStatus`, …) — thin clients over the same methods. The host injects them before the page loads.

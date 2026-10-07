@@ -1,10 +1,10 @@
 # Aura — research brief
 
-> **Canonical deep docs:** [`docs/`](./docs/) (PRODUCT, ARCHITECTURE, GAMES, WALLET_AND_ESCROW, OPS_PHASE2). This file stays the living ADR / lock scratchpad.
+> **Historical.** The current product is the Seeker store only. Ludo, Chess, and Snakes are not in this repo. See [`docs/PRODUCT.md`](./docs/PRODUCT.md). Do not treat the notes below as the build.
 
 ## Product lock
 - Product title: **Aura** (not Playseek)
-- First-party **Seeker game publisher** (thin store shell) + **staked skill games**: **Ludo · Chess · Snakes & Ladders**
+- Digital distribution platform for Seeker mini-games. This repo does not ship games.
 - Path: `/Users/lex-work/aura` (Expo app under `mobile/`)
 - Repo: **https://github.com/13x54n/aura** (private `main`)
 - Long-run: store of *our* games; CLOCK IN deep demo = **Ludo** (Chess + Snakes Playable hubs first)
@@ -96,11 +96,11 @@ Create/join/random room → Solana skill-escrow stake → realtime Ludo → winn
 - North star: **playable Ludo**, not hackathon date theater
 
 ## Ludo Rule Book v1.0 (canonical)
-- [`docs/LUDO_RULEBOOK.md`](./docs/LUDO_RULEBOOK.md) — shared DoD for client/server/QA
+- The rulebook lived in `docs/LUDO_RULEBOOK.md` and was removed with the in-repo games.
 - Key: 6→start (not +6), clockwise, exact home, safe cells, one bonus, three 6s forfeit turn
 
 ## ADR — Ludo multiplayer (accepted 2026-09-23)
-- Full doc: [`docs/LUDO_MULTIPLAYER_ADR.md`](./docs/LUDO_MULTIPLAYER_ADR.md)
+- The ADR lived in `docs/LUDO_MULTIPLAYER_ADR.md` and was removed with the in-repo games.
 - Order: (1) Free Play direction → (2) rooms sans H3 → (3) stake validate → (4) H3 res-8 nearby
 - Colyseus/WS + commands/events; host wallet/escrow; Free Play wallet-free
 

@@ -28,7 +28,7 @@ export function GameHeader({ title, gameId, onClose }: GameHeaderProps) {
   );
 
   const displayTitle = title ?? game?.title ?? "Game";
-  const logoSource = game?.icon ?? require("../../../assets/icon.png");
+  const logoSource = game?.iconUrl ? { uri: game.iconUrl } : require("../../../assets/icon.png");
 
   const handleClose = () => {
     if (onClose) {

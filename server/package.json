@@ -1,15 +1,10 @@
 {
-  "name": "ludo-match-server",
+  "name": "aura-escrow-client",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Standalone Ludo room server (WebSocket, port 3001). Private tables, join-by-code, and quick match.",
-  "main": "match-server.mjs",
-  "scripts": {
-    "start": "node match-server.mjs"
-  },
+  "description": "Host escrow client for the aura_escrow program. Not a game server.",
   "dependencies": {
-    "@solana/web3.js": "^1.99.0",
-    "ws": "^8.18.0"
+    "@solana/web3.js": "^1.99.0"
   }
 }

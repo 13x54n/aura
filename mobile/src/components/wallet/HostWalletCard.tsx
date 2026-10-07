@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Platform, Pressable, StyleSheet, TextStyle, View, ViewStyle } from "react-native";
 import { Text } from "react-native-paper";
 import * as Clipboard from "expo-clipboard";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { aura } from "../../theme/tokens";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useHostBalances } from "../../wallet/useHostBalances";
-import { Big, Glass, Label, Muted, PrimaryButton } from "../../screens/ludo/ludoUi";
+import { GlassPanel } from "../store/GlassPanel";
 
 const agoLabel = (at: number) => {
   const m = Math.floor((Date.now() - at) / 60_000);
@@ -16,9 +16,29 @@ const agoLabel = (at: number) => {
 const num = (v: number | null, dp: number, loading: boolean) =>
   loading && v == null ? "…" : v == null ? "—" : v.toFixed(dp);
 
+function Glass({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  return <GlassPanel style={style ? [styles.glass, style] : styles.glass}>{children}</GlassPanel>;
+}
+function Label({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.label}>{children}</Text>;
+}
+function Big({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.big}>{children}</Text>;
+}
+function Muted({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
+  return <Text style={[styles.muted, style]}>{children}</Text>;
+}
+function PrimaryButton({ label, onPress, icon }: { label: string; onPress: () => void; icon?: string }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.75 }]}>
+      {icon ? <Icon name={icon as any} size={18} color="#fff" /> : null}
+      <Text style={styles.primaryText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 /**
- * The one host wallet card, identical on the Wallet tab and the Ludo hub.
- * Signed out: a single Connect prompt. Games never render this.
+ * Host wallet card. Signed out: a single Connect prompt. Games never render this.
  */
 export function HostWalletCard({
   balances,
@@ -150,6 +170,15 @@ export function HostWalletCard({
 }
 
 const styles = StyleSheet.create({
+  glass: { borderRadius: 18, padding: 16 },
+  label: { color: aura.textDim, fontSize: 12, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
+  big: { color: aura.text, fontSize: 30, fontWeight: "800" },
+  muted: { color: aura.textMuted, fontSize: 13 },
+  primary: {
+    flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center",
+    backgroundColor: aura.purple, borderRadius: 14, paddingVertical: 15,
+  },
+  primaryText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   connectCard: { alignItems: "center", paddingVertical: 28 },
   connectIcon: {
     width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center",

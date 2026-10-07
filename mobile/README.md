@@ -1,16 +1,16 @@
 # Aura (CLOCK IN)
 
-First-party **Seeker** game publisher — thin shelf of *our* games, not a second dApp Store catalog.
+Solana Seeker **game store**. Mini-games are loaded from a URL. This app does not contain game source.
 
 ## Product lock
 
 | Item | Lock |
 | --- | --- |
-| Long-run | First-party Seeker game publisher |
-| CLOCK IN demo | **Staked Ludo** — create / join / random match |
-| Money flow | Solana **skill-escrow** (stake in → winner payout) |
+| Long-run | Seeker digital distribution platform |
+| Catalog | Empty until a listing has an `entryUrl` |
+| Money flow | Solana **skill-escrow** (host only) |
 | Framing | **Skill + escrow** — NOT casino / gambling / prediction markets |
-| Store shell | Home with **one** live tile: Ludo + “Coming soon” |
+| Store shell | Home · Arcade · Friends · Wallet · Search |
 | Wallet | **Seeker Seed Vault first** via Mobile Wallet Adapter |
 
 ### Wedge notes (later)
@@ -22,10 +22,8 @@ First-party **Seeker** game publisher — thin shelf of *our* games, not a secon
 ## Milestones in this scaffold (1–3)
 
 1. Expo RN + MWA Connect Wallet (**custom destin client** — not Expo Go)
-2. Store shell Home: Aura title, wallet connect, Ludo card, Coming soon
-3. Ludo flow stubs: Create / Join / Random (+ Escrow stub with skill-match copy)
-
-Escrow PDA/tx and realtime matchmaking are **stubs** on purpose — lean for the Oct 8 deadline.
+2. Store shell: Home, Arcade, Friends, Wallet, Search
+3. Empty catalog. A later listing opens its `entryUrl` in the WebView
 
 ## Repo path
 
@@ -81,11 +79,7 @@ yarn build:local  # same, --local
    - On Mac emulator: Phantom (or any MWA wallet) is OK for this smoke only.
 3. **Store shell**
    - Title **Aura**
-   - One **Ludo** game card + **Coming soon** card/tab
-4. **Ludo room stubs**
-   - Open Ludo → Create room / Join / Random match screens navigate
-   - Each path reaches **Skill match escrow** with stake field + stub PDA/tx buttons
-   - Copy says skill + escrow (no casino chrome)
+   - Home, Arcade, and Search show an empty catalog (no bundled game)
 
 ## Repo hygiene
 
@@ -104,19 +98,12 @@ aura/
   CLOCK_IN.md              # product notes
   src/
     components/sign-in/    # Seed Vault–first connect
-    navigators/            # tabs + Ludo/escrow stack
-    screens/
-      HomeScreen.tsx       # store shell
-      ComingSoonScreen.tsx
-      ludo/
-        LudoHubScreen.tsx
-        CreateRoomScreen.tsx
-        JoinRoomScreen.tsx
-        RandomMatchScreen.tsx
-        LudoLobbyScreen.tsx  # seats, then DepositSheet locks USDC
+    navigators/            # store tabs + WebGame
+    screens/               # Home, Arcade, Friends, Wallet, Search
+    runtime/WebGameScreen.tsx  # mounts a listing entryUrl
     utils/                 # MWA authorize + mobile wallet hooks
 ```
 
 ## Expo Go (SDK 57)
 
-Day-to-day: open with Expo Go on phone (SDK 57). Mock wallet for UI/Ludo. Real Seed Vault / MWA needs a Seeker custom client before Sep 30 (Android-only).
+Day-to-day: open with Expo Go on phone (SDK 57). Phantom deep link for wallet smoke. Real Seed Vault / MWA needs a Seeker custom client (Android-only).

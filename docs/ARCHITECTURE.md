@@ -10,35 +10,33 @@
 | Bridge | Versioned **Host SDK** over postMessage — capability scoped |
 | Native federation | Re.Pack **later**, first-party only |
 | Escrow / wallet | **Host only** — never inside the game bundle |
-| **Game independence** | **Each mini-app operates independently** — Ludo, Chess, Snakes |
+| **Game independence** | **Each mini-game is external** — this repo does not contain game logic |
 
-## Aura is a Marketplace, Not a Single Game
+## Aura is the store, not a game
 
-**Critical:** Aura is a **marketplace for mini-apps**, not a Ludo app with extensions. Each game (Ludo, Chess, Snakes, future titles) is an **independent mini-app** that:
+**Critical:** Aura is a **distribution platform for Seeker mini-games**. This repository builds the host. Games are not developed here.
 
-- Has its own hub screen (deep like Ludo, or simple playable screen)
-- Defines its own multiplayer configuration (room types, player counts)
-- Specifies its own escrow/staking rules
-- Implements its own game logic independently
-- Can be added/updated without affecting other games
+Each mini-game:
 
-The host provides shared infrastructure (catalog, wallet) but **never assumes** any game-specific logic at the platform level. Ludo rooms are curated by a standalone server (`server/match-server.mjs`), not by Aura. Chess and Snakes stay local Free Play.
+- Is hosted outside this repo and loaded from an `entryUrl`
+- Talks to Aura only through the Host SDK
+- Can be added or updated without shipping a new game binary inside Aura
+
+The host provides catalog, wallet, and escrow. It never embeds a board.
 
 ## Trust zones
 
 ```
 Player → RN Host (identity, catalog, wallet, policy)
-            ↓ mounts
-         WebView mini-app (board, input, animation)
-            ↓ commands / events
-         Ludo match server (authoritative Ludo rooms only)
+            ↓ mounts entryUrl
+         WebView mini-game (untrusted)
 ```
 
 Hard boundary: WebView never receives primary access/refresh tokens, keychain access, or generic native handles. Games get a short-lived, game-scoped session + declared capabilities.
 
 ## Host responsibilities
 
-- Catalog (reads `games/*/manifest.json` + icons/covers)  
+- Catalog (`AURA_GAMES`: remote art + `entryUrl`)  
 - Navigation / tabs / Play handoff (shell → glass load → full-bleed WebView)  
 - Wallet connect: **Phantom deep link in Expo Go (the default build)**. Seed Vault / MWA come later, through an optional dev client  
 - Escrow stake **before** mount; payout after **server-attested** result  
@@ -54,7 +52,7 @@ Hard boundary: WebView never receives primary access/refresh tokens, keychain ac
 
 1. User taps Play on shelf/hero  
 2. Host shows short **glass** loading (no white flash)  
-3. WebView mounts full-bleed packed HTML  
+3. WebView mounts the listing’s `entryUrl`  
 4. Back returns to **same shelf position**
 
 ## Host SDK (bridge contract)
@@ -65,24 +63,17 @@ Versioned JSON request/response over WebView `postMessage`. Unknown methods reje
 
 Headline capabilities today: `host.handshake` / `host.ready`, `wallet.getAddress` (host Connect handoff), `nav.close`, `storage.*`, `haptics.light`, `match.create` / `match.get` / `match.command`, `escrow.status` (read-only). Escrow lock/payout and Connect UI stay on the host — not bridge methods.
 
-## Match authority (Ludo rooms)
+## Mini-games
 
-The Ludo match server is its own process. Aura starts and stops Expo only. Clients send **commands**; only server-approved **events** mutate canonical state. The rule profile is versioned and immutable once referenced — publish `ludo-classic-v2`, never mutate `ludo-classic-v1`. Free Play may run local/bots without ranked claims.
+There is no match server and no packed HTML in this repo. A future mini-game may call `match.*` on the Host SDK; those methods are not implemented on the host yet and return `not_implemented`.
 
-**Ludo** `classic-v1`: see [LUDO_RULEBOOK.md](./LUDO_RULEBOOK.md) — enter on 6→start (not +6), exact home, safe cells, bonus on 6/capture/home (one only), max 3 consecutive sixes (third ignored), blockades off, friendly stacking.
+## Package / release
 
-Chess and Snakes do not use this server. They are Free Play in the WebView.
-
-## Package / release (near-term stub)
-
-Each game has `games/<id>/manifest.json`:
-
-- `appId`, `version`, `entry`, `capabilities`, `sha256`, `status: draft`  
-- Immutable bytes later (portal phase 2): signed artifact = reviewed artifact  
+A listing is a store record (`entryUrl`, art URLs), not a folder in this repo. Signed manifests and a CDN are phase 2.
 
 ## Next.js mini-apps
 
-**Locked:** Next.js only as WebView content — **static export** (`output: 'export'`) packed like Ludo. Hosted SSR off Free Play path. Not as RN screens. No in-WebView store chrome / second tab bar.
+**Locked:** a mini-game may be a static web export loaded by URL. Not an RN screen. No in-WebView store chrome / second tab bar.
 
 ## Out of scope (for now)
 

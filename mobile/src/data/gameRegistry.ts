@@ -1,6 +1,6 @@
 /**
- * Game Registry - Aura's pluggable mini-app system
- * Each game can define its own hub, multiplayer support, and escrow rules independently.
+ * Optional host metadata for a listed mini-game.
+ * Games are not authored in this repo — a listing's entryUrl is what Aura mounts.
  */
 import { ComponentType } from "react";
 import { AuraGameId } from "./catalog";
@@ -9,7 +9,7 @@ export type GameHubMode = "deep" | "playable";
 
 export type GameMultiplayerConfig = {
   enabled: boolean;
-  /** Room modes this game supports (e.g., 2p, 3p, 4p for Ludo) */
+  /** Room modes this game supports */
   modes?: string[];
   /** Whether this game supports private rooms */
   supportsPrivateRooms?: boolean;
@@ -28,20 +28,20 @@ export type GameEscrowConfig = {
 
 export type GameConfig = {
   id: AuraGameId;
-  /** Hub component - can be deep (like Ludo) or simple playable screen */
-  hubComponent: ComponentType<any>;
+  /** Optional host screen. Most titles open straight into the WebView. */
+  hubComponent?: ComponentType<any>;
   /** Hub route name for navigation */
   hubRoute: string;
   /** Multiplayer configuration */
   multiplayer: GameMultiplayerConfig;
   /** Escrow/staking configuration */
   escrow: GameEscrowConfig;
-  /** Game type identifier for match server */
+  /** Game type identifier */
   gameType: string;
 };
 
 /**
- * Game Registry - add new games here
+ * Registered listings. Empty until a catalog entry needs host metadata.
  */
 export const GAME_REGISTRY = new Map<AuraGameId, GameConfig>();
 

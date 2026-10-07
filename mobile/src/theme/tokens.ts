@@ -14,5 +14,4 @@ export const aura = {
   glassStrong: "rgba(20, 16, 36, 0.78)",
   chipIdle: "rgba(255,255,255,0.08)",
   heroAccent: "#4C1D95",
-  ludoAccent: "#7C3AED",
 } as const;

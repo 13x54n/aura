@@ -27,7 +27,7 @@ async function load(): Promise<RecentPlay[]> {
 }
 
 export async function recordPlay(gameId: string) {
-  if (!known.has(gameId)) return;
+  if (!gameId || !known.has(gameId)) return;
   const prev = await load();
   cache = [{ gameId: gameId as AuraGameId, at: Date.now() }, ...prev.filter((p) => p.gameId !== gameId)].slice(0, MAX);
   listeners.forEach((l) => l(cache!));

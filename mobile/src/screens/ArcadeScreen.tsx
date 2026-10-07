@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StoreShelf } from "../components/store/StoreShelf";
 import { GameCover } from "../components/store/GameCover";
 import { FilterChipRow } from "../components/store/FilterChipRow";
-import { AURA_GAMES, launchGame } from "../data/catalog";
+import { EmptyShelf } from "../components/store/EmptyShelf";
+import { AURA_GAMES, launchGame, remoteImage } from "../data/catalog";
 import { aura } from "../theme/tokens";
 
 const CHIPS = [
@@ -22,26 +22,28 @@ export function ArcadeScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView
-        contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}
-      >
+      <ScrollView contentContainerStyle={[styles.screen, { paddingTop: insets.top + 52 }]}>
         <FilterChipRow chips={CHIPS} activeId={chip} onChange={setChip} />
-        <StoreShelf label="All games">
-          {AURA_GAMES.map((g) => (
-            <GameCover
-              key={g.id}
-              title={g.title}
-              subtitle={g.depth === "deep" ? "CLOCK IN deep" : "Playable"}
-              badge={g.depth === "deep" ? "LIVE" : "NEW"}
-              accent={g.accent}
-              cover={g.cover}
-              onPress={() =>
-                launchGame(navigation, g.id, g.title)
-              }
-              width={148}
-            />
-          ))}
-        </StoreShelf>
+        {AURA_GAMES.length === 0 ? (
+          <EmptyShelf
+            title="No games yet"
+            body="The catalog is empty. Mini-games are loaded from a URL when a listing is published."
+          />
+        ) : (
+          <StoreShelf label="All games">
+            {AURA_GAMES.map((g) => (
+              <GameCover
+                key={g.id}
+                title={g.title}
+                subtitle={g.subtitle}
+                accent={g.accent}
+                cover={remoteImage(g.coverUrl)}
+                onPress={() => launchGame(navigation, g)}
+                width={148}
+              />
+            ))}
+          </StoreShelf>
+        )}
       </ScrollView>
     </View>
   );
@@ -50,10 +52,4 @@ export function ArcadeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: aura.bg },
   screen: { paddingBottom: 110 },
-  heading: {
-    fontWeight: "800",
-    color: aura.text,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
 });

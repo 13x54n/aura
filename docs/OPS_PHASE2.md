@@ -20,6 +20,6 @@ Two web apps over one API:
 
 ## Near-term bridge
 
-`games/*/manifest.json` stubs are the hook. Do not build portal UI until Free Play for all three titles is solid.
+A remote manifest (`entryUrl`, capabilities, digest) is the hook. Do not build portal UI in this pass. The catalog stays empty until a real listing exists.
 
 When portal lands, **icon/cover ship inside each version manifest** so the store never invents art.

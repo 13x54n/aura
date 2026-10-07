@@ -22,7 +22,7 @@ export type HeroSlide = {
   blurb: string;
   /** Full-bleed HTTPS art (Xbox-ref style). */
   imageUrl?: string;
-  /** Preferred local cover from games/<id>/cover.png */
+  /** Cover image for the slide. */
   cover?: ImageSourcePropType;
   /** Fallback tint while the remote image loads. */
   accent?: string;
